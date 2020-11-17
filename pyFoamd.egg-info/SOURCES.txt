@@ -1,0 +1,5 @@
+README.md
+pyFoamd.egg-info/PKG-INFO
+pyFoamd.egg-info/SOURCES.txt
+pyFoamd.egg-info/dependency_links.txt
+pyFoamd.egg-info/top_level.txt
