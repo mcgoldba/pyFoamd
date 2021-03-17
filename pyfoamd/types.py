@@ -36,9 +36,24 @@ class _ofDictFileDefaultsBase:
 class _ofDictBase(_ofDictFileBase):
     name: str
     value: dict
+    
         
 @dataclass
-class _ofNamedListBase(_ofDictFileBase):
+class _ofListBase(_ofDictFileBase):
+    value: list
+    
+    @property
+    def valueStr(self):
+        str_ = '('
+        for v in self.value:
+            str_+= str(v)+" "
+        return str_.rstrip()+')'
+
+    def __str__(self):
+        return self.asString().rstrip(';\n')
+
+@dataclass
+class _ofNamedListBase(_ofListBase):
     name: str
     value: list
 
@@ -48,6 +63,10 @@ class _ofIntValueBase(_ofDictFileBase):
     name: str
     value: int
         
+    @property
+    def valueStr(self):
+        return str(self.value)
+
 @dataclass
 class _ofFloatValueBase(_ofIntValueBase):
     name: str
@@ -84,6 +103,8 @@ class _ofVectorBase:
                 " "+str(self.value[1])+ \
                 " "+str(self.value[2])+")"
     
+    def __str__(self):
+        return self.asString().rstrip(';\n')
     
     @value.setter
     def value(self, v):
@@ -132,11 +153,15 @@ class ofDict(ofDictFile, _ofDictBase):
         dStr+= "}\n"
         return dStr
         
+    def __str__(self):
+        return self.asString().rstrip(';\n')
 @dataclass
 class ofIntValue(ofDictFile, _ofIntValueBase):
     def asString(self) -> str:
         return printNameStr(self.name)+str(self.value)+";\n"
 
+    def __str__(self):
+        return self.asString().rstrip(';\n')
 @dataclass
 class ofFloatValue(ofIntValue, _ofFloatValueBase):
     pass
@@ -151,17 +176,38 @@ class ofBoolValue(ofIntValue, _ofBoolValueBase):
         boolStr = ['true' if self.value else 'false'][0]
         return printNameStr(self.name)+boolStr+';\n'
 
+    def __str__(self):
+        return self.asString().rstrip(';\n')
 @dataclass
 class ofNamedList(ofDictFile, _ofNamedListBase):
         
     def asString(self) -> str:
-        valueStr = '('
-        valueStr += str(self.value[0])
-        for i in range(1,len(self.value)):
-            valueStr += ' '+str(self.value[i])
-        valueStr += ')'        
-        return printNameStr(self.name)+valueStr+";\n"
+        return printNameStr(self.name)+self.valueStr+";\n"
+    #def asString(self) -> str:
+    #    valueStr = '('
+    #    valueStr += str(self.value[0])
+    #    for i in range(1,len(self.value)):
+    #        valueStr += ' '+str(self.value[i])
+    #    valueStr += ')'        
+    #    return printNameStr(self.name)+valueStr+";\n"
 
+    def __str__(self):
+        return self.asString()
+@dataclass
+class ofList(ofDictFile, _ofListBase):
+        
+    def asString(self) -> str:
+        return self.valueStr
+    #def asString(self) -> str:
+    #    valueStr = '('
+    #    valueStr += str(self.value[0])
+    #    for i in range(1,len(self.value)):
+    #        valueStr += ' '+str(self.value[i])
+    #    valueStr += ')'        
+    #    return printNameStr(self.name)+valueStr+";\n"
+    
+    def __str__(self):
+        return self.asString().rstrip(';\n')
 
 @dataclass
 class ofNamedSplitList(ofNamedList, _ofNamedListBase):
@@ -175,6 +221,8 @@ class ofNamedSplitList(ofNamedList, _ofNamedListBase):
         printStr += ');\n'
         return printStr
     
+    def __str__(self):
+        return self.asString().rstrip(';\n')
 
 @dataclass
 class ofDimensionedScalar(ofFloatValue, _ofDimensionedScalarBase):
@@ -192,7 +240,7 @@ class ofDimensionedScalar(ofFloatValue, _ofDimensionedScalarBase):
     2:  Length - meter (m) \
     3:  Time - second (s) \
     4:  Temperature - Kelvin (K) \
-    5:  Quanity - mole (mol) \
+    5:  Quantity - mole (mol) \
     6:  Current - ampere (A) \
     7:  Luminous intensity - candela (cd)')
         self._dimensions = d
@@ -205,6 +253,10 @@ class ofDimensionedScalar(ofFloatValue, _ofDimensionedScalarBase):
         dimStr+= str(self.dimensions[6])+']'
 
         return printNameStr(self.name)+str(dimStr)+" "+str(self.value)+";\n"
+    
+    def __str__(self):
+        return self.asString().rstrip(';\n')
+
 @dataclass 
 class ofVector(_ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofVectorBase):
     def asString(self) -> str:
@@ -213,6 +265,8 @@ class ofVector(_ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofVectorBase):
 #                " "+str(self.value[1])+ \
 #                " "+str(self.value[2])+")"
     
+    def __str__(self):
+        return self.asString()
             
 @dataclass
 class _ofNamedVectorBase(_ofFloatValueBase, _ofVectorBase):
@@ -227,6 +281,9 @@ class ofNamedVector( _ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofNamedVec
         print(self.value)
         return printNameStr(self.name)+self.valueStr+";\n"
             
+    def __str__(self):
+        return self.asString().rstrip(';\n')
+
 @dataclass
 class _ofDimensionedVectorBase(_ofDimensionedScalarBase):
     value: ofVector
@@ -236,3 +293,6 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
         
     def asString(self) -> str:
         return printNameStr(self.name)+self.value.asString()+";\n"
+    
+    def __str__(self):
+        return self.asString().rstrip(';\n')
