@@ -5,5 +5,5 @@ pyFoamd.egg-info/SOURCES.txt
 pyFoamd.egg-info/dependency_links.txt
 pyFoamd.egg-info/top_level.txt
 pyfoamd/__init__.py
-pyfoamd/funvtions.py
+pyfoamd/functions.py
 pyfoamd/types.py

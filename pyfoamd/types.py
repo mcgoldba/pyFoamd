@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 import operator
+from collections.abc import MutableMapping
+# from 
 
 OF_BOOL_VALUES = ['on', 'off', 'true', 'false']
 TAB_SIZE = 4
@@ -20,9 +22,29 @@ def printNameStr(name) -> str:
     else:
         return "{: <12}".format(name)
     
-@dataclass
-class _ofDictFileBase:
+#@dataclass
+class _ofDictFileBase(MutableMapping):
+    #store: dict()
+    #update: dict(*args, **kwargs)
     value: field(default_factory=list)
+
+    def __getitem__(self, key):
+        return self.store[self._keytransform(key)]
+
+    def __setitem__(self, key, value):
+        self.store[self._keytransform(key)] = value
+
+    def __delitem__(self, key):
+        del self.store[self._keytransform(key)]
+
+    def __iter__(self):
+        return iter(self.store)
+
+    def __len__(self):
+        return len(self.store)
+
+    def _keytransform(self, key):
+        return key
 
 @dataclass
 class _ofDictFileDefaultsBase:
@@ -59,7 +81,7 @@ class _ofNamedListBase(_ofListBase):
 
 
 @dataclass 
-class _ofIntValueBase(_ofDictFileBase):
+class _ofIntBase(_ofDictFileBase):
     name: str
     value: int
         
@@ -68,22 +90,22 @@ class _ofIntValueBase(_ofDictFileBase):
         return str(self.value)
 
 @dataclass
-class _ofFloatValueBase(_ofIntValueBase):
+class _ofFloatBase(_ofIntBase):
     name: str
     value: float
         
 @dataclass
-class _ofStrValueBase(_ofIntValueBase):
+class _ofStrBase(_ofIntBase):
     name: str
     value: str
 
 @dataclass
-class _ofBoolValueBase(_ofIntValueBase):
+class _ofBoolBase(_ofIntBase):
     name: str
     value: bool
         
 @dataclass
-class _ofDimensionedScalarBase(_ofFloatValueBase):
+class _ofDimensionedScalarBase(_ofFloatBase):
     dimensions: field(default_factory=list)
 
 @dataclass
@@ -120,7 +142,7 @@ class _ofVectorDefaultsBase:
     #name: None=None
     
 @dataclass
-class _ofNamedVectorDefaultsBase(_ofFloatValueBase):
+class _ofNamedVectorDefaultsBase(_ofFloatBase):
     pass
 
 @dataclass
@@ -152,26 +174,26 @@ class ofDict(ofDictFile, _ofDictBase):
                 dStr += TAB_STR+v.asString()
         dStr+= "}\n"
         return dStr
-        
+    
     def __str__(self):
         return self.asString().rstrip(';\n')
 @dataclass
-class ofIntValue(ofDictFile, _ofIntValueBase):
+class ofInt(ofDictFile, _ofIntBase):
     def asString(self) -> str:
         return printNameStr(self.name)+str(self.value)+";\n"
 
     def __str__(self):
         return self.asString().rstrip(';\n')
 @dataclass
-class ofFloatValue(ofIntValue, _ofFloatValueBase):
+class ofFloat(ofInt, _ofFloatBase):
     pass
         
 @dataclass
-class ofStrValue(ofIntValue, _ofStrValueBase):
+class ofStr(ofInt, _ofStrBase):
     pass
 
 @dataclass
-class ofBoolValue(ofIntValue, _ofBoolValueBase):
+class ofBool(ofInt, _ofBoolBase):
     def asString(self) -> str:
         boolStr = ['true' if self.value else 'false'][0]
         return printNameStr(self.name)+boolStr+';\n'
@@ -225,7 +247,7 @@ class ofNamedSplitList(ofNamedList, _ofNamedListBase):
         return self.asString().rstrip(';\n')
 
 @dataclass
-class ofDimensionedScalar(ofFloatValue, _ofDimensionedScalarBase):
+class ofDimensionedScalar(ofFloat, _ofDimensionedScalarBase):
 
     #- Ensure dimensions are a list of length 7 per OpenFOAM convention
     @property
@@ -269,7 +291,7 @@ class ofVector(_ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofVectorBase):
         return self.asString()
             
 @dataclass
-class _ofNamedVectorBase(_ofFloatValueBase, _ofVectorBase):
+class _ofNamedVectorBase(_ofFloatBase, _ofVectorBase):
     pass
     #value: ofVector
 

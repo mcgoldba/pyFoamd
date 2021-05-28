@@ -5,7 +5,7 @@ if  sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported.')
 
 
-from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofIntValue, ofFloatValue, ofStrValue, ofBoolValue, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
+from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
 
 
 import os
@@ -15,6 +15,12 @@ import math
 #import numpy as np
 import subprocess
 import tempfile
+
+from pint import UnitRegistry
+import json
+from functools import reduce
+import operator
+
 
 from rich import print
 import logging
@@ -35,246 +41,6 @@ install()
 
 #Define padding for blockMeshDict
 PAD = 1 / 12 / 3.281 # 1 inch
-
-#class PyFoamd:
-
-#    def __init__(self, modifying_per, add_args):
-#        self.add_args = add_args  #additional, unprocessed arguments
-#        self.modifying_per = modifying_per
-#        #self.n_ops = n_ops
-#        #self.wd = PROJECTS_DIR+str(op_args.number)+r'/2-work/2-mesAndSim/of/'
-#        self.wd = None
-#        self.ui = None
-#        self.of_case_dir = None
-#        self.active_sim = None
-#        self.op_scn = None
-#        self.per_metadata_file = None
-#          #self.arg_start = None
-
-#def initialize(self):
-#
-#    #- '<command>' argument
-#    CFD_FUNCTION_MAP = {'init': self.init,
-#                        'activate': self.activate,
-#                        'make': self.makeCase,
-#                        'view': self.view,
-#                        'vis': self.vis,
-#                        'monitor': Processing(self.modifying_per, self.add_args[1:]).monitor,
-#                        'clone':  self.clone,
-#                        'getResults': self.copyResultsFromServer,
-#                        'geom': self.geom,
-#                        'scp': self.scp,
-#                        'open': self.open
-#                       }
-#
-#    parser = argparse.ArgumentParser(
-#        prog='per cfd',
-#        usage='''per cfd [<options>] <command> [<args>]
-#d command options:
-#"    "+str([c for c in CFD_FUNCTION_MAP.keys()]),
-#        description='A set of commands for working with CFD projects.'
-#    )
-#
-#    #- Global cfd [<options>] arguments
-#    #parser.add_argument('-d', '--directory',
-#    #                    help="OpenFOAM case directory name used to set the active directory. The default value is 'of'.",
-#    #                    type=str,
-#    #                    const='sim01',
-#    #                    default='sim01',
-#    #                    action='store',
-#    #                    nargs='?'
-#    #                   )
-#
-#     #- Manually count the number of optional arguments (which start with an '-')
-#     n_ops_cfd = 0
-#     while (sys.argv[1+self.n_ops+n_ops_cfd].startswith('--') is True or
-#            sys.argv[1+self.n_ops+n_ops_cfd].startswith('-') is True):
-#         n_ops_cfd += 1
-#         #- break the search if the default help arguments are given
-#         if (sys.argv[n_ops_cfd] == '--help' or
-#             sys.argv[n_ops_cfd] == '-h'):
-#             parser.print_help()
-#             break
-#
-#     #- Parse the optional arguments first
-#     op_args_cfd = None
-#     if n_ops_cfd > 0:
-#         op_args_cfd = parser.parse_args(sys.argv[2+self.n_ops:self.n_ops+n_ops_cfd+3])
-#     else:
-#         #parse only the optional arguments with default values
-#         op_args_cfd = parser.parse_args(['--number'])
-#
-#    [args_cfd, self.add_args] = parser.parse_known_args(self.add_args)
-#
-#    h = Handler(self.modifying_per, [])
-#
-#    self.wd = os.path.join(
-#        PROJECTS_DIR,
-#        str(self.modifying_per),
-#        '2-work',
-#        '2-meshAndSim'
-#    )
-#
-#    self.per_metadata_file = os.path.join(
-#            PROJECTS_DIR,
-#            str(self.modifying_per),
-#            ".per",
-#            str(self.modifying_per)+".per"
-#    )
-#
-#    try:
-#        self.active_sim = h.lookupValue(
-#            self.per_metadata_file,
-#            'cfd_active_sim'
-#        )
-#        self.of_case_dir = os.path.join(self.wd, self.active_sim)
-#    except ValueError:
-#        self.of_case_dir = os.path.join(self.wd, 'sim01') #Set as default sim name
-#
-#    #- Populate the operating scenario based on the sim name:
-#    self.op_scn = int(self.active_sim[-2:]) #Assumes 2 digits for opScn
-#
-#
-#
-#    #- '<command>' argument
-#    #CFD_FUNCTION_MAP = {'init': self.init,
-#    #                    'activate':  self.activate,
-#    #                    'make': self.makeCase,
-#    #                    'view': self.view,
-#    #                    'vis': self.vis,
-#    #                    'monitor': Processing(self.modifying_per, self.add_args[1:]).monitor,
-#    #                    'clone':  self.clone,
-#    #                    'getResults': self.copyResultsFromServer,
-#    #                    'geom': self.geom
-#    #                   }
-#
-#    parser.add_argument('command',
-#                        choices=CFD_FUNCTION_MAP.keys(),
-#                        help="The cfd operation to perform.  Valid options are"+str(CFD_FUNCTION_MAP.keys())
-#                        )
-#
-#    [args, self.add_args] = parser.parse_known_args(self.add_args)
-#
-#    #self.arg_start = self.n_ops+n_ops_cfd+4
-#
-#    cfd_func = CFD_FUNCTION_MAP[args.command]
-#    cfd_func()
-
-######################## Public Member Functions ############################
-
-
-#def cloneSim():
-#
-#    import shutil
-#    import re
-#
-#    #- Parse 'clone sim' specific arguments
-#
-#    parser = argparse.ArgumentParser(
-#        description= 'Clone an existing simulation into a new OpenFOAM case directory.'
-#    )
-#
-#    if (len(self.add_args) not in (0,1,2)):
-#        log.error("Wrong number of arguments provided.\nThe proper syntax is:\n\t 'per cfd clone sim <src> <destination>")
-#    elif (len(self.add_args) == 2):
-#        if((os.path.isdir(os.path.join(self.wd, self.add_args[0]))) is False):
-#            log.error("Specified source directory does not exist:\n\t"+os.path.join(self.wd, self.add_args[0]))
-#            sys.exit()
-#
-#    rootDir = self.wd
-#    srcDir = ''
-#    destDir = ''
-#    if (len(self.add_args) == 1):
-#        srcDir = os.getwd()
-#        destDir = os.path.join(rootDir, self.add_args[0])
-#    elif (len(self.add_args) == 0):
-#        srcDir = os.getwd()
-#        n = re.findall('[0-9]+', os.path.split(os.getwd())[-1])[-1]
-#        m = int(n)+1
-#        destDir = os.path.join(self.wd, 'sim'+str(m).zfill(2))
-#    else:
-#        srcDir = os.path.join(rootDir, self.add_args[0])
-#        destDir = os.path.join(rootDir, self.add_args[1])
-#    n = 1
-#    newDir = destDir
-#    while (os.path.isdir(newDir)):
-#        if n > 99:
-#            log.error("Could find a suitable simulation name.")
-#            raise
-#        n+=1
-#        newDir = os.path.join(rootDir, 'sim{:02d}'.format(n))
-#
-#    if (newDir != destDir):
-#        log.warning("Specified destination directory "+destDir+" already exists. Cloning into next available directory: "+newDir)
-#
-#    print("Cloning case files from "+pcolor(os.path.split(srcDir)[-1],1)+' to '+pcolor(os.path.split(newDir)[-1],1))
-#
-#    #destDir = os.path.join(destDir, newDir)
-#
-#    excludeDirs = [['constant', 'polyMesh'],['constant', 'triSurface']]
-#
-#    #- Exclude all processor and reconstructed time directories (other than
-#    #  '0')
-#    excludeRe = [
-#        r'processor.*',
-#        r'0*([1-9]\d+|[2-9])'
-#        r'postProcessing',
-#        r'viz_scenes',
-#        r'VTK',
-#    ]
-#
-#    copyDirs = ['0', 'system']
-#
-#    #Update the current case directory
-#    os.getwd() = destDir
-#
-#
-#    #Copy the template to the destination directory
-#    self.init()
-#
-#    #if not os.path.exists(newDir):
-#    #    os.mkdir(newDir)
-#
-#    #- Copy specific files from the srcDir
-#    for file in os.listdir(srcDir):
-#        #for regex in excludeRe:
-#        #    if re.search(file, regex):
-#        #        copy=False
-#        if os.path.isfile(file):
-#            shutil.copy2(file, destDir)
-#            continue
-#        if any([copyDir == file for copyDir in copyDirs]):
-#            shutil.copytree(
-#                os.path.join(srcDir, file),
-#                os.path.join(destDir, file),
-#                dirs_exist_ok=True
-#            )
-#            continue
-#        if file == 'constant':  #Special copy for files only
-#            for f in os.listdir(os.path.join(srcDir, file)):
-#                if os.path.isdir(os.path.join(srcDir,file,f)):
-#                    break
-#                shutil.copy2(
-#                    os.path.join(srcDir,file,f),
-#                    os.path.join(destDir, "constant")
-#                )
-#         if copy is True:
-#             print(file)
-#             for i in range(len(excludeList)):
-#                 excludePath = ''
-#                 for directory in excludeList:
-#                     if excludeList == file:
-#                         copy=False
-#
-#        #if copy and os.path.isfile(file):
-#            #shutil.copy(
-#            #    os.path.join(srcDir, file),
-#            #    os.path.join(destDir, file)
-#            #)
-#            #shutil.copytree
-#
-#def cloneStudy():
-#    self.__notImplemented
 
 
 def getLatestTime(directory):
@@ -427,12 +193,9 @@ def removeBlockEntries(file, blockList, searchValues=False):
     return start # return the line where the block ends, so values can be
                  # written here with __ofDictAppendBlockEntryWithLineNum
 
-
-
-
 def readOFDictFile(file):
 
-    from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
+    #from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
 
     #- Function assumes:
     #   - All entries start on a new line
@@ -458,6 +221,33 @@ def readOFDictFile(file):
             'singleLineSingleValuedEntry': __storeOFDictSingleLineSingleValuedEntry
         }
         return switcher.get(status, __getOFDictReadLineType)
+
+def readInputParameters(filepath):
+    """
+    Reads a JSON formatted parameters file, while interpreting units and converting values to standard OpenFOAM units (i.e. SI).
+
+    Parameters
+    ----------
+
+    filepath: str
+            The path of the JSON file location
+
+    Returns: dict
+            A Python dictionary of parameters
+
+    """
+
+    with open(filepath, "r") as paramsFile:
+        params = json.load(paramsFile, object_hook=__unitDecoder)
+
+    return params
+
+def printInputParams(filepath='inputParameters'):
+
+    params = readInputParameters(filepath)
+
+    print(params)
+
 def __appendBlockEntryWithBlockName(
     ofValue,
     blockList,
@@ -788,3 +578,167 @@ def __storeOFDictSingleLineSingleValuedEntry(line):
         pyOFDict.add(ofStrValue(values[0], values[1]))
 
     return ['newLine', 'end']
+
+def interpretUnitsAndConvert(dct):
+    """
+    Reads string formatted dimensional values and converts to a float in OpenFOAM standard units 
+
+
+    Parameters
+    ----------
+
+    dct: dict
+        (Potentially nested) Dictionary of values to be parsed
+
+    Returns
+    -------
+
+    convetedDict: dict
+        Equivalent dictionary with dimensioned values converted to "float" types
+
+    """
+    pass
+
+
+    try:
+        ureg
+    except NameError:
+        ureg=UnitRegistry()
+
+
+    convertedDict = {}
+
+    #- Parse nested dictionaries (from https://stackoverflow.com/questions/10756427/loop-through-all-nested-dictionary-values)
+    def loopContents(v):
+        if any([type(v) is t for t in [dict, list, tuple]]):
+            iterateIterable(obj, v, k=None)
+        elif type(v) is str:
+            #- Process 'str' values
+            if len(v.split(" "))>=2:
+                vList = v.split(" ")
+                try:
+                    mag = float(vList)
+                except ValueError:
+                    pass
+                try:
+                    unit = " ".join(vList[1:])
+                    ureg[unit]
+                except UndefinedUnitError:
+                    pass
+                v = mag*ureg[unit]
+
+
+    def iterateIterable(obj):
+        if type(obj) is dict:
+            for k, v in obj.items():
+                loopContents(obj, v, k)
+        elif type(obj) is list or type(obj) is tuple:
+            for v in obj:
+                loopContents(obj, v)
+        else:
+            log.error('Invalid "obj" provided')
+            sys.exit()
+
+    return convertedDict
+
+
+
+def __unitDecoder(dct):
+    """
+    Object hook function for the python 'json.load()' function.
+    Reads in dimensional values as strings and converts to float value in SI units.
+
+    Parameters
+    ----------
+
+    dct: dict
+        The parsed json file as a python dictionary
+
+    Returns
+    -------
+
+    dct: dict
+        The parsed Python dictionary with converted units
+
+    """
+    
+    ureg = UnitRegistry(system='SI')
+    ###- Helper function 1
+    def _decodeUnits(v):
+        vList = v.split(" ")
+        if len(vList) >= 2:
+            try:
+                mag = float(vList[0])
+            except:
+                #continue
+                return v
+            try:
+                unit = (" ".join(vList[1:]))
+                log.debug("trying unit conversion on "+str(v)+"...")
+                unit = ureg(unit)
+            except:
+                unit = ureg(unit)
+                log.debug("Failed.")
+                #continue
+                return v
+            log.debug("Success.")
+            v = mag*unit
+            return v.to_base_units().magnitude
+        else:
+            return v
+
+    ###- Helper function 2
+    #- from stackoverflow: 6340351, 9807634, 29395749
+    def parse(v, idx):
+        if isinstance(v, dict):
+            idx.append(0)
+            log.debug("idx: "+str(idx))
+            for k, v_ in v.items():
+                idx[-1]+=1
+                log.debug("idx: "+str(idx))
+                for subvalue in parse(v_, lst):
+                    yield v_, idx
+        if isinstance(v, list):
+            idx.append(0)
+            log.debug("idx: "+str(idx))
+            for v_ in v:
+                idx[-1]+=1
+                log.debug("idx: "+str(idx))
+                for subvalue in parse(v_, lst):
+                    yield subvalue, idx
+        else:
+            yield v, idx
+
+    ###- Helper function 3
+    #- from stackoverflow: 10231278
+    def _updateListValue(lst, v, idx):
+        """
+        Updates the value of a multidimensional list t index "idx" with value "v"
+        """
+        v_ = v
+        for i in reversed(shape):
+            v_ = [copy.deepcopy(v_) for j in range(i)]
+        return v_
+        
+
+
+    ###- Main loop
+    for k, v in dct.items():
+        if type(v) is list:
+            log.debug("Parsing value of type "+str(type(v)))
+            lst = []
+            idx = [0]
+            for val, idx in parse(v, indices):
+                log.debug("Parsing value: "+str(val))
+                log.debug("Current lst: "+str(lst))
+                if type(val) is str:
+                    val = _decodeUnits(val)
+                    log.debug("lst before update: "+str(lst))
+                    lst = _updateListValue(lst, val, idx)
+                    log.debug("lst after update: "+str(lst))
+            dct[k] = lst
+        elif type(v) is str:
+            v = _decodeUnits(v)
+            dct[k] = v
+    
+    return dct  #End unitDecoder
