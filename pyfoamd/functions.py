@@ -18,8 +18,9 @@ import tempfile
 
 from pint import UnitRegistry
 import json
-from functools import reduce
-import operator
+# from functools import reduce
+# import operator
+# from collections.abc import Mapping
 
 
 from rich import print
@@ -581,7 +582,7 @@ def __storeOFDictSingleLineSingleValuedEntry(line):
 
 def interpretUnitsAndConvert(dct):
     """
-    Reads string formatted dimensional values and converts to a float in OpenFOAM standard units 
+    Reads string formatted dimensional values and converts to a float in OpenFOAM standard units
 
 
     Parameters
@@ -661,84 +662,43 @@ def __unitDecoder(dct):
         The parsed Python dictionary with converted units
 
     """
-    
+
     ureg = UnitRegistry(system='SI')
+    
     ###- Helper function 1
     def _decodeUnits(v):
-        vList = v.split(" ")
-        if len(vList) >= 2:
-            try:
-                mag = float(vList[0])
-            except:
-                #continue
+        if isinstance(v, str):
+            vList = v.split(" ")
+            if len(vList) >= 2:
+                try:
+                    mag = float(vList[0])
+                except:
+                    #continue
+                    return v
+                try:
+                    unit = (" ".join(vList[1:]))
+                    log.debug("trying unit conversion on "+str(v)+"...")
+                    unit = ureg(unit)
+                except:
+                    unit = ureg(unit)
+                    log.debug("Failed.")
+                    #continue
+                    return v
+                log.debug("Success.")
+                v = mag*unit
+                return v.to_base_units().magnitude
+            else:
                 return v
-            try:
-                unit = (" ".join(vList[1:]))
-                log.debug("trying unit conversion on "+str(v)+"...")
-                unit = ureg(unit)
-            except:
-                unit = ureg(unit)
-                log.debug("Failed.")
-                #continue
-                return v
-            log.debug("Success.")
-            v = mag*unit
-            return v.to_base_units().magnitude
         else:
             return v
 
     ###- Helper function 2
-    #- from stackoverflow: 6340351, 9807634, 29395749
-    def parse(v, idx):
-        if isinstance(v, dict):
-            idx.append(0)
-            log.debug("idx: "+str(idx))
-            for k, v_ in v.items():
-                idx[-1]+=1
-                log.debug("idx: "+str(idx))
-                for subvalue in parse(v_, lst):
-                    yield v_, idx
-        if isinstance(v, list):
-            idx.append(0)
-            log.debug("idx: "+str(idx))
-            for v_ in v:
-                idx[-1]+=1
-                log.debug("idx: "+str(idx))
-                for subvalue in parse(v_, lst):
-                    yield subvalue, idx
-        else:
-            yield v, idx
+    #- from stackoverflow: 34615164
+    def _parseOrDecode(obj):
+        if isinstance(obj, dict):
+            return {k:_parseOrDecode(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_parseOrDecode(v) for v in obj]
+        return _decodeUnits(obj)
 
-    ###- Helper function 3
-    #- from stackoverflow: 10231278
-    def _updateListValue(lst, v, idx):
-        """
-        Updates the value of a multidimensional list t index "idx" with value "v"
-        """
-        v_ = v
-        for i in reversed(shape):
-            v_ = [copy.deepcopy(v_) for j in range(i)]
-        return v_
-        
-
-
-    ###- Main loop
-    for k, v in dct.items():
-        if type(v) is list:
-            log.debug("Parsing value of type "+str(type(v)))
-            lst = []
-            idx = [0]
-            for val, idx in parse(v, indices):
-                log.debug("Parsing value: "+str(val))
-                log.debug("Current lst: "+str(lst))
-                if type(val) is str:
-                    val = _decodeUnits(val)
-                    log.debug("lst before update: "+str(lst))
-                    lst = _updateListValue(lst, val, idx)
-                    log.debug("lst after update: "+str(lst))
-            dct[k] = lst
-        elif type(v) is str:
-            v = _decodeUnits(v)
-            dct[k] = v
-    
-    return dct  #End unitDecoder
+    return _parseOrDecode(dct)
