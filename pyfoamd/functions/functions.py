@@ -22,6 +22,7 @@ import json
 # import operator
 # from collections.abc import Mapping
 
+from ..DictUtility import __ofDictFindBlockEntryStartStop
 
 from rich import print
 import logging
@@ -58,12 +59,15 @@ def getLatestTime(directory):
     return directory
 
 def appendBlockEntry(value, blockList=None, lineNum=16, searchValues=False):
-    if blockList != None:
+    if blockList is not None:
         __appendBlockEntryWithBlockName(value, blockList, searchValues=searchValues)
-    elif lineNum != None:
+    elif lineNum is not None:
         __appendBlockEntryWithLineNum(value, lineNum, searchValues=searchValues)
     else:
         log.error("One of 'blockList' or 'lineNum' must be specified to indicate the location to insert the dictionary entry.")
+
+def insertBlockEntry(value, blockList=None, lineNum=16):
+    pass
 
 def replaceEntry(ofValue, rType='singleLine', silent=False):
     #- Base function for ofDict replacements
@@ -476,7 +480,34 @@ def __appendBlockEntryWithLineNum(
         copyfile(file+"_old", file)
         raise
 
+def __readOFDictFile(self, file):
 
+    from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
+
+    #- Function assumes:
+    #   - All entries start on a new line
+    #   - Comments on line after C++ code are ignored
+
+    pyOFDict = ofDictFile(os.path.basename(file), [])
+
+    def functionSwitcher(self, status):
+        switcher = {
+            'commentedBlock': self.__getOFDictCommentLineType,
+            'comment': None,
+            'includeLine': None,
+            'empty': None,
+            'commentedBlockEnd':  self.__getOFDictReadLineType,
+            'list': self.__getOFDictValueType,
+            'dict': self.__getOFDictValueType,
+            'value': self.__storeOFDictValue,
+            'multiLineUnknown': self.__getOFDictEntryType,
+            'dictName': self.__newOFDictDict,
+            'listName': self.__newOFDictList,
+            'multiLineValue': self.__appendOFDictEntry,
+            'multiLineEntryStart': self.__storeOFDictMultiLineEntryName,
+            'singleLineSingleValuedEntry': self.__storeOFDictSingleLineSingleValuedEntry
+        }
+        return switcher.get(status, self.__getOFDictReadLineType)
 
 
     def __argSwitcher(func, line, ofType):
@@ -641,64 +672,3 @@ def interpretUnitsAndConvert(dct):
             sys.exit()
 
     return convertedDict
-
-
-
-def __unitDecoder(dct):
-    """
-    Object hook function for the python 'json.load()' function.
-    Reads in dimensional values as strings and converts to float value in SI units.
-
-    Parameters
-    ----------
-
-    dct: dict
-        The parsed json file as a python dictionary
-
-    Returns
-    -------
-
-    dct: dict
-        The parsed Python dictionary with converted units
-
-    """
-
-    ureg = UnitRegistry(system='SI')
-
-    ###- Helper function 1
-    def _decodeUnits(v):
-        if isinstance(v, str):
-            vList = v.split(" ")
-            if len(vList) >= 2:
-                try:
-                    mag = float(vList[0])
-                except:
-                    #continue
-                    return v
-                try:
-                    unit = (" ".join(vList[1:]))
-                    #log.debug("trying unit conversion on "+str(v)+"...")
-                    unit = ureg(unit)
-                except:
-                    unit = ureg(unit)
-                    #log.debug("Failed.")
-                    #continue
-                    return v
-                #log.debug("Success.")
-                v = mag*unit
-                return v.to_base_units().magnitude
-            else:
-                return v
-        else:
-            return v
-
-    ###- Helper function 2
-    #- from stackoverflow: 34615164
-    def _parseOrDecode(obj):
-        if isinstance(obj, dict):
-            return {k:_parseOrDecode(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [_parseOrDecode(v) for v in obj]
-        return _decodeUnits(obj)
-
-    return _parseOrDecode(dct)
