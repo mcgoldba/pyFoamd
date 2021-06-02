@@ -57,7 +57,7 @@ def getLatestTime(directory):
 
     return directory
 
-def appendBlockEntry(value, blockList=None, lineNum=16, searchValues=False):
+def appendEntry(value, blockList=None, lineNum=16, searchValues=False):
     if blockList != None:
         __appendBlockEntryWithBlockName(value, blockList, searchValues=searchValues)
     elif lineNum != None:

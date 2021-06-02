@@ -58,7 +58,7 @@ def getLatestTime(directory):
 
     return directory
 
-def appendBlockEntry(value, blockList=None, lineNum=16, searchValues=False):
+def appendEntry(value, blockList=None, lineNum=16, searchValues=False):
     if blockList is not None:
         __appendBlockEntryWithBlockName(value, blockList, searchValues=searchValues)
     elif lineNum is not None:
@@ -141,7 +141,7 @@ def removeEntry(file, blockList, searchValues=False):
     start -= 2
     stop+=1
 
-    file = os.path.join(os.getwd(), file)
+    file = os.path.join(os.getcwd(), file)
 
     if start>= stop:
         print("\tNo lines to delete.")
@@ -253,6 +253,8 @@ def printInputParams(filepath='inputParameters'):
 
     print(params)
 
+######################## Private Member Functions ###########################
+
 def __appendBlockEntryWithBlockName(
     ofValue,
     blockList,
@@ -273,11 +275,18 @@ def __appendBlockEntryWithBlockName(
 
     copyfile(file, file+"_old")
 
-    _, stop = __ofDictFindBlockEntryStartStop(
+    start, stop = __ofDictFindBlockEntryStartStop(
         ofValue.location + ofValue.filename,
         blockList,
         searchValues=searchValues
     )
+
+    if start is None: # if the block wasnt found:
+        __appendBlockEntryWithLineNum(
+            ofDict(name=blockList[-1], value=[], location=ofValue.location,
+                   filename=ofValue.filename),
+            stop)
+        stop+=1
 
     if hasattr(ofValue, 'name') is True and ofValue.name is not None:
         print("Appending entry '"+ofValue.name+"' into block "+blockList[len(blockList)-1]+" at line "+str(stop)+" of file: "+ofValue.location + ofValue.filename)
@@ -302,8 +311,6 @@ def __appendBlockEntryWithBlockName(
     except:
         copyfile(file+"_old", file)
         raise
-
-######################## Private Member Functions ###########################
 
 def __replaceStringEntry(key, val, file, silent=False):
     #- Use "__ofDictReplaceEntry(...,rType='string')" instead

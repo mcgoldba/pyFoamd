@@ -1,5 +1,6 @@
 import os
 from shutil import copyfile
+import warnings
 
 def __ofDictFindBlockEntryStartStop(file, blockList, searchValues=False):
     #TODO:  Account for the case of opening anf closing parenthesis or brackets
@@ -42,7 +43,9 @@ def __ofDictFindBlockEntryStartStop(file, blockList, searchValues=False):
                         break
                     start += 1
                     if start >= stop:
-                        raise Exception("End of file '"+relPath+"' reached without finding a match for block '"+str(block)+"'.")
+                        warnings.warn("End of file '"+relPath+"' reached \
+                             without finding a match for block '"+str(block)+"'.")
+                        return None, stop-1
                 for i in [0,1]: #search line with block name and next line
                     if len(lines[start+i].split(" ")) > 1:
                         #- Search for opening and closing of block on the same line
