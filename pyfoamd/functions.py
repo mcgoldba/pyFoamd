@@ -241,6 +241,12 @@ def readInputParameters(filepath):
     with open(filepath, "r") as paramsFile:
         params = json.load(paramsFile, object_hook=__unitDecoder)
 
+    #- Convert list of dicts to Pandas dataframe
+    for param in params.keys():
+        if isinstance(params[param], list):
+            if all([isinstance(item, dict) for item in params[param]]):
+                params[param] = pd.DataFrame(params[param])
+
     return params
 
 def printInputParams(filepath='inputParameters'):

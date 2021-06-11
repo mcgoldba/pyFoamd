@@ -18,6 +18,7 @@ import tempfile
 
 from pint import UnitRegistry
 import json
+import pandas as pd
 # from functools import reduce
 # import operator
 # from collections.abc import Mapping
@@ -244,6 +245,13 @@ def readInputParameters(filepath):
 
     with open(filepath, "r") as paramsFile:
         params = json.load(paramsFile, object_hook=__unitDecoder)
+
+    #- Convert list of dicts to Pandas dataframe
+    for param in params.keys():
+        if isinstance(params[param], list):
+            if all([isinstance(item, dict) for item in params[param]]):
+                df = pd.DataFrame(params[param])
+                params[param] = df.set_index(df.columns[0])
 
     return params
 
