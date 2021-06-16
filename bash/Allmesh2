@@ -1,0 +1,66 @@
+#!/bin/sh
+#cd ${0%/*} || exit 1    # Run from this directory
+cd $1 || exit 1 # Run from the parent script $PWD
+
+if [ "$#" -gt 2 ];
+then
+  echo "Ignoring any arguments after ${2}."
+fi
+
+
+#User defined values
+scaleFactor=0.02539876    #inches
+numberOfPumps=3
+
+if [ $1 = "-parallel" ];
+then
+  echo "Running mesh operations on parallel processors..."
+  runCommand="runParallel"
+else
+  if [ $1 = "-serial" ];
+  then
+    echo "Running mesh operations on a single processor..."
+    runCommand="runApplication"
+  else
+    echo "Invalid argument.  Options are '-serial' or '-parallel'"
+    exit 1
+  fi
+fi
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+
+#scale the .emesh to the appropriate units
+#echo "Running surfaceTransformPoints on .stl files"
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_1.stl constant/triSurface/outlet_1_scaled.stl >> log.surfaceTransformPoints_outlet_1
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_2.stl constant/triSurface/outlet_2_scaled.stl >> log.surfaceTransformPoints_outlet_2
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_3.stl constant/triSurface/outlet_3_scaled.stl >> log.surfaceTransformPoints_outlet_3
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_4.stl constant/triSurface/outlet_4_scaled.stl >> log.surfaceTransformPoints_outlet_4
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_5.stl constant/triSurface/outlet_5_scaled.stl >> log.surfaceTransformPoints_outlet_5
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_6.stl constant/triSurface/outlet_6_scaled.stl >> log.surfaceTransformPoints_outlet_6
+#surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_7.stl constant/triSurface/outlet_7_scaled.stl >> log.surfaceTransformPoints_outlet_7
+
+rm log.topoSet
+$runCommand topoSet 
+
+rm log.createPatch
+$runCommand createPatch -overwrite
+
+echo "Extruding mesh..."
+i=1
+while [ "$i" -lt $(( numberOfPumps + 1 )) ] ;
+do
+  cp system/extrudeMeshDict.outlet${i} system/extrudeMeshDict
+  echo "Running extrudeMesh, instance" ${i}
+  if [ $1 = "-parallel" ];
+  then
+    mpiexec -np $(getNumberOfProcessors) extrudeMesh -parallel > log.extrudeMesh.${i}
+  else    
+    extrudeMesh > log.extrudeMesh.${i}
+  fi
+
+  i=$((i + 1))
+done
+
+#------------------------------------------------------------------------------

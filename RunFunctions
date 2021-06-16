@@ -1,0 +1,292 @@
+#---------------------------------*- sh -*-------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     | Website:  https://openfoam.org
+#   \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Script
+#     RunFunctions
+#
+# Description
+#     Miscellaneous functions for running tutorial cases
+#------------------------------------------------------------------------------
+
+#Modifications from standard RunFunctions file ($WM_PROJECT_DIR/bin/tools/RunFunctions):
+#   - 'runApplication' and 'runParallel' also tee output to screen
+
+isTest()
+{
+    for i in "$@"; do
+        if [ "$i" = "-test" ]
+        then
+            return 0
+        fi
+    done
+    return 1
+}
+
+getNumberOfProcessors()
+{
+    foamDictionary -disableFunctionEntries -entry numberOfSubdomains -value system/decomposeParDict
+}
+
+getApplication()
+{
+    foamDictionary -disableFunctionEntries -entry application -value system/controlDict
+}
+
+runApplication()
+{
+    APP_RUN=
+    LOG_IGNORE=false
+    LOG_APPEND=false
+    LOG_SUFFIX=
+
+    # Parse options and executable
+    while [ $# -gt 0 ] && [ -z "$APP_RUN" ]; do
+        key="$1"
+        case "$key" in
+            -append|-a)
+                LOG_IGNORE=true
+                LOG_APPEND=true
+                ;;
+            -overwrite|-o)
+                LOG_IGNORE=true
+                ;;
+            -suffix|-s)
+                LOG_SUFFIX=".$2"
+                shift
+                ;;
+            *)
+                APP_RUN="$key"
+                APP_NAME="${key##*/}"
+                LOG_SUFFIX="${APP_NAME}${LOG_SUFFIX}"
+                ;;
+        esac
+
+        shift
+    done
+
+    if [ -f log.$LOG_SUFFIX ] && [ "$LOG_IGNORE" = "false" ]
+    then
+        echo "$APP_NAME already run on $PWD:" \
+             "remove log file 'log.$LOG_SUFFIX' to re-run"
+    else
+        echo "Running $APP_RUN on $PWD"
+        if [ "$LOG_APPEND" = "true" ]; then
+            #$APP_RUN "$@" >> log.$LOG_SUFFIX 2>&1
+            
+            ( $APP_RUN "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
+        else
+            #$APP_RUN "$@" > log.$LOG_SUFFIX 2>&1
+            ( $APP_RUN "$@" 2>&1 | tee log.$LOG_SUFFIX )
+        fi
+    fi
+}
+
+runParallel()
+{
+    APP_RUN=
+    LOG_IGNORE=false
+    LOG_APPEND=false
+    LOG_SUFFIX=
+    nProcs=$(getNumberOfProcessors)
+
+    # Parse options and executable
+    while [ $# -gt 0 ] && [ -z "$APP_RUN" ]; do
+        key="$1"
+        case "$key" in
+            -append|-a)
+                LOG_IGNORE=true
+                LOG_APPEND=true
+                ;;
+            -overwrite|-o)
+                LOG_IGNORE=true
+                ;;
+            -suffix|-s)
+                LOG_SUFFIX=".$2"
+                shift
+                ;;
+            -np|-n)
+                nProcs="$2"
+                shift
+                ;;
+            *)
+                APP_RUN="$key"
+                APP_NAME="${key##*/}"
+                LOG_SUFFIX="${APP_NAME}${LOG_SUFFIX}"
+                ;;
+        esac
+
+        shift
+    done
+
+    if [ -f log.$LOG_SUFFIX ] && [ "$LOG_IGNORE" = "false" ]
+    then
+        echo "$APP_NAME already run on $PWD:" \
+             "remove log file 'log.$LOG_SUFFIX' to re-run"
+    else
+        echo "Running $APP_RUN in parallel on $PWD using $nProcs processes"
+        if [ "$LOG_APPEND" = "true" ]; then
+            #( mpirun -np $nProcs $APP_RUN -parallel "$@" < /dev/null >> log.$LOG_SUFFIX 2>&1 )
+            ( mpirun -np $nProcs $APP_RUN -parallel "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
+        else
+            #( mpirun -np $nProcs $APP_RUN -parallel "$@" < /dev/null > log.$LOG_SUFFIX 2>&1 )
+            ( mpirun -np $nProcs $APP_RUN -parallel "$@" 2>&1 | tee log.$LOG_SUFFIX )
+        fi
+    fi
+}
+
+compileApplication()
+{
+    echo "Compiling $1 application"
+    wmake $1
+}
+
+cloneCase()
+{
+    if [ -d $2 ]
+    then
+        echo "Case already cloned: remove case directory $2 to clone"
+    else
+        echo "Cloning $2 case from $1"
+        mkdir $2
+        cpfiles="0 system constant"
+        for f in $cpfiles
+        do
+            cp -r $1/$f $2
+        done
+    fi
+}
+
+transposeFile()
+{
+    awk '
+    {
+        for (i = 1; i <= NF; i++)
+        {
+            a[NR, i] = $i
+        }
+    }
+
+    NF > p {p = NF}
+
+    END {
+            for (j = 1; j <= p; j++)
+            {
+                str = a[1,j]
+
+                for(i = 2; i <= NR; i++)
+                {
+                    str = str" "a[i,j];
+                }
+
+                print str
+            }
+        }' $1
+}
+
+execCommand() #Not working. Implemented in 'runSim' script
+{
+    if ! $1 ; then
+        echo "Command returned an error!"
+        logHeader "END ON ERROR"
+    fi
+}
+
+
+logHeader()
+{
+    unset header
+
+    numChars=79
+    #strLen=${#1}
+    timeStamp=`date "+%Y-%m-%d %H:%M:%S"`
+    #timeStampLen=${#timeStamp}
+    #numChar=$(( $numChars - $timeStampLen - 1 ))
+    #headerMid=$(( $numChars / 2 ))
+    #headerMid=$(echo $headerMid | cut -f1 -d'.')
+    #strStart=$(( $strLen / 2 ))
+    #strStart=$(echo ${strStart} | cut -f1 -d'.')
+    #strStart=$(( $headerMid - $strStart ))
+    #strEnd=$(( $strStart + $strLen ))
+    
+    header="\n"
+    
+    i=0
+    while [ $i -lt $numChars ]; do
+        header="${header}\u2014"
+        i=$[$i+1]
+    done
+ 
+    header="${header}\n${timeStamp} -------- ${1}\n"
+
+    j=0 
+    while [ $j -lt $numChars ]; do
+        header="${header}\u2014"
+        j=$[$j+1]
+    done
+    
+    #while [ $i -lt $numChars ]; do
+    #    if [ $i -eq $strStart ]; then
+    #        header="${header}${1}"
+    #        i=$strEnd
+    #    else
+    #        header="${header}_"
+    #    fi
+    #    i=$[$i+1]
+    #done
+    
+    header="${header} \n"
+    
+    echo -e ${header}
+}
+
+getLatestTime()
+{
+    timeDirs=$(ls -al | grep -E '^[0-9]+\.[0-9]+')
+    timeDirs+=$(ls -al | grep -E '^[0-9]+')
+    
+    latestTime=0
+    for time in ${timeDirs[@]} 
+    do
+        if [ "$time" -gt "$latestTime" ]
+        then
+            latestTime=$time
+        fi
+    done
+
+    $latestTime
+}
+
+# Script run function to pass PWD and catch errors
+# Accepts a single argument, which is the script to run
+runScript()
+{
+
+if ! ${1} $PWD; then
+    echo "ERROR IN SCRIPT!: ${1}"
+    logHeader "Exit with Error"
+    exit 1
+fi
+
+}
+
+#------------------------------------------------------------------------------

@@ -1,0 +1,88 @@
+#!/bin/sh
+#cd ${0%/*} || exit 1    # Run from this directory
+cd ${1} || exit 1 # Run from the parent script $PWD
+
+# Source tutorial run functions
+. $WM_PROJECT_USER_DIR/XylemFoam/tools/RunFunctions #Prints log to stdout AND the log.* file
+. $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
+
+logHeader "START 'Allrun'"
+
+#if [ "$#" -gt 1 ];
+#then
+#  echo "Ignoring any arguments after ${1}."
+#fi
+#
+#
+##User defined values
+#scaleFactor=0.02539876    #inches
+#
+#if [ $1 = "-parallel" ];
+#then
+#  echo "Running operations on parallel processors..."
+#  runCommand="runParallel"
+#else
+#  if [ $1 = "-serial" ];
+#  then
+#    echo "Running operations on a single processor..."
+#    runCommand="runApplication"
+#  else
+#    echo "Invalid argument.  Options are '-serial' or '-parallel'"
+#    exit 1
+#  fi
+#fi
+
+# Source tutorial run functions
+#. $WM_PROJECT_USER_DIR/tools/RunFunctions
+
+#if [ $# -gt 2 ];
+#then
+#  if [[ $1 = "-parallel" && $2 = "-reconstruct" ]];
+#  then
+#    runApplication reconstructParMesh -mergeTol 1E-06 -constant
+#
+#    runApplication reconstructPar -latestTime -withZero
+#  fi
+#fi
+
+if [ "$runCommand" = "runParallel" ] && [ "$decomposed" = "false" ];
+#if restarting a decomposed case in parallel, do nothing
+then
+    #start a simulation in parallel from a new mesh
+    # runApplication reconstructParMesh -mergeTol 1E-06 -constant
+    if [ "$forceDecompose" = "true" ]; then
+      runApplication -a decomposePar -constant -latestTime -force
+    else
+      runApplication decomposePar -constant -latestTime
+    fi
+elif [ "$runCommand" = "runApplication" ] && [ "$decomposed" = "true" ];
+#restart a decomposed case on a single processor, assume at least 1 iteration is performed
+then
+    runApplication reconstructPar -latestTime -withZero
+    rm -rd ./processor*
+fi
+
+if [ "$topoSet" = true ]; then
+    $runCommand topoSet
+fi
+
+$runCommand patchSummary -latestTime
+
+#$runCommand -a checkMesh
+
+$runCommand potentialFoam
+$runCommand $(getApplication)
+
+#if [ $# -gt 2 ];
+#then
+#  if [[ $1 = "-parallel" && $2 = "-reconstruct" ]];
+#  then
+#    runApplication reconstructParMesh -mergeTol 1E-06 -constant
+#
+#    runApplication reconstructPar -latestTime -withZero
+#  fi
+#fi
+
+logHeader "END 'Allrun'"
+
+#------------------------------------------------------------------------------

@@ -1,0 +1,17 @@
+#!/bin/sh
+#cd ${0%/*} || exit 1    # Run from this directory
+cd $1 || exit 1 # Run from the parent script $PWD
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+runApplication reconstructParMesh -mergeTol 1E-06 -constant
+
+# Reconstruct mesh for a simulation that has not yet been run
+#runApplication reconstructPar -constant
+
+# Reconstruct mesh for a simulation that has been run
+runApplication reconstructPar -latestTime -withZero -constant
+
+runApplication foamToVTK -latestTime
+#------------------------------------------------------------------------------
