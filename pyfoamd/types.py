@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 import operator
 from collections.abc import MutableMapping
-# from 
+import copy
+from pathlib import Path
 
 OF_BOOL_VALUES = ['on', 'off', 'true', 'false']
 TAB_SIZE = 4
@@ -12,7 +13,7 @@ OF_HEADER = """/*--------------------------------*- C++ -*----------------------
     \\  /    A nd           | Version:  7
      \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/"""
-#- Build the string to be used as a tab 
+#- Build the string to be used as a tab
 TAB_STR = ""
 for _ in range(TAB_SIZE): TAB_STR+= " "
 
@@ -21,30 +22,45 @@ def printNameStr(name) -> str:
         return name+"\t"
     else:
         return "{: <12}".format(name)
-    
-#@dataclass
-class _ofDictFileBase(MutableMapping):
+
+TYPE_REGISTRY = []
+
+def _populateRegistry(path):
+    reg = []
+
+
+    return field(default_factory=lambda: copy.copy(reg))
+
+@dataclass
+class CaseDirectory:
+    location: Path = field(default=Path('.').resolve())
+    registry: list = _populateRegistry(location)
+
+
+
+@dataclass
+class _ofDictFileBase:
     #store: dict()
     #update: dict(*args, **kwargs)
     value: field(default_factory=list)
 
-    def __getitem__(self, key):
-        return self.store[self._keytransform(key)]
-
-    def __setitem__(self, key, value):
-        self.store[self._keytransform(key)] = value
-
-    def __delitem__(self, key):
-        del self.store[self._keytransform(key)]
-
-    def __iter__(self):
-        return iter(self.store)
-
-    def __len__(self):
-        return len(self.store)
-
-    def _keytransform(self, key):
-        return key
+    # def __getitem__(self, key):
+    #     return self.store[self._keytransform(key)]
+    #
+    # def __setitem__(self, key, value):
+    #     self.store[self._keytransform(key)] = value
+    #
+    # def __delitem__(self, key):
+    #     del self.store[self._keytransform(key)]
+    #
+    # def __iter__(self):
+    #     return iter(self.store)
+    #
+    # def __len__(self):
+    #     return len(self.store)
+    #
+    # def _keytransform(self, key):
+    #     return key
 
 @dataclass
 class _ofDictFileDefaultsBase:
@@ -53,17 +69,17 @@ class _ofDictFileDefaultsBase:
     version: str = '2.0'
     ofClass: str = 'dictionary'
     #entries: field(default_factory=lambda: [])
-    
+
 @dataclass
 class _ofDictBase(_ofDictFileBase):
     name: str
     value: dict
-    
-        
+
+
 @dataclass
 class _ofListBase(_ofDictFileBase):
     value: list
-    
+
     @property
     def valueStr(self):
         str_ = '('
@@ -80,11 +96,11 @@ class _ofNamedListBase(_ofListBase):
     value: list
 
 
-@dataclass 
+@dataclass
 class _ofIntBase(_ofDictFileBase):
     name: str
     value: int
-        
+
     @property
     def valueStr(self):
         return str(self.value)
@@ -93,7 +109,7 @@ class _ofIntBase(_ofDictFileBase):
 class _ofFloatBase(_ofIntBase):
     name: str
     value: float
-        
+
 @dataclass
 class _ofStrBase(_ofIntBase):
     name: str
@@ -103,7 +119,7 @@ class _ofStrBase(_ofIntBase):
 class _ofBoolBase(_ofIntBase):
     name: str
     value: bool
-        
+
 @dataclass
 class _ofDimensionedScalarBase(_ofFloatBase):
     dimensions: field(default_factory=list)
@@ -113,21 +129,21 @@ class _ofVectorBase:
     #name: field(init=False, repr=False)
     value: field(default_factory=list)
 
-        
+
     #- Ensure the value is numeric list of length 3
     @property
     def value(self):
         return self._value
-    
+
     @property
     def valueStr(self):
         return "("+str(self.value[0])+ \
                 " "+str(self.value[1])+ \
                 " "+str(self.value[2])+")"
-    
+
     def __str__(self):
         return self.asString().rstrip(';\n')
-    
+
     @value.setter
     def value(self, v):
         if isinstance(v, list) is False:
@@ -136,11 +152,11 @@ class _ofVectorBase:
             is False):
             raise Exception("'ofVector' values must be a numeric list of length 3.")
         self._value = v
-@dataclass 
+@dataclass
 class _ofVectorDefaultsBase:
     pass
     #name: None=None
-    
+
 @dataclass
 class _ofNamedVectorDefaultsBase(_ofFloatBase):
     pass
@@ -148,17 +164,17 @@ class _ofNamedVectorDefaultsBase(_ofFloatBase):
 @dataclass
 class ofDictFile(_ofDictFileDefaultsBase, _ofDictFileBase):
     pass
-    
+
 #    self.filename = filename or None
 #    self.location = location or 'system/'
 #    self.version = version or '2.0'
 #    self.ofClass = ofClass or 'dictionary'
 #    self.entries = entries or []
 
-    
+
 @dataclass
 class ofDict(ofDictFile, _ofDictBase):
-    
+
     def asString(self) -> str:
         if self.name is not None:
             dStr = self.name+"\n{\n"
@@ -174,7 +190,7 @@ class ofDict(ofDictFile, _ofDictBase):
                 dStr += TAB_STR+v.asString()
         dStr+= "}\n"
         return dStr
-    
+
     def __str__(self):
         return self.asString().rstrip(';\n')
 @dataclass
@@ -184,13 +200,20 @@ class ofInt(ofDictFile, _ofIntBase):
 
     def __str__(self):
         return self.asString().rstrip(';\n')
+
+TYPE_REGISTRY.append(ofInt)
+
 @dataclass
 class ofFloat(ofInt, _ofFloatBase):
     pass
-        
+
+TYPE_REGISTRY.append(ofFloat)
+
 @dataclass
 class ofStr(ofInt, _ofStrBase):
     pass
+
+TYPE_REGISTRY.append(ofStr)
 
 @dataclass
 class ofBool(ofInt, _ofBoolBase):
@@ -200,9 +223,12 @@ class ofBool(ofInt, _ofBoolBase):
 
     def __str__(self):
         return self.asString().rstrip(';\n')
+
+TYPE_REGISTRY.append(ofBool)
+
 @dataclass
 class ofNamedList(ofDictFile, _ofNamedListBase):
-        
+
     def asString(self) -> str:
         return printNameStr(self.name)+self.valueStr+";\n"
     #def asString(self) -> str:
@@ -210,14 +236,17 @@ class ofNamedList(ofDictFile, _ofNamedListBase):
     #    valueStr += str(self.value[0])
     #    for i in range(1,len(self.value)):
     #        valueStr += ' '+str(self.value[i])
-    #    valueStr += ')'        
+    #    valueStr += ')'
     #    return printNameStr(self.name)+valueStr+";\n"
 
     def __str__(self):
         return self.asString()
+
+TYPE_REGISTRY.append(ofNamedList)
+
 @dataclass
 class ofList(ofDictFile, _ofListBase):
-        
+
     def asString(self) -> str:
         return self.valueStr
     #def asString(self) -> str:
@@ -225,24 +254,26 @@ class ofList(ofDictFile, _ofListBase):
     #    valueStr += str(self.value[0])
     #    for i in range(1,len(self.value)):
     #        valueStr += ' '+str(self.value[i])
-    #    valueStr += ')'        
+    #    valueStr += ')'
     #    return printNameStr(self.name)+valueStr+";\n"
-    
+
     def __str__(self):
         return self.asString().rstrip(';\n')
+
+TYPE_REGISTRY.append(ofList)
 
 @dataclass
 class ofNamedSplitList(ofNamedList, _ofNamedListBase):
     #- Same as ofNamedList except entries are split on multiple lines according the
-    #  OpenFoam Programmer's Style Guide     
-    
+    #  OpenFoam Programmer's Style Guide
+
     def asString(self) -> str:
         printStr = self.name+'\n(\n'
         for v in self.value:
             printStr += TAB_STR+str(v)+'\n'
         printStr += ');\n'
         return printStr
-    
+
     def __str__(self):
         return self.asString().rstrip(';\n')
 
@@ -253,10 +284,10 @@ class ofDimensionedScalar(ofFloat, _ofDimensionedScalarBase):
     @property
     def dimensions(self):
         return self._dimensions
-    
+
     @dimensions.setter
     def dimensions(self, d):
-        if (len(d) != 7 or any(isinstance(i, int) for i in d) is False): 
+        if (len(d) != 7 or any(isinstance(i, int) for i in d) is False):
             raise Exception('Dimensions must be a list of 7 integer values, where each entry corresponds to a base unit type: \
     1:  Mass - kilogram (kg) \
     2:  Length - meter (m) \
@@ -266,7 +297,7 @@ class ofDimensionedScalar(ofFloat, _ofDimensionedScalarBase):
     6:  Current - ampere (A) \
     7:  Luminous intensity - candela (cd)')
         self._dimensions = d
-    
+
     def asString(self) -> str:
         #- format the dimensions list properly
         dimStr = "["
@@ -275,21 +306,21 @@ class ofDimensionedScalar(ofFloat, _ofDimensionedScalarBase):
         dimStr+= str(self.dimensions[6])+']'
 
         return printNameStr(self.name)+str(dimStr)+" "+str(self.value)+";\n"
-    
+
     def __str__(self):
         return self.asString().rstrip(';\n')
 
-@dataclass 
+@dataclass
 class ofVector(_ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofVectorBase):
     def asString(self) -> str:
         return self.valueStr
 #        return "("+str(self.value[0])+ \
 #                " "+str(self.value[1])+ \
 #                " "+str(self.value[2])+")"
-    
+
     def __str__(self):
         return self.asString()
-            
+
 @dataclass
 class _ofNamedVectorBase(_ofFloatBase, _ofVectorBase):
     pass
@@ -297,12 +328,12 @@ class _ofNamedVectorBase(_ofFloatBase, _ofVectorBase):
 
 @dataclass
 class ofNamedVector( _ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofNamedVectorBase):
-    
-    
+
+
     def asString(self) -> str:
         print(self.value)
         return printNameStr(self.name)+self.valueStr+";\n"
-            
+
     def __str__(self):
         return self.asString().rstrip(';\n')
 
@@ -310,11 +341,11 @@ class ofNamedVector( _ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofNamedVec
 class _ofDimensionedVectorBase(_ofDimensionedScalarBase):
     value: ofVector
 
-@dataclass 
+@dataclass
 class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
-        
+
     def asString(self) -> str:
         return printNameStr(self.name)+self.value.asString()+";\n"
-    
+
     def __str__(self):
         return self.asString().rstrip(';\n')

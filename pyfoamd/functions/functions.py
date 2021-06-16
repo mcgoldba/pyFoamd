@@ -18,10 +18,12 @@ import tempfile
 
 from pint import UnitRegistry
 import json
+import pandas as pd
 # from functools import reduce
 # import operator
 # from collections.abc import Mapping
 
+from ..DictUtility import __ofDictFindBlockEntryStartStop
 
 from rich import print
 import logging
@@ -58,12 +60,15 @@ def getLatestTime(directory):
     return directory
 
 def appendEntry(value, blockList=None, lineNum=16, searchValues=False):
-    if blockList != None:
+    if blockList is not None:
         __appendBlockEntryWithBlockName(value, blockList, searchValues=searchValues)
-    elif lineNum != None:
+    elif lineNum is not None:
         __appendBlockEntryWithLineNum(value, lineNum, searchValues=searchValues)
     else:
         log.error("One of 'blockList' or 'lineNum' must be specified to indicate the location to insert the dictionary entry.")
+
+def insertBlockEntry(value, blockList=None, lineNum=16):
+    pass
 
 def replaceEntry(ofValue, rType='singleLine', silent=False):
     #- Base function for ofDict replacements
@@ -137,7 +142,7 @@ def removeEntry(file, blockList, searchValues=False):
     start -= 2
     stop+=1
 
-    file = os.path.join(os.getwd(), file)
+    file = os.path.join(os.getcwd(), file)
 
     if start>= stop:
         print("\tNo lines to delete.")
@@ -245,7 +250,8 @@ def readInputParameters(filepath):
     for param in params.keys():
         if isinstance(params[param], list):
             if all([isinstance(item, dict) for item in params[param]]):
-                params[param] = pd.DataFrame(params[param])
+                df = pd.DataFrame(params[param])
+                params[param] = df.set_index(df.columns[0])
 
     return params
 
@@ -254,6 +260,8 @@ def printInputParams(filepath='inputParameters'):
     params = readInputParameters(filepath)
 
     print(params)
+
+######################## Private Member Functions ###########################
 
 def __appendBlockEntryWithBlockName(
     ofValue,
@@ -275,11 +283,18 @@ def __appendBlockEntryWithBlockName(
 
     copyfile(file, file+"_old")
 
-    _, stop = __ofDictFindBlockEntryStartStop(
+    start, stop = __ofDictFindBlockEntryStartStop(
         ofValue.location + ofValue.filename,
         blockList,
         searchValues=searchValues
     )
+
+    if start is None: # if the block wasnt found:
+        __appendBlockEntryWithLineNum(
+            ofDict(name=blockList[-1], value=[], location=ofValue.location,
+                   filename=ofValue.filename),
+            stop)
+        stop+=1
 
     if hasattr(ofValue, 'name') is True and ofValue.name is not None:
         print("Appending entry '"+ofValue.name+"' into block "+blockList[len(blockList)-1]+" at line "+str(stop)+" of file: "+ofValue.location + ofValue.filename)
@@ -304,8 +319,6 @@ def __appendBlockEntryWithBlockName(
     except:
         copyfile(file+"_old", file)
         raise
-
-######################## Private Member Functions ###########################
 
 def __replaceStringEntry(key, val, file, silent=False):
     #- Use "__ofDictReplaceEntry(...,rType='string')" instead
@@ -482,7 +495,34 @@ def __appendBlockEntryWithLineNum(
         copyfile(file+"_old", file)
         raise
 
+def __readOFDictFile(self, file):
 
+    from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
+
+    #- Function assumes:
+    #   - All entries start on a new line
+    #   - Comments on line after C++ code are ignored
+
+    pyOFDict = ofDictFile(os.path.basename(file), [])
+
+    def functionSwitcher(self, status):
+        switcher = {
+            'commentedBlock': self.__getOFDictCommentLineType,
+            'comment': None,
+            'includeLine': None,
+            'empty': None,
+            'commentedBlockEnd':  self.__getOFDictReadLineType,
+            'list': self.__getOFDictValueType,
+            'dict': self.__getOFDictValueType,
+            'value': self.__storeOFDictValue,
+            'multiLineUnknown': self.__getOFDictEntryType,
+            'dictName': self.__newOFDictDict,
+            'listName': self.__newOFDictList,
+            'multiLineValue': self.__appendOFDictEntry,
+            'multiLineEntryStart': self.__storeOFDictMultiLineEntryName,
+            'singleLineSingleValuedEntry': self.__storeOFDictSingleLineSingleValuedEntry
+        }
+        return switcher.get(status, self.__getOFDictReadLineType)
 
 
     def __argSwitcher(func, line, ofType):
@@ -586,7 +626,7 @@ def __storeOFDictSingleLineSingleValuedEntry(line):
 
     return ['newLine', 'end']
 
-def interpretUnitsAndConvert(dct):
+def _interpretUnitsAndConvert(dct):
     """
     Reads string formatted dimensional values and converts to a float in OpenFOAM standard units
 
@@ -635,6 +675,7 @@ def interpretUnitsAndConvert(dct):
                 v = mag*ureg[unit]
 
 
+
     def iterateIterable(obj):
         if type(obj) is dict:
             for k, v in obj.items():
@@ -646,27 +687,22 @@ def interpretUnitsAndConvert(dct):
             log.error('Invalid "obj" provided')
             sys.exit()
 
+    loopContents(dct)
+
     return convertedDict
-
-
 
 def __unitDecoder(dct):
     """
     Object hook function for the python 'json.load()' function.
     Reads in dimensional values as strings and converts to float value in SI units.
-
     Parameters
     ----------
-
     dct: dict
         The parsed json file as a python dictionary
-
     Returns
     -------
-
     dct: dict
         The parsed Python dictionary with converted units
-
     """
 
     ureg = UnitRegistry(system='SI')

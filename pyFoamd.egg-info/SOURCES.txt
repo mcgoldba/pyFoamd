@@ -4,6 +4,11 @@ pyFoamd.egg-info/PKG-INFO
 pyFoamd.egg-info/SOURCES.txt
 pyFoamd.egg-info/dependency_links.txt
 pyFoamd.egg-info/top_level.txt
+pyfoamd/DictUtility.py
 pyfoamd/__init__.py
 pyfoamd/functions.py
 pyfoamd/types.py
+pyfoamd/functions/__init__.py
+pyfoamd/functions/functions.py
+pyfoamd/functions/readDict.py
+pyfoamd/functions/readInputParameters.py
