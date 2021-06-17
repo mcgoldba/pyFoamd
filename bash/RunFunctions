@@ -52,7 +52,7 @@ getApplication()
     foamDictionary -disableFunctionEntries -entry application -value system/controlDict
 }
 
-runApplication()
+runApplication_()
 {
     APP_RUN=
     LOG_IGNORE=false
@@ -92,7 +92,7 @@ runApplication()
         echo "Running $APP_RUN on $PWD"
         if [ "$LOG_APPEND" = "true" ]; then
             #$APP_RUN "$@" >> log.$LOG_SUFFIX 2>&1
-            
+
             ( $APP_RUN "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
         else
             #$APP_RUN "$@" > log.$LOG_SUFFIX 2>&1
@@ -101,7 +101,7 @@ runApplication()
     fi
 }
 
-runParallel()
+runParallel_()
 {
     APP_RUN=
     LOG_IGNORE=false
@@ -227,23 +227,23 @@ logHeader()
     #strStart=$(echo ${strStart} | cut -f1 -d'.')
     #strStart=$(( $headerMid - $strStart ))
     #strEnd=$(( $strStart + $strLen ))
-    
+
     header="\n"
-    
+
     i=0
     while [ $i -lt $numChars ]; do
         header="${header}\u2014"
         i=$[$i+1]
     done
- 
+
     header="${header}\n${timeStamp} -------- ${1}\n"
 
-    j=0 
+    j=0
     while [ $j -lt $numChars ]; do
         header="${header}\u2014"
         j=$[$j+1]
     done
-    
+
     #while [ $i -lt $numChars ]; do
     #    if [ $i -eq $strStart ]; then
     #        header="${header}${1}"
@@ -253,9 +253,9 @@ logHeader()
     #    fi
     #    i=$[$i+1]
     #done
-    
+
     header="${header} \n"
-    
+
     echo -e ${header}
 }
 
@@ -263,9 +263,9 @@ getLatestTime()
 {
     timeDirs=$(ls -al | grep -E '^[0-9]+\.[0-9]+')
     timeDirs+=$(ls -al | grep -E '^[0-9]+')
-    
+
     latestTime=0
-    for time in ${timeDirs[@]} 
+    for time in ${timeDirs[@]}
     do
         if [ "$time" -gt "$latestTime" ]
         then
@@ -280,13 +280,29 @@ getLatestTime()
 # Accepts a single argument, which is the script to run
 runScript()
 {
-
 if ! ${1} $PWD; then
     echo "ERROR IN SCRIPT!: ${1}"
     logHeader "Exit with Error"
     exit 1
 fi
+}
 
+runApplication()
+{
+if ! runApplication_ ${1} $PWD; then
+    echo "ERROR IN APPLICATION!: ${1}"
+    logHeader "Exit with Error"
+    exit 1
+fi
+}
+
+runParallel()
+{
+if ! runParallel_ ${1} $PWD; then
+    echo "ERROR IN APPLICATION!: ${1}"
+    logHeader "Exit with Error"
+    exit 1
+fi
 }
 
 #------------------------------------------------------------------------------

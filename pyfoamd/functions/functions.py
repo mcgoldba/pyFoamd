@@ -127,13 +127,13 @@ def removeEntry(file, blockList, searchValues=False):
 
     print("Deleting entry '"+entryName+"' in file: "+file)
 
-    try:
-        start, stop = __ofDictFindBlockEntryStartStop(
-            file,
-            blockList,
-            searchValues=searchValues
-        )
-    except:
+    start, stop = __ofDictFindBlockEntryStartStop(
+        file,
+        blockList,
+        searchValues=searchValues
+    )
+
+    if any([s is None for s in [start,stop]]):
         print("\tBlock entry '"+entryName+"' not found.  Nothing to delete.")
         return None
 
@@ -147,7 +147,8 @@ def removeEntry(file, blockList, searchValues=False):
     if start>= stop:
         print("\tNo lines to delete.")
     else:
-        print("\tDeleting values for block '"+entryName+"', between lines "+str(start+1)+" and "+str(stop)+".")
+        print("\tDeleting values for block '"+entryName+"', between lines "\
+              +str(start+1)+" and "+str(stop)+".")
         #- delete lines in file
         with open(file, 'r+') as new:
             lines = new.readlines()
@@ -284,7 +285,7 @@ def __appendBlockEntryWithBlockName(
     copyfile(file, file+"_old")
 
     start, stop = __ofDictFindBlockEntryStartStop(
-        ofValue.location + ofValue.filename,
+        os.path.join(ofValue.location, ofValue.filename),
         blockList,
         searchValues=searchValues
     )
@@ -297,9 +298,13 @@ def __appendBlockEntryWithBlockName(
         stop+=1
 
     if hasattr(ofValue, 'name') is True and ofValue.name is not None:
-        print("Appending entry '"+ofValue.name+"' into block "+blockList[len(blockList)-1]+" at line "+str(stop)+" of file: "+ofValue.location + ofValue.filename)
+        print("Appending entry '"+ofValue.name+"' into block "
+              +blockList[len(blockList)-1]+" at line "+str(stop)+
+              " of file: "+str(os.path.join(ofValue.location, ofValue.filename)))
     else:
-        print("Appending unnamed entry into block "+blockList[len(blockList)-1]+" at line "+str(stop)+" of file: "+ofValue.location + ofValue.filename)
+        print("Appending unnamed entry into block "+blockList[len(blockList)-1]+
+              " at line "+str(stop)+" of file: "+
+              str(os.path.join(ofValue.location, ofValue.filename)))
 
     try:
         with open(file+"_old") as old, open(file, "w") as new:
@@ -481,7 +486,8 @@ def __appendBlockEntryWithLineNum(
 
     copyfile(file, file+"_old")
     printName = ofValue.name or ""
-    print("Appending block '"+str(printName)+"' at line number "+str(lineNum)+" of file: "+os.path.join(ofValue.location, ofValue.filename))
+    print("Appending block '"+str(printName)+"' at line number "+str(lineNum)+
+          " of file: "+os.path.join(ofValue.location, ofValue.filename))
 
     try:
         with open(file+"_old") as old, open(file, "w") as new:

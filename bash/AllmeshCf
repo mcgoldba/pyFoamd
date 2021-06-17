@@ -43,11 +43,18 @@ then
 
     #./copyProcessorFields
 
-    runApplication reconstructPar -latestTime -withZero -constant
+    #runApplication reconstructPar -latestTime -withZero -constant
+    runApplication reconstructPar -latestTime
 
     rm -rf processor*/
 
     decomposed=false
+
+    if [ "$topoSet" = true ]
+    then
+        runApplication -suffix "serial" topoSet
+    fi
+
 
 fi
 

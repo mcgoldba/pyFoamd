@@ -18,7 +18,7 @@ exec >> Log
 # as a separate stream - I did not want to steal from him by simply
 # adding his answer to mine.
 # exec | 2> /dev/stderr
-exec || (>&2 echo "Command returned an error!"; logHeader "END ON ERROR")
+#exec || (>&2 echo "Command returned an error!"; logHeader "END ON ERROR")
 
 # Find the scripts to call.  Try to locate in case directory, otherwise use default pyFoamd files
 for script in Allrun Allmesh AllmeshCf postProcess reconstructMesh
@@ -32,7 +32,7 @@ done
 
 # Source tutorial run functions
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-. $SCRIPT_DIR/../RunFunctions #Prints log to stdout AND the log.* file
+. $SCRIPT_DIR/../bash/RunFunctions #Prints log to stdout AND the log.* file
 . $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
 
 
@@ -175,7 +175,7 @@ then
   then
       runApplication decomposePar
   fi
-  
+
   $runCommand $(getApplication)
 
 else
