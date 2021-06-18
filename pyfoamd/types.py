@@ -118,6 +118,11 @@ class _ofStrBase(_ofIntBase):
     value: str = None
 
 @dataclass
+class _ofIncludeBase(_ofDictFileBase):
+    _name: str="#include"
+    value: str = None
+
+@dataclass
 class _ofBoolBase(_ofIntBase):
     name: str = None
     value: bool = None
@@ -352,3 +357,25 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
 
     def __str__(self):
         return self.asString().rstrip(';\n')
+
+@dataclass
+class ofInclude(ofDictFile, _ofIncludeBase):
+    def asString(self) -> str:
+        return printNameStr(self._name)+'"'+str(self.value)+'"\n'
+
+    def __str__(self):
+        return self.asString().rstrip('\n')
+
+TYPE_REGISTRY.append(ofInclude)
+
+@dataclass
+class ofIncludeEtc(ofInclude):
+    _name: str = "#includeEtc"
+
+TYPE_REGISTRY.append(ofIncludeEtc)
+
+@dataclass
+class ofIncludeFunc(ofInclude):
+    _name: str = "#includeFunc"
+
+TYPE_REGISTRY.append(ofIncludeFunc)
