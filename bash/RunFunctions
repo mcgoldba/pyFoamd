@@ -305,4 +305,25 @@ if ! runParallel_ ${1} $PWD; then
 fi
 }
 
+isDecomposed()
+{
+
+  reconstructedTime = getLatestTime()
+
+  if [ -d "processor*" ]
+  then
+    decomposedTime=$(cd processor0 && getLatestTime)
+    if [ $decomposedTime -ge $reconstructedTime ]
+    then
+      echo "Case is decomposed."
+      return true
+    else
+      echo "Case is decomposed but behind the reconstructed state."
+      return false
+  fi
+
+  echo "Case is not decomposed."
+  return false
+}
+
 #------------------------------------------------------------------------------
