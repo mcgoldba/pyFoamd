@@ -13,5 +13,9 @@ runApplication reconstructParMesh -mergeTol 1E-06 -constant
 # Reconstruct mesh for a simulation that has been run
 runApplication reconstructPar -latestTime -withZero -constant
 
-runApplication foamToVTK -latestTime
+if [ "$(isDecomposed)" = "true" ]
+then
+    rm -rf processor*
+fi
+
 #------------------------------------------------------------------------------

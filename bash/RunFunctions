@@ -264,7 +264,8 @@ getLatestTime()
     timeDirs=$(ls -al | grep -E '^[0-9]+\.[0-9]+')
     timeDirs+=$(ls -al | grep -E '^[0-9]+')
 
-    latestTime=0
+    declare -i latestTime=0
+
     for time in ${timeDirs[@]}
     do
         if [ "$time" -gt "$latestTime" ]
@@ -273,7 +274,7 @@ getLatestTime()
         fi
     done
 
-    $latestTime
+    echo $latestTime
 }
 
 # Script run function to pass PWD and catch errors
@@ -308,22 +309,64 @@ fi
 isDecomposed()
 {
 
-  reconstructedTime = getLatestTime()
+  reconstructedTime=$(getLatestTime)
 
-  if [ -d "processor*" ]
+  if [ -d "processor0" ]
   then
     decomposedTime=$(cd processor0 && getLatestTime)
-    if [ $decomposedTime -ge $reconstructedTime ]
+    if [ "$decomposedTime" -ge "$reconstructedTime" ]
     then
-      echo "Case is decomposed."
-      return true
+      #echo "Case is decomposed."
+      echo "true"
+      return
     else
       echo "Case is decomposed but behind the reconstructed state."
-      return false
+      #return 1 #false
+      return
+    fi
   fi
 
   echo "Case is not decomposed."
-  return false
+  #return 1 #false
+  return
+}
+
+
+isReconstructed()
+{
+
+  reconstructedTime=$(getLatestTime)
+
+  if [ -d "processor0" ]
+  then
+    decomposedTime=$(cd processor0 && getLatestTime)
+    if [ "$decomposedTime" -ge "$reconstructedTime" ]
+    then
+      echo "Case is decomposed."
+      #echo "true"
+      return
+    else
+      #echo "Case is decomposed but behind the reconstructed state."
+      echo "true"
+      return
+    fi
+  fi
+
+  
+  if [ "$reconstructedTime" -gt "0" ]
+  then
+      echo "true"
+      return
+  elif [ "$reconstructedTime" -eq "0"]
+    echo "true"
+    return
+  else
+    echo "Time directories not found!"
+    return
+  fi
+
+  echo "End of function"
+
 }
 
 #------------------------------------------------------------------------------

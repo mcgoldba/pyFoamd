@@ -11,4 +11,3 @@ pyfoamd/types.py
 pyfoamd/functions/__init__.py
 pyfoamd/functions/functions.py
 pyfoamd/functions/readDict.py
-pyfoamd/functions/readInputParameters.py
