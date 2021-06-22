@@ -26,7 +26,7 @@ do
     if [ -f "$script" ]; then
         eval "script$script='./$script'"
     else
-        eval "script$script='$0/../../bash/$script'"
+        eval "script$script='$(dirname "$0")/../bash/$script'"
     fi
 done
 
@@ -183,7 +183,7 @@ else
     then
         if [ "$cfMesh" = true ]
         then
-            . $scrptAllmeshCf $PWD
+            . $scriptAllmeshCf $PWD
         else
             . $scriptAllmesh $PWD
         fi

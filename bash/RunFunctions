@@ -358,6 +358,7 @@ isReconstructed()
       echo "true"
       return
   elif [ "$reconstructedTime" -eq "0"]
+  then
     echo "true"
     return
   else
