@@ -15,5 +15,9 @@ setup(
     author_email='mcgoldba@gmail.com',
     url='https://github.com/mcgoldba/pyFoamd',
     license=license,
-    packages=find_packages(exclude=('tests', 'docs'))
+    packages=find_packages(exclude=('tests', 'docs')),
+    install_requires=[
+        'pint',
+        'pandas'
+    ]
 )

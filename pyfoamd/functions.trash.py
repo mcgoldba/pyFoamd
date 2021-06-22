@@ -194,7 +194,7 @@ def removeBlockEntries(file, blockList, searchValues=False):
     return start # return the line where the block ends, so values can be
                  # written here with __ofDictAppendBlockEntryWithLineNum
 
-def readOFDictFile(file):
+def readDictFile(file):
 
     #from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
 
@@ -223,7 +223,7 @@ def readOFDictFile(file):
         }
         return switcher.get(status, __getOFDictReadLineType)
 
-def readInputParameters(filepath):
+def readInputs(filepath):
     """
     Reads a JSON formatted parameters file, while interpreting units and converting values to standard OpenFOAM units (i.e. SI).
 
@@ -251,7 +251,7 @@ def readInputParameters(filepath):
 
 def printInputParams(filepath='inputParameters'):
 
-    params = readInputParameters(filepath)
+    params = readInputs(filepath)
 
     print(params)
 

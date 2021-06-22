@@ -272,7 +272,7 @@ def _appendBlockEntryWithLineNum(
         copyfile(file+"_old", file)
         raise
 
-def _readOFDictFile(self, file):
+def _readDictFile(self, file):
 
     #- Function assumes:
     #   - All entries start on a new line
