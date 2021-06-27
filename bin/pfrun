@@ -10,7 +10,7 @@ set -euo pipefail
 #set -e pipefail
 
 # Redirect stdout ( > ) into a named pipe ( >() ) running "tee"
-exec >> Log
+exec >> Log 2>&1
 
 # Without this, only stdout would be captured - i.e. your
 # log file would not contain any error messages.
@@ -32,9 +32,8 @@ done
 
 # Source tutorial run functions
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-. $SCRIPT_DIR/../bash/RunFunctions #Prints log to stdout AND the log.* file
 . $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
-
+. $SCRIPT_DIR/../bash/RunFunctions #Prints log to stdout AND the log.* file
 
 logHeader "START"
 
@@ -183,25 +182,25 @@ else
     then
         if [ "$cfMesh" = true ]
         then
-            . $scriptAllmeshCf $PWD
+            . $scriptAllmeshCf
         else
-            . $scriptAllmesh $PWD
+            . $scriptAllmesh
         fi
     fi
 
     if [ "$runSim" = true ]
     then
-        . runScript $scriptAllrun
+        runScript $scriptAllrun
     fi
 
     if [ "$reconstructSim" = true ]
     then
-        . $scriptreconstructMesh $PWD
+        runScript $scriptreconstructMesh
     fi
 
     if [ "$postProcess" = true ]
     then
-        . $scriptpostProcess $PWD
+        runScript $scriptpostProcess
     fi
 fi
 

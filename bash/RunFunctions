@@ -91,12 +91,12 @@ runApplication_()
     else
         echo "Running $APP_RUN on $PWD"
         if [ "$LOG_APPEND" = "true" ]; then
-            #$APP_RUN "$@" >> log.$LOG_SUFFIX 2>&1
+            $APP_RUN "$@" >> log.$LOG_SUFFIX 2>&1
 
-            ( $APP_RUN "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
+            #( $APP_RUN "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
         else
-            #$APP_RUN "$@" > log.$LOG_SUFFIX 2>&1
-            ( $APP_RUN "$@" 2>&1 | tee log.$LOG_SUFFIX )
+            $APP_RUN "$@" > log.$LOG_SUFFIX 2>&1
+            #( $APP_RUN "$@" 2>&1 | tee log.$LOG_SUFFIX )
         fi
     fi
 }
@@ -145,11 +145,11 @@ runParallel_()
     else
         echo "Running $APP_RUN in parallel on $PWD using $nProcs processes"
         if [ "$LOG_APPEND" = "true" ]; then
-            #( mpirun -np $nProcs $APP_RUN -parallel "$@" < /dev/null >> log.$LOG_SUFFIX 2>&1 )
-            ( mpirun -np $nProcs $APP_RUN -parallel "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
+            ( mpirun -np $nProcs $APP_RUN -parallel "$@" < /dev/null >> log.$LOG_SUFFIX 2>&1 )
+            #( mpirun -np $nProcs $APP_RUN -parallel "$@" 2>&1 | tee -a log.$LOG_SUFFIX )
         else
-            #( mpirun -np $nProcs $APP_RUN -parallel "$@" < /dev/null > log.$LOG_SUFFIX 2>&1 )
-            ( mpirun -np $nProcs $APP_RUN -parallel "$@" 2>&1 | tee log.$LOG_SUFFIX )
+            ( mpirun -np $nProcs $APP_RUN -parallel "$@" < /dev/null > log.$LOG_SUFFIX 2>&1 )
+            #( mpirun -np $nProcs $APP_RUN -parallel "$@" 2>&1 | tee log.$LOG_SUFFIX )
         fi
     fi
 }
@@ -281,7 +281,7 @@ getLatestTime()
 # Accepts a single argument, which is the script to run
 runScript()
 {
-if ! ${1} $PWD; then
+if ! source ${1}; then
     echo "ERROR IN SCRIPT!: ${1}"
     logHeader "Exit with Error"
     exit 1
@@ -290,7 +290,7 @@ fi
 
 runApplication()
 {
-if ! runApplication_ ${1} $PWD; then
+if ! runApplication_ $@; then
     echo "ERROR IN APPLICATION!: ${1}"
     logHeader "Exit with Error"
     exit 1
@@ -299,7 +299,7 @@ fi
 
 runParallel()
 {
-if ! runParallel_ ${1} $PWD; then
+if ! runParallel_ $@; then
     echo "ERROR IN APPLICATION!: ${1}"
     logHeader "Exit with Error"
     exit 1
