@@ -24,7 +24,7 @@ exec >> Log 2>&1
 for script in Allrun Allmesh AllmeshCf postProcess reconstructMesh
 do
     if [ -f "$script" ]; then
-        eval "script$script='./$script'"
+        eval "script$script='${PWD}/$script'"
     else
         eval "script$script='$(dirname "$0")/../bash/$script'"
     fi
@@ -182,9 +182,9 @@ else
     then
         if [ "$cfMesh" = true ]
         then
-            . $scriptAllmeshCf
+            runScript $scriptAllmeshCf
         else
-            . $scriptAllmesh
+            runScript $scriptAllmesh
         fi
     fi
 

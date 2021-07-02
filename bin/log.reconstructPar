@@ -6,11 +6,11 @@
      \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/
 Build  : 7-33cfa1319873
-Exec   : decomposePar -constant -latestTime
-Date   : Jun 15 2021
-Time   : 14:54:06
+Exec   : reconstructPar -latestTime -withZero -constant
+Date   : Jun 30 2021
+Time   : 12:12:39
 Host   : "USCLT1WK1P8MHH2"
-PID    : 418350
+PID    : 4146962
 I/O    : uncollated
 Case   : /home/mgoldbach/python/pyFoamd/bin
 nProcs : 1

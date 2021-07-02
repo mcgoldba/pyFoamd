@@ -10,8 +10,8 @@ exec >> Log
 
 # Source tutorial run functions
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-. $SCRIPT_DIR/../bash/RunFunctions #Prints log to stdout AND the log.* file
 . $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
+. $SCRIPT_DIR/../bash/RunFunctions #Prints log to stdout AND the log.* file
 
 
 logHeader "START"
