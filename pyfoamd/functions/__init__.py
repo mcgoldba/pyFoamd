@@ -4,6 +4,9 @@ import sys
 if  sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported.')
 
+global DEBUG
+DEBUG = False
+
 from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
 
 import os
@@ -43,24 +46,11 @@ from .isReconstructed import isReconstructed
 from .isMeshed import isMeshed
 from .cleanDictFile import cleanDictFile
 from .readDictFile import readDictFile
+from .isCase import isCase
+from .listCases import listCases
 
 
-from rich import print
-import logging
-from rich.logging import RichHandler
-
-FORMAT = "%(message)s"
-logging.basicConfig(
-        level="NOTSET",
-        format=FORMAT,
-        datefmt="[%X]",
-        handlers=[RichHandler(rich_tracebacks=True)]
-)
-
-log = logging.getLogger("rich")
-
-from rich.traceback import install
-install()
+#from richinclude import *
 
 #Define padding for blockMeshDict
 PAD = 1 / 12 / 3.281 # 1 inch
