@@ -1,3 +1,8 @@
+import os
+
+from .private.dictUtil import _ofDictFindBlockEntryStartStop, _appendBlockEntryWithLineNum
+
+
 def removeEntry(file, blockList, searchValues=False):
     #- Removes lists or dicts in an OpenFOAM dictionary that are split between
     #   many lines.

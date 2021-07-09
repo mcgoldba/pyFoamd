@@ -138,7 +138,8 @@ case "$1" in
         shift
         ;;
     -*|--*)
-        echo "Invalid option $OPTARG" 1>&2
+        echo "Invalid option $1" >&2
+
         exit 1
         ;;
     *)

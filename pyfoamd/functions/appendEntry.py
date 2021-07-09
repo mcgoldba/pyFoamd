@@ -1,3 +1,7 @@
+import os
+
+from .private.dictUtil import _appendBlockEntryWithLineNum, _appendBlockEntryWithBlockName, _findEndOfHeader, _findEndOfDict
+
 def appendEntry(value, blockList=None, lineNum=None, searchValues=False,
                 insert=False, whitespace=False):
     """

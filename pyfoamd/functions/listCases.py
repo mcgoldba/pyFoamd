@@ -4,9 +4,10 @@ import re
 
 from .isCase import isCase
 
+from pyfoamd.config import DEBUG
 DEBUG=False
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 def listCases(path=os.getcwd(), absolutePath=False):
     if isCase(path): #is the root directory an OpenFOAM case?

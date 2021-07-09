@@ -330,16 +330,14 @@ class ofVector(_ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofVectorBase):
         return self.asString()
 
 @dataclass
-class _ofNamedVectorBase(_ofFloatBase, _ofVectorBase):
-    pass
-    #value: ofVector
+class _ofNamedVectorBase(_ofVectorBase):
+    name: str = None
 
 @dataclass
-class ofNamedVector( _ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofNamedVectorBase):
+class ofNamedVector(_ofDictFileDefaultsBase, _ofVectorDefaultsBase, _ofNamedVectorBase):
 
 
     def asString(self) -> str:
-        print(self.value)
         return printNameStr(self.name)+self.valueStr+";\n"
 
     def __str__(self):

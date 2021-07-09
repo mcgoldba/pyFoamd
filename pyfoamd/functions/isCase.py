@@ -1,6 +1,6 @@
 import os
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 def isCase(path=os.getcwd()):
     isCase = False
