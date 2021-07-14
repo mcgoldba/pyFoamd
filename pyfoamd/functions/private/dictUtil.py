@@ -245,7 +245,9 @@ def _appendBlockEntryWithLineNum(
     open(file)
 
     copyfile(file, file+"_old")
+    
     printName = ofValue.name or ""
+    
     if verbose:
         print("Appending block '"+str(printName)+"' at line number "+str(lineNum)+
               " of file: "+os.path.join(ofValue.location, ofValue.filename))
@@ -273,6 +275,7 @@ def _appendBlockEntryWithLineNum(
                     new.write(line)
                 else:
                     new.write(line)
+        os.remove(file+"_old")
     except:
         copyfile(file+"_old", file)
         raise
