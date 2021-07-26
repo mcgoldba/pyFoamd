@@ -70,7 +70,7 @@ $runCommand patchSummary -latestTime
 
 #$runCommand -a checkMesh
 
-$runCommand potentialFoam
+#$runCommand potentialFoam
 $runCommand $(getApplication)
 
 #if [ $# -gt 2 ];

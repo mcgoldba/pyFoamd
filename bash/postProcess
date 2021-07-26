@@ -1,0 +1,64 @@
+#!/bin/sh
+#cd ${0%/*} || exit 1    # Run from this directory
+
+# Source tutorial run functions
+#. $WM_PROJECT_USER_DIR/XylemFoam/tools/RunFunctions #Prints log to stdout AND the log.* file
+#. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+#- Do NOT abort the script on error
+set +x
+
+logHeader "START 'postProcess'"
+
+#- Extract the RAVD and swirlAngle surfaces from the simulation
+
+#-- Update the function object specification
+
+#--- Get the list of RAVD monitors
+#mapfile -t ravdObjects < <( foamDictionary system/RAVD -keywords )
+IFS=$'\n' read -r -d '' -a ravdObjects < <( foamDictionary system/RAVD -keywords && printf '\0' )
+
+
+for obj in "${ravdObjects[@]}"
+do
+    foamDictionary -entry "$obj.writeFields" -set "true" system/RAVD 
+done
+
+#--- Get the list of swirl monitors
+#mapfile -t swirlObjects < <( foamDictionary system/swirlAngle -keywords )
+IFS=$'\n' read -r -d '' -a swirlObjects < <( foamDictionary system/swirlAngle -keywords && printf '\0' )
+
+for obj in "${swirlObjects[@]}"
+do
+    foamDictionary -entry "$obj.writeFields" -set "true" system/swirlAngle
+done
+
+if [ "$decomposed" == true ]
+then 
+
+    runParallel -s postProcess $(getApplication) -postProcess -latestTime
+
+    # Reconstruct mesh for a simulation that has been run
+    runApplication -o reconstructPar -latestTime -withZero -constant
+else 
+    runApplication -s postProcess $(getApplication) -postProcess -latestTime
+fi
+
+#- Revert the function object dictionaries back to their original state
+#foamDictionary -entry "*.writeFields" -set "false" system/RAVD 
+for obj in "${ravdObjects[@]}"
+do
+    foamDictionary -entry "$obj.writeFields" -set "false" system/RAVD 
+done
+
+for obj in "${swirlObjects[@]}"
+do
+    foamDictionary -entry "$obj.writeFields" -set "false" system/swirlAngle
+done
+
+
+#- Convert the results to VTK format
+
+runApplication foamToVTK -latestTime
+
+#------------------------------------------------------------------------------

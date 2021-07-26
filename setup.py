@@ -16,6 +16,7 @@ setup(
     url='https://github.com/mcgoldba/pyFoamd',
     license=license,
     packages=find_packages(exclude=('tests', 'docs')),
+    python_requires='>=3.7',
     install_requires=[
         'pint',
         'pandas'

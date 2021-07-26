@@ -1,4 +1,4 @@
-Metadata-Version: 1.0
+Metadata-Version: 1.2
 Name: pyFoamd
 Version: 0.1.0
 Summary: Pythonic interface for OpenFOAM dictionaries and case files.
@@ -684,3 +684,4 @@ Description: # pyFoamd
         Pythonic modification OpenFOAM of dictionaries and case files.
         
 Platform: UNKNOWN
+Requires-Python: >=3.7
