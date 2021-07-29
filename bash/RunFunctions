@@ -300,6 +300,7 @@ fi
 runParallel()
 {
 if ! runParallel_ $@; then
+    mv log.${1} log.${1}.error
     echo "ERROR IN APPLICATION!: ${1}"
     logHeader "Exit with Error"
     exit 1

@@ -39,6 +39,7 @@ from .removeEntry import removeEntry
 from .removeBlockEntries import removeBlockEntries
 from .readDictFile import readDictFile
 from .readInputs import readInputs
+from .writeParams import writeParams
 from .printInputs import printInputs
 from .cleanDictFile import cleanDictFile
 from .isDecomposed import isDecomposed
@@ -48,6 +49,7 @@ from .cleanDictFile import cleanDictFile
 from .readDictFile import readDictFile
 from .isCase import isCase
 from .listCases import listCases
+from .monitor import monitor
 
 
 #from richinclude import *

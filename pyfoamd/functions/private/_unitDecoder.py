@@ -19,26 +19,28 @@ def _unitDecoder(dct):
     ###- Helper function 1
     def _decodeUnits(v):
         if isinstance(v, str):
-            vList = v.split(" ")
-            if len(vList) >= 2:
-                try:
-                    mag = float(vList[0])
-                except:
-                    #continue
-                    return v
-                try:
-                    unit = (" ".join(vList[1:]))
-                    #log.debug("trying unit conversion on "+str(v)+"...")
-                    unit = ureg(unit)
-                except:
-                    unit = ureg(unit)
-                    #log.debug("Failed.")
-                    #continue
-                    return v
-                #log.debug("Success.")
-                v = mag*unit
-                return v.to_base_units().magnitude
-            else:
+            try:
+                return ureg(v).to_base_units().magnitude
+            #vList = v.split(" ")
+            #if len(vList) >= 2:
+            #    try:
+            #        mag = float(vList[0])
+            #    except:
+            #        #continue
+            #        return v
+            #    try:
+            #        unit = (" ".join(vList[1:]))
+            #        #log.debug("trying unit conversion on "+str(v)+"...")
+            #        unit = ureg(unit)
+            #    except:
+            #        unit = ureg(unit)
+            #        #log.debug("Failed.")
+            #        #continue
+            #        return v
+            #    #log.debug("Success.")
+            #    v = mag*unit
+            #    return v.to_base_units().magnitude
+            except:
                 return v
         else:
             return v
