@@ -33,7 +33,8 @@ do
     foamDictionary -entry "$obj.writeFields" -set "true" system/swirlAngle
 done
 
-if [ "$decomposed" == true ]
+#if [ "$decomposed" == true ]
+if [ "$(isDecomposed)" == "true" ]
 then 
 
     runParallel -s postProcess $(getApplication) -postProcess -latestTime
