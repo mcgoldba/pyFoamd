@@ -291,7 +291,8 @@ fi
 runApplication()
 {
 if ! runApplication_ $@; then
-    echo "ERROR IN APPLICATION!: ${1}"
+    mv log.${APP_NAME} log.${APP_NAME}.error
+    echo "ERROR IN APPLICATION!: $APP_NAME"
     logHeader "Exit with Error"
     exit 1
 fi
@@ -300,8 +301,8 @@ fi
 runParallel()
 {
 if ! runParallel_ $@; then
-    mv log.${1} log.${1}.error
-    echo "ERROR IN APPLICATION!: ${1}"
+    mv log.${APP_NAME} log.${APP_NAME}.error
+    echo "ERROR IN APPLICATION!: $APP_NAME"
     logHeader "Exit with Error"
     exit 1
 fi
@@ -369,6 +370,17 @@ isReconstructed()
 
   echo "End of function"
 
+}
+
+isCase()
+{
+    isCase="true"
+    foamDictionary system/fvSchemes &> /dev/null || isCase="false"
+    foamDictionary system/fvSolution &> /dev/null || isCase="false"
+
+    foamDictionary system/controlDict &> /dev/null || isCase="false"
+
+    echo "$isCase"
 }
 
 #------------------------------------------------------------------------------

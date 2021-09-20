@@ -45,7 +45,7 @@ logHeader "START 'Allrun'"
 #  fi
 #fi
 
-if [ "$runCommand" = "runParallel" ] && [ "$decomposed" = "false" ];
+if [ "$runCommand" = "runParallel" ] && [ "$(isDecomposed)" != "true" ];
 #if restarting a decomposed case in parallel, do nothing
 then
     #start a simulation in parallel from a new mesh
@@ -55,7 +55,7 @@ then
     else
       runApplication decomposePar -constant -latestTime
     fi
-elif [ "$runCommand" = "runApplication" ] && [ "$decomposed" = "true" ];
+elif [ "$runCommand" = "runApplication" ] && [ "$(isDecomposed)" = "true" ];
 #restart a decomposed case on a single processor, assume at least 1 iteration is performed
 then
     runApplication reconstructPar -latestTime -withZero

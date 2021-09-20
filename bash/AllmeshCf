@@ -24,6 +24,8 @@ fi
 
 i=0
 
+  $runCommand -suffix initial -overwrite checkMesh
+
 while [ $i -lt $nImproveCycles ]
 do
   $runCommand -suffix $i improveMeshQuality
@@ -35,7 +37,7 @@ do
 done
 
 #./checkMesh
-$runCommand -suffix "final" checkMesh -writeSets vtk
+$runCommand -suffix "final" -overwrite checkMesh -writeSets vtk
 
 if [ "$runCommand" = "runParallel" ];
 then
