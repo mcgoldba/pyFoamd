@@ -52,6 +52,8 @@ from .readDictFile import readDictFile
 from .isCase import isCase
 from .listCases import listCases
 from .monitor import monitor
+from .writeConfig import writeConfig
+from .readConfig import readConfig
 
 
 #from richinclude import *
