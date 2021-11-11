@@ -19,43 +19,43 @@ logHeader "START 'postProcess'"
 IFS=$'\n' read -r -d '' -a ravdObjects < <( foamDictionary system/RAVD -keywords && printf '\0' )
 
 
-for obj in "${ravdObjects[@]}"
-do
-    foamDictionary -entry "$obj.writeFields" -set "true" system/RAVD 
-done
+# for obj in "${ravdObjects[@]}"
+# do
+#     foamDictionary -entry "$obj.writeFields" -set "true" system/RAVD
+# done
 
 #--- Get the list of swirl monitors
 #mapfile -t swirlObjects < <( foamDictionary system/swirlAngle -keywords )
 IFS=$'\n' read -r -d '' -a swirlObjects < <( foamDictionary system/swirlAngle -keywords && printf '\0' )
 
-for obj in "${swirlObjects[@]}"
-do
-    foamDictionary -entry "$obj.writeFields" -set "true" system/swirlAngle
-done
+# for obj in "${swirlObjects[@]}"
+# do
+#     foamDictionary -entry "$obj.writeFields" -set "true" system/swirlAngle
+# done
 
 #if [ "$decomposed" == true ]
 if [ "$(isDecomposed)" == "true" ]
-then 
+then
 
     runParallel -s postProcess $(getApplication) -postProcess -latestTime
 
     # Reconstruct mesh for a simulation that has been run
     runApplication -o reconstructPar -latestTime -withZero -constant
-else 
+else
     runApplication -s postProcess $(getApplication) -postProcess -latestTime
 fi
 
 #- Revert the function object dictionaries back to their original state
-#foamDictionary -entry "*.writeFields" -set "false" system/RAVD 
-for obj in "${ravdObjects[@]}"
-do
-    foamDictionary -entry "$obj.writeFields" -set "false" system/RAVD 
-done
-
-for obj in "${swirlObjects[@]}"
-do
-    foamDictionary -entry "$obj.writeFields" -set "false" system/swirlAngle
-done
+#foamDictionary -entry "*.writeFields" -set "false" system/RAVD
+# for obj in "${ravdObjects[@]}"
+# do
+#     foamDictionary -entry "$obj.writeFields" -set "false" system/RAVD
+# done
+#
+# for obj in "${swirlObjects[@]}"
+# do
+#     foamDictionary -entry "$obj.writeFields" -set "false" system/swirlAngle
+# done
 
 
 #- Convert the results to VTK format

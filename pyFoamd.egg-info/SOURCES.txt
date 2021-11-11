@@ -21,9 +21,11 @@ pyfoamd/functions/isReconstructed.py
 pyfoamd/functions/listCases.py
 pyfoamd/functions/monitor.py
 pyfoamd/functions/printInputs.py
+pyfoamd/functions/readConfig.py
 pyfoamd/functions/readDictFile.py
 pyfoamd/functions/readInputs.py
 pyfoamd/functions/removeBlockEntries.py
 pyfoamd/functions/removeEntry.py
 pyfoamd/functions/replaceEntry.py
+pyfoamd/functions/writeConfig.py
 pyfoamd/functions/writeParams.py

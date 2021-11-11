@@ -64,7 +64,7 @@ case "$1" in
             then
                 break
             else
-                supplementalCommands+=$1
+                supplementalCommands+=("$1")
                 shift 1
             fi
         done
@@ -79,8 +79,6 @@ case "$1" in
         exit 1
 esac
 done
-
-
 
 for dir in postProcessing/*/
 do
@@ -119,7 +117,7 @@ fi
 foamMonitor -l "$file" &> /dev/null & \
 # foamMonitor  postProcessing/probes/"$startTime"/U & \
 # foamMonitor  postProcessing/probes/"$startTime"/p &
-pfmonitorvector U &> /dev/null & 
+pfmonitorvector U &> /dev/null &
 #set terminal x11 1
 #gnuplot -p ravdMonitors &> /dev/null &
 # set terminal x11 2
@@ -127,8 +125,6 @@ pfmonitorvector U &> /dev/null &
 
 # x11 terminal number
 nwin=1
-
-#echo "$supplementalCommands"
 
 for command in ${supplementalCommands[@]}
 do

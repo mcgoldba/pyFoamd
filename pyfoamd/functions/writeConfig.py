@@ -2,7 +2,7 @@ import json
 import os
 
 
-def writeConfig(entry, file="xcfd.json"):
+def writeConfig(entry, file="config.json"):
     """
     Writes a value to the specified configuration file.  If the specified key is already defined, the value is appended.
 
@@ -12,7 +12,7 @@ def writeConfig(entry, file="xcfd.json"):
     entry : dict
         The dictionary entries to add to the config file
 
-    file : str 
+    file : str
         The ini file to write the data in.
 
     """
@@ -20,15 +20,15 @@ def writeConfig(entry, file="xcfd.json"):
     if file[-5:] != ".json":
         file = file+".json"
 
-    filepath = os.path.join(".xcfd", file)
+    filepath = os.path.join(".pyfoamd", file)
 
     config = {}
 
     #convert the entry to string
     #entry = {str(key): str(value) for key, value in entry.items()}
 
-    if os.path.isdir(".xcfd") is False:
-        os.mkdir(".xcfd")
+    if os.path.isdir(".pyfoamd") is False:
+        os.mkdir(".pyfoamd")
     if os.path.isfile(filepath) is False:
         config = entry
     else:
@@ -36,7 +36,7 @@ def writeConfig(entry, file="xcfd.json"):
         # Make sure existing key values are not overwritten
         #for key in entry:
         #    if key in config:
-        #        if any(isinstance(config[key], type_) for type_ 
+        #        if any(isinstance(config[key], type_) for type_
         #               in [list, dict]):
         #            config[key].append(entry[key])
         #        else:
@@ -46,6 +46,6 @@ def writeConfig(entry, file="xcfd.json"):
 
         # Values will be overwritten if they already exist in config
         config.update(entry)
- 
+
     with open(filepath, 'w') as configfile:
         json.dump(config, configfile)

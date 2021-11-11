@@ -2,10 +2,10 @@ import json
 import os
 import sys
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 #TODO:  Should this replace the inputParameters file?
-def readConfig(key, file="xcfdv.json"):
+def readConfig(key=None, file="xcfd.json"):
     """
     Reads a value to the specified configuration file.
 
@@ -15,7 +15,7 @@ def readConfig(key, file="xcfdv.json"):
     key : str
         The dictionary entries to read from the config file
 
-    file : str 
+    file : str
         The ini file to write the data in.
 
     """
@@ -23,7 +23,7 @@ def readConfig(key, file="xcfdv.json"):
     if file[-5:] != ".json":
         file = file+".json"
 
-    filepath = os.path.join(".xcfd", file)
+    filepath = os.path.join(".pyfoamd", file)
 
     config = {}
 
@@ -31,8 +31,19 @@ def readConfig(key, file="xcfdv.json"):
     #entry = {str(key): str(value) for key, value in entry.items()}
 
     if os.path.isfile(filepath) is False:
-        log.error("Config file not found!:\n"+filepath)
-        sys.exit()
+        log.warning("Config file not found!:\n"+filepath)
+        return None
     else:
         config = json.load(open(filepath))
-        return config[key]
+        if key:
+            if key in config:
+                return config[key]
+            else:
+                keyStr = ""
+                for k in config.keys():
+                    keyStr+= k+', '
+                keyStr = keyStr[:-2]+"."
+                log.warning("Key '"+str(key)+"' not found in file.  Found keys "/
+                "are: "+keyStr)
+        else:
+            return config

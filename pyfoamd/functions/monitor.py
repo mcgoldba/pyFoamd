@@ -1,12 +1,13 @@
 import subprocess
 import sys
+import os
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 log.setLevel(logging.DEBUG)
 
-def monitor(time=None, supplement=None):
-    
+def monitor(time=None, supplement=None, workingDir=os.getcwd()):
+
     commands = ['pfmonitor']
     if time: commands.append(['-t', str(time)])
     if supplement:
@@ -16,7 +17,6 @@ def monitor(time=None, supplement=None):
 
     log.debug("commands: "+str(commands))
     try:
-        subprocess.run(commands)
+        subprocess.run(commands, cwd=workingDir)
     except KeyboardInterrupt:
         sys.exit(0)
-

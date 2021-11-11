@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import sys
 import re
 
@@ -9,24 +9,19 @@ DEBUG=False
 
 from pyfoamd.richinclude import *
 
-def listCases(path=os.getcwd(), absolutePath=False):
+def listCases(path=Path.cwd(), absolutePath=False):
     if isCase(path): #is the root directory an OpenFOAM case?
         if absolutePath:
-            return [path]
+            return [Path]
         else:
-            return ['.']
+            return [Path.relative_to(path)]
 
     cases = []
 
-    for root, subFolders, _ in os.walk(path):
-        for subFolder in subFolders:
-            if isCase(os.path.join(root, subFolder)):
-                log.debug(str(subFolder)+" is an OpenFOAM case.")
-                log.debug("root: "+str(root))
-                log.debug("subFolder: "+str(subFolder))
-                if absolutePath:
-                    cases.append(os.path.join(root, subFolder))
-                else:
-                    relPath = root.replace(path, "")
-                    cases.append(os.path.join(relPath, subFolder))
+    for p in path.rglob('*'):
+        if isCase(p):
+            if absolutePath:
+                cases.append(p)
+            else:
+                cases.append(p.relative_to(path))
     return cases

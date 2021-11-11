@@ -3,7 +3,7 @@ import pandas as pd
 from copy import deepcopy
 from pyfoamd.types import TAB_SIZE
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 log.setLevel(logging.DEBUG)
 

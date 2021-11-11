@@ -4,7 +4,9 @@ import pandas as pd
 
 from.private._unitDecoder import _unitDecoder
 
-from richinclude import *
+from pyfoamd.richinclude import *
+
+
 
 def readInputs(filepath=os.path.join(os.getcwd(), 'inputParameters')):
     """
@@ -26,29 +28,27 @@ def readInputs(filepath=os.path.join(os.getcwd(), 'inputParameters')):
 
     #- Convert (dict or list) of dicts to Pandas dataframe
     for param in params.keys():
-        log.debug(param)
         if any(isinstance(params[param], type_) for type_ in [dict, list]):
             items = list(params[param])
             if len(items) > 0 and all([isinstance(item, dict) for item in params[param]]):
                 df = pd.DataFrame(params[param])
                 df = df.set_index(df.columns[0])
-                
-                log.debug(df)
+
                 #for column in params[param].keys():
 
                 #    indicesCheck = params[params.columns[0]].keys()
                 #    indices = params[param][column].keys()
-                #    log.debug(indices)
+                #    logger.debug(indices)
                 #    if indices != indicesCheck:
                 #        log.error("Inputs file has invalid format. Dataframe indices are not consistent for column'"+param+"'.")
 
                 #    columnList = []
                 #    for index in list(indices):
                 #        columnList.append(params[param][index])
-                #        log.debug(columnList)
+                #        logger.debug(columnList)
                 #
                 #    df = df.append(pd.DataFrame(columnList, index=list(indices), columns=[param]))
-                #log.debug(df)
+                #logger.debug(df)
                 params[param] = df
 
 

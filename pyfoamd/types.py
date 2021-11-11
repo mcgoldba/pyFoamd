@@ -35,7 +35,7 @@ def _populateRegistry(path):
 
 @dataclass
 class CaseDirectory:
-    location: Path = field(default=Path('.').resolve())
+    location: Path = field(default=Path.cwd())
     registry: list = _populateRegistry(location)
 
 

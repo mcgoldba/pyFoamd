@@ -25,7 +25,7 @@ for script in Allrun Allmesh AllmeshCf postProcess reconstructMesh
 do
     if [ -f "$script" ]; then
         cp ${PWD}/$script /tmp/$script
-        sed -i -e 's/cd ${0%/*}//g' /tmp/$script
+        sed -i -e 's@cd ${0%/*}@@g' /tmp/$script
         eval "script$script='/tmp/$script'"
     else
         eval "script$script='$(dirname "$0")/../bash/$script'"
@@ -168,16 +168,16 @@ promptUser () {
 }
 
 runDecompose () {
-    if [ -f log.decomposePar ]; 
+    if [ -f log.decomposePar ];
     then
         promptUser "decomposePar log already exists. Overwrite?" "rm -f log.decomposePar"
     fi
     if [ -d processor0 ];
     then
-        promptUser "Case is already decomposed.  Remove existing case?" "promptUser 'Are you sure?  Simulation data will be deleted' 'rm -rf processor*'" 
+        promptUser "Case is already decomposed.  Remove existing case?" "promptUser 'Are you sure?  Simulation data will be deleted' 'rm -rf processor*'"
     fi
 
-    runApplication decomposePar 
+    runApplication decomposePar
 }
 
 
