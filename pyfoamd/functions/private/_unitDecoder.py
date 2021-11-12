@@ -14,7 +14,7 @@ def _unitDecoder(dct):
         The parsed Python dictionary with converted units
     """
 
-    ureg = UnitRegistry(system='SI')
+    ureg = UnitRegistry()
 
     ###- Helper function 1
     def _decodeUnits(v):
