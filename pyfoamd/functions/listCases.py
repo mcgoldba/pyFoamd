@@ -12,9 +12,9 @@ from pyfoamd.richinclude import *
 def listCases(path=Path.cwd(), absolutePath=False):
     if isCase(path): #is the root directory an OpenFOAM case?
         if absolutePath:
-            return [Path]
+            return [path]
         else:
-            return [Path.relative_to(path)]
+            return [path.relative_to(Path.cwd())]
 
     cases = []
 
