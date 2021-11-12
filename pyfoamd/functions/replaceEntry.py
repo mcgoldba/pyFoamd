@@ -1,3 +1,8 @@
+import os
+from shutil import copyfile
+
+from .private.dictUtil import _replaceStringEntry, _replaceSingleLineEntry
+
 def replaceEntry(ofValue, rType='singleLine', silent=False):
     #- Base function for ofDict replacements
     #- rType = Replacement type.  One of:  ['string', 'singleLine']

@@ -6,6 +6,7 @@ pyFoamd.egg-info/dependency_links.txt
 pyFoamd.egg-info/requires.txt
 pyFoamd.egg-info/top_level.txt
 pyfoamd/__init__.py
+pyfoamd/config.py
 pyfoamd/functions.trash.py
 pyfoamd/richinclude.py
 pyfoamd/types.py
@@ -13,12 +14,16 @@ pyfoamd/functions/__init__.py
 pyfoamd/functions/appendEntry.py
 pyfoamd/functions/cleanDictFile.py
 pyfoamd/functions/getLatestTime.py
+pyfoamd/functions/isCase.py
 pyfoamd/functions/isDecomposed.py
 pyfoamd/functions/isMeshed.py
 pyfoamd/functions/isReconstructed.py
+pyfoamd/functions/listCases.py
+pyfoamd/functions/monitor.py
 pyfoamd/functions/printInputs.py
 pyfoamd/functions/readDictFile.py
 pyfoamd/functions/readInputs.py
 pyfoamd/functions/removeBlockEntries.py
 pyfoamd/functions/removeEntry.py
 pyfoamd/functions/replaceEntry.py
+pyfoamd/functions/writeParams.py

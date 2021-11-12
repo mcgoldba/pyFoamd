@@ -1,7 +1,9 @@
 import sys
 
+print(sys.version)
+
 #- Check the python version:
-if  sys.version_info < (3,7):
+if sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported.')
 
 global DEBUG
@@ -39,6 +41,7 @@ from .removeEntry import removeEntry
 from .removeBlockEntries import removeBlockEntries
 from .readDictFile import readDictFile
 from .readInputs import readInputs
+from .writeParams import writeParams
 from .printInputs import printInputs
 from .cleanDictFile import cleanDictFile
 from .isDecomposed import isDecomposed
@@ -48,6 +51,9 @@ from .cleanDictFile import cleanDictFile
 from .readDictFile import readDictFile
 from .isCase import isCase
 from .listCases import listCases
+from .monitor import monitor
+from .writeConfig import writeConfig
+from .readConfig import readConfig
 
 
 #from richinclude import *

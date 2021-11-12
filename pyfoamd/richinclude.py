@@ -1,3 +1,4 @@
+from .config import DEBUG
 
 from rich import print
 import logging

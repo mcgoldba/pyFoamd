@@ -24,7 +24,9 @@ exec >> Log 2>&1
 for script in Allrun Allmesh AllmeshCf postProcess reconstructMesh
 do
     if [ -f "$script" ]; then
-        eval "script$script='${PWD}/$script'"
+        cp ${PWD}/$script /tmp/$script
+        sed -i -e 's/cd ${0%/*}//g' /tmp/$script
+        eval "script$script='/tmp/$script'"
     else
         eval "script$script='$(dirname "$0")/../bash/$script'"
     fi
@@ -138,7 +140,8 @@ case "$1" in
         shift
         ;;
     -*|--*)
-        echo "Invalid option $OPTARG" 1>&2
+        echo "Invalid option $1" >&2
+
         exit 1
         ;;
     *)
@@ -150,6 +153,33 @@ done
 #shift $((OPTIND -1))
 
 eval set -- "$PARAMS"
+
+promptUser () {
+    msg=$1
+    cmd=$2
+    while true; do
+        read -p "$msg" yn
+        case $yn in
+            [Yy]* ) eval "$cmd";;
+            [Nn]* ) exit;;
+            * ) echo "Please answer 'yes' or 'no'.";;
+        esac
+    done
+}
+
+runDecompose () {
+    if [ -f log.decomposePar ]; 
+    then
+        promptUser "decomposePar log already exists. Overwrite?" "rm -f log.decomposePar"
+    fi
+    if [ -d processor0 ];
+    then
+        promptUser "Case is already decomposed.  Remove existing case?" "promptUser 'Are you sure?  Simulation data will be deleted' 'rm -rf processor*'" 
+    fi
+
+    runApplication decomposePar 
+}
+
 
 if [ "$clearLogs" = true ]
 then
@@ -170,10 +200,11 @@ then
 elif [ "$justSolve" = true ]
 then
 
-  if [ "$runCommand" = "runParallel" ] && [ "$decomposed" = false ];
+  if [ "$runCommand" = "runParallel" ] && [ "$decomposed" = false ] || [ "$forceDecompose" = true ];
   then
       runApplication decomposePar
   fi
+
 
   $runCommand $(getApplication)
 

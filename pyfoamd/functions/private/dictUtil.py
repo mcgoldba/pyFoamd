@@ -5,7 +5,7 @@ import warnings
 
 from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 def _appendBlockEntryWithBlockName(
     ofValue,
@@ -48,17 +48,20 @@ def _appendBlockEntryWithBlockName(
         stop = start+ len(str(parentDict).split('\n'))
         start=stop # start at new dict whitespace
 
+    verbose=True
+
     if hasattr(ofValue, 'name') is True and ofValue.name is not None:
         print("Appending entry '"+ofValue.name+"' into block "
               +blockList[len(blockList)-1]+" at line "+str(stop)+
               " of file: "+str(os.path.join(ofValue.location, ofValue.filename)))
+        verbose=False
     else:
         print("Appending unnamed entry into block "+blockList[len(blockList)-1]+
               " at line "+str(stop)+" of file: "+
               str(os.path.join(ofValue.location, ofValue.filename)))
 
     _appendBlockEntryWithLineNum(ofValue, stop,
-                                 indent=len(blockList), whitespace=whitespace)
+                             indent=len(blockList), whitespace=whitespace, verbose=verbose)
 
     #try:
         # with open(file+"_old") as old, open(file, "w") as new:
@@ -227,7 +230,8 @@ def _appendBlockEntryWithLineNum(
     lineNum,
     searchValues=False,
     indent=0,
-    whitespace=False
+    whitespace=False,
+    verbose=True
 ):
     #- Not complete, use _ofDictAppendBlockEntryWithBlockName() instead
 
@@ -241,9 +245,12 @@ def _appendBlockEntryWithLineNum(
     open(file)
 
     copyfile(file, file+"_old")
+    
     printName = ofValue.name or ""
-    print("Appending block '"+str(printName)+"' at line number "+str(lineNum)+
-          " of file: "+os.path.join(ofValue.location, ofValue.filename))
+    
+    if verbose:
+        print("Appending block '"+str(printName)+"' at line number "+str(lineNum)+
+              " of file: "+os.path.join(ofValue.location, ofValue.filename))
 
     indentStr = ""
     for _ in range(indent):
@@ -268,6 +275,7 @@ def _appendBlockEntryWithLineNum(
                     new.write(line)
                 else:
                     new.write(line)
+        os.remove(file+"_old")
     except:
         copyfile(file+"_old", file)
         raise

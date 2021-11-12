@@ -24,6 +24,8 @@ fi
 
 i=0
 
+  $runCommand -suffix initial -overwrite checkMesh
+
 while [ $i -lt $nImproveCycles ]
 do
   $runCommand -suffix $i improveMeshQuality
@@ -35,7 +37,7 @@ do
 done
 
 #./checkMesh
-$runCommand -suffix "final" checkMesh -writeSets vtk
+$runCommand -suffix "final" -overwrite checkMesh -writeSets vtk
 
 if [ "$runCommand" = "runParallel" ];
 then
@@ -44,11 +46,16 @@ then
     #./copyProcessorFields
 
     #runApplication reconstructPar -latestTime -withZero -constant
-    runApplication reconstructPar -latestTime
+   # runApplication reconstructPar -latestTime
 
+  if [ "$(isReconstructed)" == "true" ];
+  then
     rm -rf processor*/
-
+    rm log.decomposePar
     decomposed=false
+  else
+    echo "WARNING!: Case is not properly reconstructed."
+  fi
 
     if [ "$topoSet" = true ]
     then
