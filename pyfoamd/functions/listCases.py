@@ -28,4 +28,7 @@ def listCases(path=Path.cwd(), absolutePath=False):
                 cases.append(p)
             else:
                 cases.append(p.relative_to(path))
+
+    cases.sort()
+
     return cases
