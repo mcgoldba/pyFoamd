@@ -2,7 +2,7 @@ from pathlib import Path
 from . import listCases
 import re
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 log.setLevel(logging.INFO)
 

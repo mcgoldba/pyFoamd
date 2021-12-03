@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from richinclude import *
+from pyfoamd.richinclude import *
 
 def getLatestTime(directory=Path.cwd()):
 
