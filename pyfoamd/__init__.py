@@ -1,7 +1,8 @@
 import os
 
-from .richinclude import *
+from .richinclude import richLogger
 
+richLogger("INFO")
 
 from . import functions
 from . import types

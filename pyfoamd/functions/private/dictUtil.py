@@ -5,7 +5,9 @@ import warnings
 
 from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
 
-from pyfoamd.richinclude import *
+import logging
+
+log = logging.getLogger("pf")
 
 def _appendBlockEntryWithBlockName(
     ofValue,
@@ -245,9 +247,9 @@ def _appendBlockEntryWithLineNum(
     open(file)
 
     copyfile(file, file+"_old")
-    
+
     printName = ofValue.name or ""
-    
+
     if verbose:
         print("Appending block '"+str(printName)+"' at line number "+str(lineNum)+
               " of file: "+os.path.join(ofValue.location, ofValue.filename))

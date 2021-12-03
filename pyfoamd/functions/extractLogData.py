@@ -2,9 +2,9 @@ from pathlib import Path
 from . import listCases
 import re
 
-from pyfoamd.richinclude import *
+import logging
 
-log.setLevel(logging.INFO)
+log = logging.getLogger("pf")
 
 def extractLogData(logFile, searchString, marker=['{','}'],
 regex=False, logFileLabels = False, path=str(Path.cwd())):

@@ -2,7 +2,9 @@ import json
 import os
 import sys
 
-from pyfoamd.richinclude import *
+import logging
+
+log = logging.getLogger("pf")
 
 #TODO:  Should this replace the inputParameters file?
 def readConfig(key=None, file="xcfd.json"):

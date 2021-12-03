@@ -57,7 +57,7 @@ from .readConfig import readConfig
 from .extractLogData import extractLogData
 
 
-#from pyfoamd.richinclude import *
+#import logging
 
 #Define padding for blockMeshDict
 PAD = 1 / 12 / 3.281 # 1 inch

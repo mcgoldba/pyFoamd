@@ -1,6 +1,8 @@
 import os
 
-from pyfoamd.richinclude import *
+import logging
+
+log = logging.getLogger('pf')
 
 def isCase(path=os.getcwd()):
     isCase = False
