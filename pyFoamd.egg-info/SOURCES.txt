@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 pyFoamd.egg-info/PKG-INFO
@@ -13,6 +14,7 @@ pyfoamd/types.py
 pyfoamd/functions/__init__.py
 pyfoamd/functions/appendEntry.py
 pyfoamd/functions/cleanDictFile.py
+pyfoamd/functions/extractLogData.py
 pyfoamd/functions/getLatestTime.py
 pyfoamd/functions/isCase.py
 pyfoamd/functions/isDecomposed.py
