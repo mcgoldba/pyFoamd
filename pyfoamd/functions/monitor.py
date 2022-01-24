@@ -2,9 +2,9 @@ import subprocess
 import sys
 import os
 
-from pyfoamd.richinclude import *
+import logging
 
-log.setLevel(logging.DEBUG)
+log = logging.getLogger("pf")
 
 def monitor(time=None, supplement=None, workingDir=os.getcwd()):
 

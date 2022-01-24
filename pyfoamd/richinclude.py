@@ -1,18 +1,34 @@
-from .config import DEBUG
-
-from rich import print
 import logging
+from rich import print
 from rich.logging import RichHandler
-
-FORMAT = "%(message)s"
-logging.basicConfig(
-        level="DEBUG" if DEBUG else "INFO",
-        format=FORMAT,
-        datefmt="[%X]",
-        handlers=[RichHandler(rich_tracebacks=True)]
-)
-
-log = logging.getLogger("rich")
 
 from rich.traceback import install
 install()
+
+def richLogger(level="INFO"):
+
+    levels = {
+        "CRITICAL": logging.CRITICAL,
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+        "NOTSET": logging.NOTSET
+    }
+
+    format = "%(message)s"
+    # logging.basicConfig(
+    #                     level=level,
+    #                     format=FORMAT, datefmt="[%X]",
+    #                     handlers=[RichHandler(rich_tracebacks=True)]
+    # )
+
+    logger = logging.getLogger("pf")
+
+    handler = RichHandler(rich_tracebacks=True)
+    handler.setLevel(levels[level])
+
+    format = logging.Formatter(format, datefmt="[%X]")
+    handler.setFormatter(format)
+
+    logger.addHandler(handler)

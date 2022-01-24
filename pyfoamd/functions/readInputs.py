@@ -4,9 +4,9 @@ import pandas as pd
 
 from.private._unitDecoder import _unitDecoder
 
-from pyfoamd.richinclude import *
+import logging
 
-
+log = logging.getLogger("pf")
 
 def readInputs(filepath=os.path.join(os.getcwd(), 'inputParameters')):
     """

@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 
-def getLatestTime(directory=os.getcwd()):
+def getLatestTime(directory=Path.cwd()):
 
     #- Get the latest time directory
-    directories = [f.name for f in os.scandir(directory) if f.is_dir()]
+    directories = [f.name for f in Path(directory).iterdir()]
     latestTime = '0'
     for directory in directories:
         name = directory.replace('/', '')

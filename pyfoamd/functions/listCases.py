@@ -7,8 +7,6 @@ from .isCase import isCase
 from pyfoamd.config import DEBUG
 DEBUG=False
 
-from pyfoamd.richinclude import *
-
 def listCases(path=Path.cwd(), absolutePath=False):
     #convert string inputs to Path()
     if isinstance(path, str):
@@ -28,4 +26,7 @@ def listCases(path=Path.cwd(), absolutePath=False):
                 cases.append(p)
             else:
                 cases.append(p.relative_to(path))
+
+    cases.sort()
+
     return cases

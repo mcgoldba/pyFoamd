@@ -13,8 +13,9 @@ echo "Copying O.orig/ to 0/..."
 mkdir -p 0
 cp 0.orig/* 0/
 
-#runApplication cartesianMesh
-$runCommand cartesianMesh
+#runApplication preparePar
+runApplication cartesianMesh
+#runApplication cartesianMesh -parallel
 
 
 if [ "$runCommand" = "runParallel" ];

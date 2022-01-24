@@ -3,9 +3,9 @@ import pandas as pd
 from copy import deepcopy
 from pyfoamd.types import TAB_SIZE
 
-from pyfoamd.richinclude import *
+import logging
 
-log.setLevel(logging.DEBUG)
+log = logging.getLogger("pf")
 
 #from: https://stackoverflow.com/a/33062932
 
