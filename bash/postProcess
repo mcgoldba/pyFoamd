@@ -34,7 +34,7 @@ IFS=$'\n' read -r -d '' -a swirlObjects < <( foamDictionary system/swirlAngle -k
 # done
 
 #if [ "$decomposed" == true ]
-if [ "$(isDecomposed)" == "true" ]
+if [ "$runCommand" = "runParallel" ] && [ "$decomposed" == "true" ];
 then
 
     runParallel -s postProcess $(getApplication) -postProcess -latestTime
