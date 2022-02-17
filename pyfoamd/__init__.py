@@ -2,7 +2,7 @@ import os
 
 from .richinclude import richLogger
 
-richLogger("INFO")
+richLogger("DEBUG")
 
 from . import functions
 from . import types

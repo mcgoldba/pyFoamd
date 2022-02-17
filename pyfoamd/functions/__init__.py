@@ -55,7 +55,7 @@ from .monitor import monitor
 from .writeConfig import writeConfig
 from .readConfig import readConfig
 from .extractLogData import extractLogData
-
+from .init import init
 
 #import logging
 

@@ -1,8 +1,12 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, make_dataclass
 import operator
 from collections.abc import MutableMapping
 import copy
 from pathlib import Path
+import warnings
+
+#from pyfoamd.functions import isOFDictFile, _readDictFile
+#from pyfoamd.functions.private.dictUtil import *
 
 from typing import List
 
@@ -25,26 +29,133 @@ def printNameStr(name) -> str:
     else:
         return "{: <12}".format(name)
 
+
+def _interpretValue(value):
+    if isinstance(value, float):
+        return ofFloat(value)
+
 TYPE_REGISTRY = []
+
 
 def _populateRegistry(path):
     reg = []
 
-
     return field(default_factory=lambda: copy.copy(reg))
 
-@dataclass
-class CaseDirectory:
-    location: Path = field(default=Path.cwd())
-    registry: list = _populateRegistry(location)
 
+@dataclass
+class ofTimeReg:
+    pass
+
+
+# @dataclass(frozen=True)
+# class ofFolder:
+#     _path: Path
+#     #_path: Path = field(init=False)
+#
+#     def __post_init__(self):
+#         #object.__setattr__(self, '_name',
+#                            # Path(self._input).name or self.__input)
+#         object.__setattr__(self, '_path', Path(self._path))
+#         # self._name = Path(self._input).name or self.__input
+#         # self._path = Path(self._input) or Path.cwd() / self.__input
+#
+#
+#
+#         addDirs = []
+#         for obj in self._path.iterdir():
+#             if obj.is_dir():
+#                 fields = list(self.__dict__.keys())
+#                 if any([obj.name == field_ for field_ in fields]):
+#                     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+#                                   "Skipping directory: {obj} ")
+#                     continue
+#                 addDirs.append((obj, ofFolder(obj)))
+#
+#         self.__class__ = make_dataclass('ofFolder',
+#                                         addDirs,
+#                                         bases=(ofFolder,), frozen=True)
+
+def ofFolder(path):
+
+    attrList = [('_path', Path, field(default=path))]
+    for obj in Path(path).iterdir():
+        if obj.is_dir():
+            if obj.name == '_path':
+                warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+                              "Skipping directory: {obj} ")
+                continue
+            attrList.append((obj.name, ofFolder, field(default=ofFolder(obj))))
+        # - Check for OpenFOAM dictionary files
+        if obj.is_file() and isOFDictFile(obj):
+            attrList.append(obj.name, ofDictFile,
+                            field(default=_readDictFile(obj)))
+
+    return make_dataclass('ofFolder', attrList, frozen=True)(path)
+
+
+# @dataclass
+# class ofCase:
+#     location: Path = field(default=Path.cwd().parent)
+#     name: str = field(default=Path.cwd().name)
+#     constant: ofFolder = field(default=ofFolder('constant'))
+#     system: ofFolder = field(default=ofFolder('system'))
+#     times: ofTimeReg = field(default=ofTimeReg())
+#     registry: list = _populateRegistry(location)
+#
+#     def __post_init__(self):
+#         addDirs = []
+#         for obj in self.location.iterdir():
+#             if (obj.is_dir() and all(obj.name != default for default in
+#                                      ['constant', 'system'])):
+#                 fields = list(self.__dict__.keys())
+#                 if any([obj.name == field_ for field_ in fields]):
+#                     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+#                                   "Skipping directory: {obj} ")
+#                     continue
+#                     addDirs.append((obj, ofFolder()))
+#
+#         self.__class__ = make_dataclass('ofCase', addDirs, bases=(self,))
+
+def ofCase(path=Path.cwd()):
+
+    if isinstance(path, Path) is False:
+        path = Path(path)
+
+    attrList = [
+        ('location', Path, field(default=path.parent)),
+        ('name', str, field(default=path.name)),
+        ('constant', ofFolder, field(default=ofFolder('constant'))),
+        ('system', ofFolder, field(default=ofFolder('system'))),
+        ('times', ofTimeReg,  field(default=ofTimeReg())),
+        ('registry', list, field(default=_populateRegistry(path)))
+    ]
+    for obj in path.iterdir():
+        if (obj.is_dir() and all(obj.name != default for default in
+                                 ['constant', 'system'])):
+            fields = [attr[0] for attr in attrList]
+            if any([obj.name == field for field in fields]):
+                warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+                              "Skipping directory: {obj} ")
+                continue
+                attrList.append((obj, ofFolder, field(default=ofFolder(obj))))
+
+    return make_dataclass('ofCase', attrList)(
+        path.parent, path.name, ofFolder('constant'),
+        ofFolder('system'), ofTimeReg(), _populateRegistry(path))
+
+
+# @dataclass
+# class ofFolder:
+#     case: Path = field(default=Path.cwd())
 
 
 @dataclass
 class _ofDictFileBase:
     #store: dict()
     #update: dict(*args, **kwargs)
-    value: List = field(default_factory=lambda:[])
+    #value: dict = field(default_factory=lambda:{})
+    pass
 
     # def __getitem__(self, key):
     #     return self.store[self._keytransform(key)]
@@ -64,18 +175,24 @@ class _ofDictFileBase:
     # def _keytransform(self, key):
     #     return key
 
+
+
 @dataclass
 class _ofDictFileDefaultsBase:
-    filename: str = None
-    location: str = 'system/'
+    name: str = None
+    path: str = 'system/'
     version: str = '2.0'
     ofClass: str = 'dictionary'
     #entries: field(default_factory=lambda: [])
 
 @dataclass
-class _ofDictBase(_ofDictFileBase):
-    name: str = None
-    value: List = field(default_factory=lambda:[])
+class _ofDictBase(dict):
+    # ref: https://stackoverflow.com/questions/2352181/how-to-use-a-dot-to-access-members-of-dictionary
+    def __getattr__(*args):
+        val = dict.get(*args)
+        return ofDict(val) if type(val) is dict else val
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 @dataclass
@@ -155,46 +272,58 @@ class _ofVectorBase:
     def value(self, v):
         if isinstance(v, list) is False:
             raise TypeError("Value for 'ofVector' must be a list of length 3.  Got '"+str(v)+"'")
-        if ( len(v) != 3 or any(isinstance(i, (int, float)) for i in v)
-            is False):
+        if (len(v) != 3 or any(isinstance(i, (int, float)) for i in v)
+                is False):
             raise Exception("'ofVector' values must be a numeric list of length 3.")
         self._value = v
+
+
 @dataclass
 class _ofVectorDefaultsBase:
     pass
-    #name: None=None
+    # name: None=None
+
 
 @dataclass
 class _ofNamedVectorDefaultsBase(_ofFloatBase):
     pass
 
+
 @dataclass
-class ofDictFile(_ofDictFileDefaultsBase, _ofDictFileBase):
+class ofDictFile(dict, _ofDictFileDefaultsBase, _ofDictFileBase):
+    # - TODO: Add ability to read in dictionary entries as python variables
     pass
 
-#    self.filename = filename or None
-#    self.location = location or 'system/'
-#    self.version = version or '2.0'
-#    self.ofClass = ofClass or 'dictionary'
-#    self.entries = entries or []
+
+
+# def ofDictFile(path):
+#
+#     attrList = [('_path', Path, field(default=path))]
+#     valueList = _readOFDictValues(path)
+#
+#     for obj in valueList:
+#         if obj.name == '_path':
+#             warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+#                           "Skipping entry.")
+#             continue
+#         attrList.append(tuple(obj.name, type(obj)))
+#
+#     return make_dataclass('ofDictFile', attrList)
 
 
 @dataclass
-class ofDict(ofDictFile, _ofDictBase):
+class ofDict(_ofDictBase):
 
     def asString(self) -> str:
-        if self.name is not None:
-            dStr = self.name+"\n{\n"
-        else:
-            dStr = "{\n"
-        for v in self.value:
+        dStr = "{\n"
+        for k, v in zip(self.keys(), self.values()):
             if isinstance(v, ofDict):
                 dStr2 = v.asString().split("\n")
                 for i in range(len(dStr2)):
                     dStr2[i] = TAB_STR+dStr2[i]+"\n"
                     dStr += dStr2[i]
             else:
-                dStr += TAB_STR+v.asString()
+                dStr += printNameStr(TAB_STR+k)+v.asString()
         dStr+= "}\n"
         return dStr
 
