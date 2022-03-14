@@ -1,6 +1,6 @@
 #!/bin/sh
 #cd ${0%/*} || exit 1    # Run from this directory
-cd $1 || exit 1 # Run from the parent script $PWD
+#cd $1 || exit 1 # Run from the parent script $PWD
 
 if [ "$#" -gt 2 ];
 then
@@ -42,7 +42,7 @@ fi
 #surfaceTransformPoints -scale '('"${scaleFactor} ${scaleFactor} ${scaleFactor}"')' constant/triSurface/outlet_7.stl constant/triSurface/outlet_7_scaled.stl >> log.surfaceTransformPoints_outlet_7
 
 rm log.topoSet
-$runCommand topoSet 
+$runCommand topoSet
 
 rm log.createPatch
 $runCommand createPatch -overwrite
@@ -56,7 +56,7 @@ do
   if [ $1 = "-parallel" ];
   then
     mpiexec -np $(getNumberOfProcessors) extrudeMesh -parallel > log.extrudeMesh.${i}
-  else    
+  else
     extrudeMesh > log.extrudeMesh.${i}
   fi
 
