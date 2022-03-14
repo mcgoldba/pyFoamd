@@ -1,10 +1,7 @@
-from . import isOFDictFile
+from ..functions import isOFDict
 import os
 import sys
 from pathlib import Path
-
-from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofInclude, \
-    ofIncludeEtc, ofIncludeFunc
 
 import logging
 
@@ -13,7 +10,7 @@ log = logging.getLogger("pf")
 _entryList = []
 
 
-def readDictFile(file):
+def _readDictFile(file):
     """
     Reads an OpenFOAM dictionary file and stores values in a python dictionary.
 
@@ -28,7 +25,7 @@ def readDictFile(file):
 
     #pyOFDict = ofDictFile(os.path.basename(file), [])
 
-    if not isOFDictFile(file):
+    if not isOFDict(file):
         raise Exception("File is not a valid OpenFOAM dictionary file:"
                         f"\n{file}")
 
@@ -151,7 +148,7 @@ def _readDictFile(file):
     dictFile = open(file, 'r')
     lines = dictFile.readlines()
 
-    i = _findEndOfHeader(dictFile)
+    i = _findEndOfHeader(file)
 
     attempts = 0
     while True:

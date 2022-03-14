@@ -39,7 +39,6 @@ from .getLatestTime import getLatestTime
 from .replaceEntry import replaceEntry
 from .removeEntry import removeEntry
 from .removeBlockEntries import removeBlockEntries
-from .readDictFile import readDictFile
 from .readInputs import readInputs
 from .writeParams import writeParams
 from .printInputs import printInputs
@@ -48,13 +47,13 @@ from .isDecomposed import isDecomposed
 from .isReconstructed import isReconstructed
 from .isMeshed import isMeshed
 from .cleanDictFile import cleanDictFile
-from .readDictFile import readDictFile
 from .isCase import isCase
 from .listCases import listCases
 from .monitor import monitor
 from .writeConfig import writeConfig
 from .readConfig import readConfig
 from .extractLogData import extractLogData
+from .isOFDict import isOFDict
 from .init import init
 
 #import logging

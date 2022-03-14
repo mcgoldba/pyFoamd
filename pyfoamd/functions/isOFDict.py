@@ -1,3 +1,4 @@
+
 def isOFDict(file):
     """
     Checks if the argument file is an OpenFOAM dictionary file.  It is assumed
