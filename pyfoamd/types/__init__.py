@@ -9,6 +9,7 @@ import warnings
 import sys
 import string #- to check for whitespace
 import re
+import pandas as pd
 
 from inspect import signature #- just for debugging
 
@@ -220,7 +221,34 @@ class _ofDictFileBase:
 class _ofTypeBase:
     pass
 
+@dataclass 
+class _ofUnnamedTypeBase(_ofTypeBase):
+    """
+    Base class for unnamed values.  'value' should be stored as a Python type.
+    For derived classes where the conversion from python type back to the ofType
+    is not intuitive, a secondary '_value' attribute should be defined that
+    stores the appropriate string repesentation of the OpenFOAM value.
+    
+    Iterable derived types (e.g. ofList) should store ofTypes as values.
 
+    """
+    value : str = None
+
+@dataclass 
+class _ofNamedTypeBase(_ofTypeBase):
+    """
+    Base class for named values.  'value' should be stored as a Python type.
+    For derived classes where the conversion from python type back to the ofType
+    is not intuitive, a secondary '_value' attribute should be defined that
+    stores the appropriate string repesentation of the OpenFOAM value.
+
+    Iterable derived types (e.g. ofDict) should store ofTypes as values.
+
+    """
+    name: str = None
+    value : str = None
+
+#TODO: Eliminate this class
 @dataclass
 class _ofDictFileDefaultsBase:
     _name: str = None
@@ -309,6 +337,10 @@ class _ofListBase(_ofDictFileBase):
     def __str__(self):
         return self.asString().rstrip(';\n')
 
+    def __list__(self):
+        _list = []
+        return [v.value if isinstance(v, _ofIntBase) else v for v in self.value]
+
 @dataclass
 class _ofNamedListBase(_ofListBase):
     name: str = None
@@ -395,7 +427,7 @@ class _ofNamedVectorDefaultsBase(_ofFloatBase):
 
 
 @dataclass
-class ofWord():
+class ofWord(_ofUnnamedTypeBase):
     """
     An OpenFOAM word is a specialization of a string with no whitespace,
     quotes, slashes, semicolons, or brace brackets
@@ -477,13 +509,18 @@ class ofDict(dict):
 
     _update = dict.update
 
+    def _NoneKey(self):
+        self._nUnnamed += 1
+        return '_unnamed'+str(self._nUnnamed)
     
     def update(self, iterable):
         if iterable is None:
             return
-        if isinstance(iterable, _ofIntBase):
+        if (isinstance(iterable, _ofIntBase) 
+            or isinstance(iterable, _ofNamedTypeBase)):
             self._update({iterable.name: iterable.value})
-            # self._entryTypes[iterable.name] = type(iterable)
+        elif isinstance(iterable, _ofUnnamedTypeBase):
+            self._update({self._NoneKey(): iterable.value})
         elif isinstance(iterable, ofDict):
             log.debug(f"ofDict._name: {iterable._name}")
             self._update({iterable._name: iterable.__dict__})
@@ -553,6 +590,17 @@ class ofBool(ofInt, _ofBoolBase):
 
 TYPE_REGISTRY.append(ofBool)
 
+#TODO:  Add abilty to get value based on variable name
+@dataclass
+class ofVar(_ofNamedTypeBase):
+    
+    def asString(self) -> str:
+        return f"${self.value};\n"
+
+
+    def __str__(self):
+        return self.asString().rstrip(';\n')
+
 @dataclass
 class ofNamedList(ofDictFile, _ofNamedListBase):
 
@@ -614,6 +662,84 @@ class ofList(ofDictFile, _ofListBase):
         return self.asString().rstrip(';\n')
 
 TYPE_REGISTRY.append(ofList)
+
+@dataclass
+class ofTable(ofNamedList):
+
+    _value = None
+
+    @property
+    def value(self):
+        return self.value
+
+    @value.setter
+    def value(self, val):
+        """Convert varoius input types to pd.Dataframe"""
+
+        if isinstance(val, str):
+            log.debug("Found string input.")
+            list_ = DictFileParser()._parseListValues(v)
+        elif isinstance(val, _ofListBase):
+            log.debug("Found ofList input.")
+            list_ = list(val)
+        elif isinstance(val, list):
+            log.debug("Found list input.")
+            list_ = [v.value if isinstance(v, _ofIntBase) else v \
+                for v in val]
+        else:
+            log.error("Unhandled type provided for 'value'.")
+            
+        log.debug(f"list_: {list_}.")
+        #- check that value is a list of lists of equal length
+        if (len(list_) == 1 and isinstance(list_[0], list) 
+            and all([isinstance(l, list) for l in list_[0]])
+            and all([len(list_[0][0]) == len(l) for l in list_[0][1:]])):
+            
+            table_ = pd.DataFrame()
+
+            if len(list_[0]) > 1:
+                if isinstance(list_[0][1], list): # if '(0.0 (1 2 3))' format
+                    for item in list_:
+                        df_ = pd.DataFrame(item[1], index=[item[0]])
+                        pd.concat([table_, df_])
+                else:  # '(0.0 1 2 3)' format
+                    for item in list_:
+                        df_ = pd.DataFrame(item[1:], index=[item[0]])
+                        pd.concat([table_, df_])
+
+            else:
+                raise Exception("Invalid list formatting for table.")                
+        else:
+            raise Exception("Invalid list formatting for table.")
+
+
+
+    def asString(self) -> str:
+        dStr = "( "
+        for v in self.value:
+            if isinstance(v, ofDict):
+                dStr2 = v.asString().split(" ")
+                for i in range(len(dStr2)):
+                    dStr2[i] = TAB_STR+dStr2[i]+" "
+                    dStr += dStr2[i]
+            elif hasattr(v, 'asString') and callable(getattr(v, 'asString')):
+                dStr += v.asString()
+            else:
+                dStr += str(v)+" "
+        dStr+= ") "
+        return dStr
+    # def asString(self) -> str:
+    #     return self.valueStr
+    #def asString(self) -> str:
+    #    valueStr = '('
+    #    valueStr += str(self.value[0])
+    #    for i in range(1,len(self.value)):
+    #        valueStr += ' '+str(self.value[i])
+    #    valueStr += ')'
+    #    return printNameStr(self.name)+valueStr+";\n"
+
+    def __str__(self):
+        return self.asString().rstrip(';\n')
 
 @dataclass
 class ofNamedSplitList(ofNamedList, _ofNamedListBase):
@@ -861,39 +987,6 @@ class DictFileParser:
         self.i=0
         self.extraLine = None
 
-
-    def readDictFile(self):
-
-        status = 'start'
-        ofType = None
-        prevLine = None
-        lineStatus = 'read'
-        level = 0
-
-        self.i = self._findEndOfHeader()
-
-        attempts = 0
-        while True:
-            attempts += 1
-            log.debug(f"Parsing line {self.i+1} of file {self.filepath}")
-            if attempts > 1000:
-                log.error("Error reading dictionary file.  Maximum lines exceeded")
-                sys.exit()
-            if self.i >= len(self.lines):
-                break
-
-            value = self._parseLine()
-
-            if value is not None:
-                self.entryList.append(value)
-
-            # [status, lineStatus] = _readDictEntry(status, ofType, lines, i)
-
-        return ofDictFile(self.entryList
-                        #location=Path(file).parent, 
-                        #filename=Path(file).name
-                        )
-
     def _userMsg(self, msg, level = "INFO"):
         """
         Write message to console or stdout for the user (i.e. without code details)
@@ -920,154 +1013,6 @@ class DictFileParser:
         
         if level == 'ERROR':
             sys.exit()
-
-        # with open(file, 'r') as f:
-        #     lines = f.readlines()
-        #     for i, line in enumerate(lines):
-        #         if line.startswith(('//', '#')):
-        #             #- Ignore line comments and includes
-        #             continue
-        #         if lineStatus == 'endMultiLine':
-        #             #- Determine how to interpret the previous line
-        #             [status, lineStatus] = _getOFDictMultiLinePreviousType(line)
-        #         lineStatus = 'read'
-        #         count = 0
-        #         while lineStatus != 'end':
-        #             if lineStatus == 'endMultiLine':
-        #                 prevLine = line
-        #                 break
-        #             count += 1
-        #             if count >= 100: #prevent infinite loop in case of error
-        #                 raise Exception("Maximum number of loops reached.")
-        #             #func = functionSwitcher(status)
-        #             # if func is not None
-        #                 #[status, lineStatus] = func(_argSwitcher(func, line, ofType))
-        #             [status, lineStatus] = _readDictEntry(
-        #                                         status, ofType, lines, i
-        #                                     )
-
-
-    # def readDictFile(self):
-    #     """
-    #     Reads an OpenFOAM dictionary file and stores values in a python dictionary.
-    #     """
-    #     #from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
-
-    #     #- Function assumes:
-    #     #   - All entries start on a new line
-    #     #   - Comments on line after C++ code are ignored
-
-    #     #pyOFDict = ofDictFile(os.path.basename(file), [])
-
-    #     if not isOFDict(self.filepath):
-    #         raise Exception("File is not a valid OpenFOAM dictionary file:"
-    #                         f"\n{self.filepath}")
-
-    #     def functionSwitcher(status):
-    #         switcher = {
-    #             'commentedBlock': _getOFDictCommentLineType,
-    #             'comment': None,
-    #             'includeLine': None,
-    #             'empty': None,
-    #             'commentedBlockEnd':  _parseLine,
-    #             'list': _getOFDictValueType,
-    #             'dict': _getOFDictValueType,
-    #             'value': _storeOFDictValue,
-    #             'multiLineUnknown': _getOFDictEntryType,
-    #             'dictName': _newOFDictDict,
-    #             'listName': _newOFDictList,
-    #             'multiLineValue': _appendOFDictEntry,
-    #             'multiLineEntryStart': _storeOFDictMultiLineEntryName,
-    #             'singleLineSingleValuedEntry': _storeOFDictSingleLineSingleValuedEntry
-    #         }
-    #         return switcher.get(status, _parseLine)
-
-    #     status = {
-    #         'inBlockComment': False,
-    #         'inDict': 0,
-    #         'inList': 0,
-    #         'multiLineEntryStart': False
-    #     }
-
-    #     pyDict = {}
-
-    #     # - Parse the file line by line for data
-    #     with open(file) as f:
-    #         lines = f.readlines()
-    #         for line in lines:
-    #             line = line.lstrip().rstrip()
-    #             if status['inBlockComment']:
-    #                 if line.rstrip()[-2:] == '*/':
-    #                     status['inBlockComment'] = False
-    #                 continue
-    #             if status['inList']:
-    #                 pass
-    #             if status['inDict']:
-    #                 pass
-    #             if status['multiLineEntryStart']:
-    #                 pass
-    #             # - Check for block comment
-    #             if line[:1] == '/*':
-    #                 status['inBlockComment'] = True
-    #                 continue
-    #             # - Check for line comment
-    #             if line[:1] == '//':
-    #                 continue
-    #             # - Check for include statement
-    #             if line.startwith('#includeEtc'):
-    #                 pyDict.update
-
-    #             # - Check for single line entry
-    #             # - Check for multi-line entry
-
-
-    # def _readDictEntry(self):
-
-    #     #- Function assumes:
-    #     #   - All entries start on a new line
-    #     #   - Comments on line after C++ code are ignored
-
-    #     #pyOFDict = ofDictFile(os.path.basename(file), [])
-
-    #     def functionSwitcher(status):
-    #         switcher = {
-    #             'commentedBlock': _getOFDictCommentLineType,
-    #             'comment': None,
-    #             'includeLine': _storeInclude,
-    #             'empty': None,
-    #             'commentedBlockEnd':  _parseLine,
-    #             'list': _getOFDictValueType,
-    #             'dict': _getOFDictValueType,
-    #             'value': _storeOFDictValue,
-    #             'multiLineUnknown': _getOFDictValueType,
-    #             'startDict': _readDictEntry, # _newOFDictDict,
-    #             'startList': _readList, # _newOFDictList,
-    #             'multiLineValue': _appendOFDictEntry,
-    #             'multiLineEntryStart': _storeOFDictMultiLineEntryName,
-    #             'singleLineSingleValuedEntry': _storeOFDictSingleLineSingleValuedEntry
-    #         }
-    #         return switcher.get(status, _parseLine)
-
-    #     def _argSwitcher(func, line, ofType):
-    #         switcher = {
-    #             _parseLine: len(line.split(" ")),
-    #             _storeOFDictValue: (ofType,
-    #                                 line[1:].remove('{()}').split(" ")
-    #                             )
-    #         }
-    #         return switcher.get(func, line.remove['()'])
-
-    #     attempts = 0
-    #     while status != 'endDict':
-    #         attempts +=1
-    #         if attempts > 1000:
-    #             log.error("Error reading dictionary file.  Maximum lines exceeded")
-    #             sys.exit()
-
-    #         func = functionSwitcher(status)
-    #         [status, lineStatus] = func(_argSwitcher(func, lines[i], ofType))
-
-    #         i += 1
 
 
     def _addExtraLine(self, line):
@@ -1115,35 +1060,146 @@ class DictFileParser:
             linesList.append(item)
         return linesList
 
+    def readDictFile(self):
 
-    # def _getOFDictCommentLineType(self, startsWith):
-    #     switcher = {
-    #         '*/': ['commentedBlockEnd', 'end']
-    #     }
-    #     return [switcher.get(startsWith, 'commentedBlock'), 'end']
+        status = 'start'
+        ofType = None
+        prevLine = None
+        lineStatus = 'read'
+        level = 0
+
+        self.i = self._findEndOfHeader()
+
+        attempts = 0
+        while True:
+            attempts += 1
+            log.debug(f"Parsing line {self.i+1} of file {self.filepath}")
+            if attempts > 1000:
+                log.error("Error reading dictionary file.  Maximum lines exceeded")
+                sys.exit()
+            if self.i >= len(self.lines):
+                break
+
+            value = self._parseLine()
+
+            if value is not None:
+                self.entryList.append(value)
+
+            # [status, lineStatus] = _readDictEntry(status, ofType, lines, i)
+
+        return ofDictFile(self.entryList
+                        #location=Path(file).parent, 
+                        #filename=Path(file).name
+                        )
+
+    # TODO: Handle case of multiLineEntry with more than 1 word on  first line.
+    def _parseLine(self):
+        # switcher = {
+        #     "parse": ,
+        #     : ['multiLineUnknown', 'readMultiLine'],
+        #     2: ['singleLineSingleValuedEntry', 'read']
+        # }
+
+        log.debug("Parsing new line.")
+        log.debug(f"\tself.extraLine: {self.extraLine}")
+
+        log.debug(f"\tline[{self.i+1}]: {self.lines[self.i].rstrip()}")
+
+        parsingExtraLine = False
+
+        if self.extraLine is None:
+            #- Ignore comments and split line into list
+            lineList = self.lines[self.i].strip().split('//')[0].split()
+        else:
+            lineList = self.extraLine.strip().split('//')[0].split()
+            parsingExtraLine = True
+
+        log.debug(f"\tlineList: {lineList}")
+
+        try: 
+            if len(lineList) == 0 or self._parseComments():
+                # Line is blank or comment
+                return None
+            elif len(lineList) == 1:
+                if lineList[0].strip() == '};' or lineList[0] == ');':
+                    #- ending list or dict
+                    return None
+                match = re.match('\$(.*);', lineList[0].strip())
+                if match is not None:
+                    # Found variable reference
+                    name_ = match.group(1)
+                    log.debug(f"Found variable: {name_}.")
+                    return ofVar(name_)
+                if lineList[0].strip()[-1] == ';':
+                    #- found non-keyword value
+                    return ofWord(lineList[0].strip().rstrip(';'))
+                if lineList[0] == '}':
+                    return None # Found beggining or end of dictionary
+                listOrDictName = self.lines[self.i].lstrip().rstrip()
+                log.debug(f"listOrDictName: {listOrDictName}")                
+                if any([listOrDictName is char for char in ['(', '{']]):
+                    log.debug("Parsing unnamed list or dictionary.")
+                    return self._parseListOrDict(None)
+                else:
+                    self.i += 1
+                    return self._parseListOrDict(listOrDictName)
+            elif len(lineList) == 2:
+                return self._parseLineLenTwo()
+            else:  # Multiple value entry
+                return self._parseLineLenGreaterThanTwo()
+        except Exception as e:
+            raise e
+        finally:
+            if parsingExtraLine:
+                self.extraLine = None #- reset the extra line to parse 
+                                      #  next line in file.
+            else:
+                self.i += 1
+
+    def _parseLineLenTwo(self):
+        log.debug("Parsing line of length 2.")
+
+        lineList = self.lines[self.i].strip().split()
+        
+        #log.debug(f"lineList: {lineList}")
+        
+        if lineList[0].startswith('#include'):
+            # Found include statement 
+            return self._parseIncludes(lineList[0], lineList[1].rstrip(';'))
+        elif lineList[1][-1] == ';':
+            # Found single line entry
+            return self._parseSingleLineEntry(lineList[0], 
+                lineList[1].rstrip(';'))
+        elif lineList[1] == 'table':
+            # Found a table entry
+            return self._parseTable(lineList[0])
+        else:
+            log.error(f"Cannot handle single line entry '{lineList}' on line "\
+                f"{self.i+1} of {self.filepath}.")
 
 
-    # def _getOFDictValueType(self, startsWith):
-    #     switcher = {
-    #         '(': 'list',
-    #         '{': 'dict'
-    #     }
-    #     return [switcher.get(startsWith, 'value'), 'read']
+    def _parseSingleLineEntry(self, key, value):
+        """
+        Extract the value as the approriate ofTypes
 
+        Search order:
+            - ofFloat, ofInt, ofBool, ofStr
+        """
 
-    # def _getOFDictMultiLineEntryType(self, line):
-    #     switcher = {
-    #         '(': 'list',
-    #         '{': 'dict',
-    #         'FoamFile': 'fileInfoStart'
-    #     }
-    #     return [switcher.get(line, 'value'), 'read']
+        log.debug("Parsing a single line entry")
 
+        log.debug(f"key: {key}, value: {value}")
 
-    # def _ofMultiLineEntryReadNextLine(self, line):
-    #     pass
+        type_, value_ = self._parseValue(value)
 
-
+        if hasattr(type_, 'name'):
+            return type_(name=key, value=value_)
+        elif hasattr(type_, '_name'):
+            return type_(_name=key, value=value_)
+        else:
+            self._userMsg(f"Could not set name for type {type_}.  Returning "\
+                "value only!")
+            return type_(value=value_)
 
     def _parseListOrDict(self, name):
         """
@@ -1167,7 +1223,8 @@ class DictFileParser:
 
         #linesList = self._getLinesList(self.lines[self.i])
 
-        name = name.strip()
+        if name is not None:
+            name = name.strip()
 
         lineList = self.lines[self.i].strip().split()
 
@@ -1349,8 +1406,9 @@ class DictFileParser:
                     for value in subStr.split():
                         listValues.append(value)
                 else:
-
-                    listValues.append(ofList(value=self._parseListValues(subStr)))
+                    #TODO: Store as ofList or list
+                    # listValues.append(ofList(value=self._parseListValues(subStr)))
+                    listValues.append(self._parseListValues(subStr))
                 i=j+i
                 log.debug(f"i: {i}")
                 log.debug(f"j: {j}")
@@ -1371,23 +1429,6 @@ class DictFileParser:
             i+=1
             log.debug(f"i: {i}")
                     
-        return listValues
-
-
-
-
-        # # need to loop to handle case of multiple lists on a line
-
-        # listValue = []
-        # for j in range(len(values)):
-        #     value_ = values[j].replace('(', '').replace(')', '')
-        #     _, value_ = self._parseValue(value_)
-        #     listValue.append(value_)
-
-        log.debug(f"list values after parsing: {listValues}")
-
-
-
         return listValues
 
 
@@ -1431,7 +1472,7 @@ class DictFileParser:
         while True: # Find matching parenthesis
             if i >= len(string):
                 self._userMsg("Unhandled expression.  Could not find "\
-                    f"end of list on line {self.i} of {self.filepath}.",
+                    f"end of list on line {self.i+1} of {self.filepath}.",
                     'ERROR')
             if string[i] == openingChar:
                 level+=1
@@ -1539,81 +1580,6 @@ class DictFileParser:
         return i_-1
             
 
-
-    # TODO: Handle case of multiLineEntry with more than 1 word on  first line.
-    def _parseLine(self):
-        # switcher = {
-        #     "parse": ,
-        #     : ['multiLineUnknown', 'readMultiLine'],
-        #     2: ['singleLineSingleValuedEntry', 'read']
-        # }
-
-        log.debug("Parsing new line.")
-        log.debug(f"\tself.extraLine: {self.extraLine}")
-
-        log.debug(f"\tline[{self.i+1}]: {self.lines[self.i].rstrip()}")
-
-        parsingExtraLine = False
-
-        if self.extraLine is None:
-            #- Ignore comments and split line into list
-            lineList = self.lines[self.i].strip().split('//')[0].split()
-        else:
-            lineList = self.extraLine.strip().split('//')[0].split()
-            parsingExtraLine = True
-
-        log.debug(f"\tlineList: {lineList}")
-
-        try: 
-            if len(lineList) == 0 or self._parseComments():
-                # Line is blank or comment
-                return None
-            elif len(lineList) == 1:
-                if lineList[0] == '}':
-                    return None # Found beggining or end of dictionary
-                listOrDictName = self.lines[self.i].lstrip(" ").rstrip(" ")
-                if any([listOrDictName is char for char in ['(', '{']]):
-                    return self._parseListOrDict(None)
-                else:
-                    self.i += 1
-                    return self._parseListOrDict(listOrDictName)
-            elif len(lineList) == 2:
-                return self._parseLineLenTwo()
-            else:  # Multiple value entry
-                return self._parseLineLenGreaterThanTwo()
-        except Exception as e:
-            raise e
-        finally:
-            if parsingExtraLine:
-                self.extraLine = None #- reset the extra line to parse 
-                                      #  next line in file.
-            else:
-                self.i += 1
-
-
-    def _parseLineLenTwo(self):
-        log.debug("Parsing line of length 2.")
-
-        lineList = self.lines[self.i].strip().split()
-        
-        #log.debug(f"lineList: {lineList}")
-        
-        try:
-            if lineList[0].startswith('#include'):
-                # Found include statement 
-                return self._parseIncludes(lineList[0], lineList[1].rstrip(';'))
-            elif lineList[1][-1] == ';':
-                # Found single line entry
-                return self._parseSingleLineEntry(lineList[0], 
-                    lineList[1].rstrip(';'))
-            else:
-                log.error(f"Cannot handle single line entry '{lineList}'")
-        except Exception as e:
-            raise e
-        # finally:
-        #     self.i+=1
-
-
     def _parseIncludes(self, key, value):
         """
         Extract value as the appropriate include type
@@ -1626,37 +1592,38 @@ class DictFileParser:
         else:
             return ofInclude(value)
 
-
-    def _parseSingleLineEntry(self, key, value):
+    def _parseTable(self, name, string = None):
         """
-        Extract the value as the approriate ofTypes
+        Parse a table entry specified as 
 
-        Search order:
-            - ofFloat, ofInt, ofBool, ofStr
+        <name>   table
+        (
+            (0.0 (1 2 3))
+            (1.0 (4 5 6))
+        );
+
+        If string is 'None', parses lines starting with '('.  else parses a 
+        string starting at '('
+
         """
 
-        log.debug("Parsing a single line entry")
+        if string is not None: # parse string 
+            line = string
+            log.debug(f"parseTable string: {string}")
+            if line.split()[1] == 'table': # whole line is passed as input
+                lineList = line.split()[2:] # Remove the 'table' designation
+            elif line.strip().startswith('(('):  # only list value is passed as input
+                lineList = line.split()
+            else:
+                self._userMsg(f"Unhandled syntax for table found on line "\
+                    f"{self.i+1} of {self.filepath}.", "ERROR")
+            list_ = self._parseListValues(" ".join(lineList))
+            return ofTable(name=name, value = list_) 
+        else: # parse lines
+            line = self.lines[self.i]
+            list_ = self._parseList(name)
+            return ofTable(name=name, value = list_.value)
 
-        log.debug(f"key: {key}, value: {value}")
-
-        type_, value_ = self._parseValue(value)
-
-        return type_(name=key, value=value_)
-
-        # try:
-        #     v_ = float(value)
-        #     return ofFloat(v_, name=key)
-        # except ValueError:
-        #     pass
-        # try:
-        #     v_ = int(value)
-        #     return ofInt(v_, name=key)
-        # except ValueError:
-        #     pass
-        # if any([value == b for b in OF_BOOL_VALUES.keys()]):
-        #     return ofBool(name=key, value=value)
-        # else:
-        #     return ofStr(value, name=key)
 
     def _parseValue(self, value):
         """
@@ -1762,29 +1729,44 @@ class DictFileParser:
 
         if ';' in line:
             #- add extra text after ';' as a new line to be parsed later
-            #- Remove ';', and extra closing ')' or '}'.  Assuming within list 
+            #- Remove ';',) and extra closing ')' or '}' (maybe).  Assuming within list 
             # or dict.  Other possibilities (e.g dimensioned types) should be
             # handled prior to this point in the method.
             extraText = ''.join(line.split(';')[1:]).replace('\n', '') 
             self._addExtraLine(extraText)
-            line = line.split(';')[0][:-1] 
+            #line = line.split(';')[0][:-1] 
+            line = line.split(';')[0] # do not remove last ')' or '}' 
 
-        lineList = line.split()
+        if ' (' in line or ' {' in line:
+            #- Found list or dict
+            # - find the entry type
+            for i, char in enumerate(line):
+                if char == '{' or char == '(':
+                    entryName = line[:i].lstrip().rstrip()
+                    log.debug(entryName)
+                    # valueList = line[i:].split(" ").rstrip(char+';')
+                    break
 
-        # - find the entry type
-        for i, char in enumerate(line):
-            if char == '{' or char == '(':
-                entryName = line[:i].lstrip().rstrip()
-                log.debug(entryName)
-                # valueList = line[i:].split(" ").rstrip(char+';')
-                break
+            log.debug(f"entryName: {entryName}")
 
-        if entryName:
-            self._parseListOrDict(entryName)
+            if entryName:
+                entryNameList = entryName.split()
+                if len(entryNameList) == 2 and entryNameList[1] == 'table':
+                    list_ = line.strip()[len(entryName):]
+                    self._parseTable(entryNameList[0], list_)
+                else:
+                    self._parseListOrDict(entryName)
+            else:
+                self._userMsg(f"Invalid syntax found on line {self.i+1} of file "
+                f"{self.filepath}", 'ERROR')
+                sys.exit()
         else:
-            self._userMsg(f"Invalid syntax found on line {self.i+1} of file "
-            f"{self.filepath}", 'ERROR')
-            sys.exit()
+            #- Assume entry is a key value pair with a muliple word value.
+            #      (e.g. 'default       Gauss linear')
+            lineList = line.split()
+            self._parseSingleLineEntry(key=lineList[0], 
+                                       value=' '.join(lineList[1:]))
+
 
     def _parseComments(self):
         """
@@ -1803,7 +1785,7 @@ class DictFileParser:
             return True
 
         if line.strip().startswith('/*'):
-            while not self.lines[self.i].endswith('*/'):
+            while not self.lines[self.i].strip().endswith('*/'):
                 self.i+=1
                 if self.i >= len(self.lines):
                     self._userMsg("Could not find end of commented block in"\
