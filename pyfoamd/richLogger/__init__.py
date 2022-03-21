@@ -14,10 +14,12 @@ logging.basicConfig(
 
 logger = logging.getLogger("pf")
 
-handler = RichHandler(rich_tracebacks=True)
-# handler.setLevel(levels[level])
+if not logger.hasHandlers():
 
-format = logging.Formatter(format, datefmt="[%X]")
-handler.setFormatter(format)
+    handler = RichHandler(rich_tracebacks=True)
+    # handler.setLevel(levels[level])
 
-logger.addHandler(handler)
+    format = logging.Formatter(format, datefmt="[%X]")
+    handler.setFormatter(format)
+
+    logger.addHandler(handler)
