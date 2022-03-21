@@ -3,27 +3,30 @@ import argparse, textwrap
 from argparse import RawTextHelpFormatter
 import pkg_resources  # part of setuptools
 import os
+from pyfoamd import getPyFoamdConfig, setLoggerLevel
 import pyfoamd.functions as pf
+from pathlib import Path
 
 from .commandline import CommandLine
 
+# from pyfoamd.config import DEBUG, DICT_FILESIZE_LIMIT
+
 from rich import print
 import logging
-from rich.logging import RichHandler
+logger = logging.getLogger('pf')
+# from rich.logging import RichHandler
 
-DEBUG = True
+# FORMAT = "%(message)s"
+# logging.basicConfig(
+#        level="NOTSET", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+# )
 
-FORMAT = "%(message)s"
-logging.basicConfig(
-       level="NOTSET", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
-)
+# logger= logging.getLogger("pf")
 
-logger= logging.getLogger("pf")
+# from rich.traceback import install
+# install()
 
-if DEBUG:
-   from rich.traceback import install
-   install()
-
+# from .richinclude import richLogger
 
 #- main() function
 def main():
@@ -58,7 +61,9 @@ def main():
     #subparsers = parser.add_subparsers()
 
     commands = {
-        'init': pf.init,
+        'init': None,#- `None` values to be updated after extracting `addArgs`
+        'edit': None,   
+        'setConfig': None
     }
 
     # commandsStr = ''
@@ -70,6 +75,34 @@ def main():
     #     i+=1
     #
     # commandsStr = commandsStr.rstrip(', ')
+
+    #- parse args manually to find command args
+    args=sys.argv
+    i = 0
+    while any([c == args[i] for c in commands]) is False:
+        i += 1
+        if i >=len(args):
+            parser.print_help()
+            sys.exit()
+
+    opt_args = args[1:i]
+    addArgs = args[i:]
+
+    # #- Manually parse the optional arguments
+    # debug = False
+    # for i in range(len(opt_args)):
+    #     if opt_args[i] == '--debug':
+    #         debug = True
+    #         i+=1
+
+    #     elif any([opt_args[i] == command for command in commands.keys()]):
+    #         break
+
+    #- Update commands that require `addArgs`
+    cl = CommandLine(addArgs[1:],  Path(__file__).parent / 'config.ini')
+    commands['init'] = cl.init
+    commands['edit'] = cl.edit
+    commands['setConfig'] = cl.setConfig
 
     commandsStr = ''
 
@@ -90,51 +123,38 @@ def main():
 
     #- Global [<options>] arguments
 
-    parser.add_argument('--debug',
-                        help="Print out additional debug information",
-                        action='store_true'
-                       )
+    # parser.add_argument('--debug',
+    #                     help="Print out additional debug information",
+    #                     action='store_true'
+    #                    )
 
-    #- parse args manually to find command args
-    args=sys.argv
-    i = 0
-    while any([c == args[i] for c in commands]) is False:
-        i += 1
-        if i >=len(args):
-            parser.print_help()
-            sys.exit()
 
-    opt_args = args[1:i]
-    addArgs = args[i:]
-
-    #- Manually parse the optional arguments
-    debug = False
-    for i in range(len(opt_args)):
-        if opt_args[i] == '--debug':
-            debug = True
-            i+=1
-
-        elif any([opt_args[i] == command for command in commands.keys()]):
-            break
 
 
     args = parser.parse_args(opt_args+[addArgs[0]])
 
-    logger.setLevel("DEBUG" if debug else "INFO")
+    debug = getPyFoamdConfig('debug')
+
+    setLoggerLevel("DEBUG" if debug.lower()=='true' else "INFO")
+
+    logger.debug(f"debug: {debug}")
+
+    #logger.setLevel("DEBUG" if debug else "INFO")
 
     logger.debug('main args:'+str(opt_args+[addArgs[0]]))
     logger.debug('main addArgs:'+str(addArgs))
 
-    commandList = list(commands.keys())
+    # commandList = list(commands.keys())
 
 
-    cl = CommandLine(addArgs[1:])
+    # cl = CommandLine(addArgs[1:])
 
-    CL_FUNCTION_MAP = {
-        commandList[0]: cl.init,
-    }
+    # CL_FUNCTION_MAP = {
+    #     commandList[0]: cl.init,
+    # }
 
-    cl_func = CL_FUNCTION_MAP[addArgs[0]]
+    # cl_func = CL_FUNCTION_MAP[addArgs[0]]
+    cl_func = commands[addArgs[0]]
     cl_func()
 
     print("")

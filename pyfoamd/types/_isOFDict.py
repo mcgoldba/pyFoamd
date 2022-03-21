@@ -1,9 +1,9 @@
 import os
 import logging
+from pyfoamd import getPyFoamdConfig
 
-from pyfoamd.config import DICT_FILESIZE_LIMIT
-
-logger = logging.getLogger('pyfoamd')
+#from pyfoamd.richLogger import logger
+logger = logging.getLogger('pf')
 
 def _isOFDict(file):
     """
@@ -15,6 +15,7 @@ def _isOFDict(file):
         file (str or Path):  The path of the file to test.
     """
 
+
     # - Convert to string in case of Path object
     file = str(file)
 
@@ -22,8 +23,11 @@ def _isOFDict(file):
 
     isOFDict = False
 
+
+    filesizeLimit = int(getPyFoamdConfig('dict_filesize_limit'))
+
     #- Skip large files
-    if os.path.getsize(file) > DICT_FILESIZE_LIMIT:
+    if os.path.getsize(file) > filesizeLimit:
         return isOFDict
 
 

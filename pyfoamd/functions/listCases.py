@@ -4,8 +4,6 @@ import re
 
 from .isCase import isCase
 
-from pyfoamd.config import DEBUG
-DEBUG=False
 
 def listCases(path=Path.cwd(), absolutePath=False):
     #convert string inputs to Path()
