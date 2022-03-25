@@ -8,6 +8,7 @@ def init(path=Path.cwd()):
     """
     Read an OpenFOAM case and store as a Python dictionary.
     """
-    setLoggerLevel("DEBUG" if bool(getPyFoamdConfig('debug')) else "INFO")
+    setLoggerLevel("DEBUG" if getPyFoamdConfig('debug').lower() == 'true'
+                    else "INFO")
 
     return ofCase(path=path)

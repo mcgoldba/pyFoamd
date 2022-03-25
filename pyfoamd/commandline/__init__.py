@@ -4,7 +4,8 @@ import IPython
 import argparse
 from configparser import ConfigParser
 from pyfoamd import userMsg
-
+from pathlib import Path
+from traitlets.config import Config # for IPython config
 # import config
 
 import logging
@@ -27,9 +28,9 @@ class CommandLine:
         logger.debug(f"case: {case}")
 
         #- store the case data as json file:
-        #TODO:  This doesn't work
-        
-        pf.writeParams(case, '_case.json')
+        #TODO:  This doesn't work.  Does it create a new instance of `case`
+        #       from file?
+        pf.writeParams(case, Path('.pyfoamd') / '_case.json', sort=False)
 
     def edit(self):
         """
@@ -41,14 +42,20 @@ class CommandLine:
 
         """
         import pyfoamd.functions as pf
+        import pyfoamd.types as pt
         try:
             case = pf.readCaseFromCache()
         except FileNotFoundError:
-            warnings.warn("No cached case data found.  Run 'pf init'"\
-            " before 'pf edit'.")
+            userMsg("No cached case data found.  Run 'pf init'"\
+            " before 'pf edit'.", "WARNING")
             case = None
 
-        IPython.embed()
+        c = Config()
+        c.InteractiveShell.colors = 'LightBG'
+        c.InteractiveShell.confirm_exit = False
+        c.TerminalIPythonApp.display_banner = False
+
+        IPython.embed(config=c)
         if case is not None:
             pf.writeParams(case, '_case.json')
 

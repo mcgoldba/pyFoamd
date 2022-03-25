@@ -6,10 +6,10 @@ import sys
 import logging
 # logger = logging.getLogger('pf')
 
-# from rich import print
+from rich import print
 
-# from rich.traceback import install
-# install()
+from rich.traceback import install
+install()
 
 from .richLogger import logger
 
@@ -24,11 +24,11 @@ def getPyFoamdConfig(param):
     parser.read(Path(__file__).parent / 'config.ini')
 
     if parser.has_section('user'): 
-        param_ = parser.get('user', param, fallback=None)
+        param_ = parser.get('user', param.lower(), fallback=None)
         if param_ is None:
-            param_ = parser.get('default', param, fallback=None)
+            param_ = parser.get('default', param.lower(), fallback=None)
     else:
-        param_ = parser.get('default', param, fallback=None)
+        param_ = parser.get('default', param.lower(), fallback=None)
     
     if param_ is not None:
         return param_ 

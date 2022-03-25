@@ -10,11 +10,14 @@ import sys
 import string #- to check for whitespace
 import re
 import pandas as pd
+import copyreg
+
+from dotmap import DotMap
 
 from inspect import signature #- just for debugging
 
+from pyfoamd import setLoggerLevel, userMsg
 from ._isOFDict import _isOFDict
-#from ._readDictFile import _readDictFile
 
 from rich.console import Console
 console = Console()
@@ -64,12 +67,72 @@ TYPE_REGISTRY = []
 def _populateRegistry(path):
     reg = []
 
-    return field(default_factory=lambda: copy.copy(reg))
+    #return field(default_factory=lambda: copy.copy(reg))
+    return reg
+
+#TODO: Common functionality for all ofTypes (e.g. print str as OpenFOAM entry)
+@dataclass
+class _ofTypeBase:
+    """Common derived class to group all ofTypes (except ofFolder)"""
+    pass
+
+@dataclass 
+class _ofUnnamedTypeBase(_ofTypeBase):
+    """
+    Base class for unnamed values.  'value' should be stored as a Python type.
+    For derived classes where the conversion from python type back to the ofType
+    is not intuitive, a secondary '_value' attribute should be defined that
+    stores the appropriate string repesentation of the OpenFOAM value.
+    
+    Iterable derived types (e.g. ofList) should store ofTypes as values.
+
+    """
+    value : str = None
+
+    #TODO: Trying to get dot access of instance to print string represenrtation
+    #       of value.  Not sure which dunder to use.
+    def __repr__(self):
+        return str(self.value)
+
+@dataclass 
+class _ofNamedTypeBase(_ofUnnamedTypeBase):
+    """
+    Base class for named values.  'value' should be stored as a Python type.
+    For derived classes where the conversion from python type back to the ofType
+    is not intuitive, a secondary '_value' attribute should be defined that
+    stores the appropriate string repesentation of the OpenFOAM value.
+
+    Iterable derived types (e.g. ofDict) should store ofTypes as values.
+
+    call signatures:
+        with single argument:   _ofNamedTypeBase(value)
+        with two arguments:     _ofNamedTypeBase(name, value)
+
+    """
+    name: str = None
+    # value : str = None
+
+    def __post_init__(self, *args, **kwargs):
+        if len(args) == 1:
+            self.value = args[0]
+            self.name = None
+        elif len(args) == 2:
+            self.name = args[0]
+            self.name = args[1]
+
+    #- for dict() conversion; ref: https://stackoverflow.com/a/23252443/10592330
+    def __iter__(self):
+        for key, value in self.__dict__.items():
+            yield (key, value)
+
 
 
 @dataclass
-class ofTimeReg:
-    pass
+class ofTimeReg(_ofTypeBase):
+    
+    def __iter__(self):
+        for key, value in self.__dict__.items():
+            yield (key, value)
 
 
 # @dataclass(frozen=True)
@@ -100,6 +163,36 @@ class ofTimeReg:
 #                                         addDirs,
 #                                         bases=(ofFolder,), frozen=True)
 
+@dataclass(frozen=True)
+class _ofFolderBase:  # Note: not an '_ofTypeBase' because frozen
+                      #         Type checking must be handled separately.
+    _path: str
+
+    def __deepcopy__(self, memo=None):
+        logger.debug(f"self: {self}")
+        # logger.debug(f"self.__dict__: {self.__dict__}")
+        # logger.debug(f"vars(self): {vars(self)}")
+        return type(self)()
+    
+    def __iter__(self):
+        logger.debug(f"self: {self}")
+        logger.debug(f"vars(self).keys(): {vars(self).keys()}")
+        for key in vars(self).keys(): 
+            if isinstance(self.__getattribute__(key), ofDict):
+                yield (key, dict(self.__getattribute__(key)))
+            elif isinstance(self.__getattribute__(key), _ofFolderBase):
+                yield (key, dict(self.__getattribute__(key)))
+            elif isinstance(self.__getattribute__(key), _ofTypeBase):
+                yield (key, self.__getattribute__(key).value)
+            else:
+                yield (key, self.__getattribute__(key))
+
+#for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
+def pickleOfFolder(f):
+    return _ofFolderBase, (f._path, )
+
+copyreg.pickle(_ofFolderBase, pickleOfFolder)
+
 class FolderParser:  # Class id required because 'default_factory' argument 
                      # 'makeOFFolder' must be zero argument
     def __init__(self, path):
@@ -107,7 +200,9 @@ class FolderParser:  # Class id required because 'default_factory' argument
 
     def makeOFFolder(self):
 
-        attrList = [('_path', Path, field(default=self.path))]
+        logger.debug(f"Parsing folder: {self.path}")
+
+        attrList = [('_path', str, field(default=str(self.path)))]
         for obj in Path(self.path).iterdir():
             #- Prevent invalid ofFolder attribute names:
             name_ = obj.name.replace('.', '_')
@@ -127,10 +222,10 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 )
 
         dc_ = make_dataclass('ofFolder', 
-                            attrList, frozen=True)
+                            attrList, bases=(_ofFolderBase, ), frozen=True)
 
-        logger.debug(f"ofFolder dataclass: {dc_}")
-        logger.debug(f"ofFolder dataclass: {signature(dc_)}")
+        # logger.debug(f"ofFolder dataclass: {dc_}")
+        # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
 
         return dc_()
 
@@ -158,40 +253,126 @@ class FolderParser:  # Class id required because 'default_factory' argument
 #
 #         self.__class__ = make_dataclass('ofCase', addDirs, bases=(self,))
 
+@dataclass
+class _ofCaseBase(_ofTypeBase):
+
+    def __init__(self, path=Path.cwd):
+        self._location : str = str(path.parent)
+        self._name : str = path.name
+        self._times : ofTimeReg = ofTimeReg()
+        # self._registry : list = _populateRegistry(path)
+        self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
+        self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
+
+    def __deepcopy__(self, memo=None):
+        logger.debug(f"self: {self}")
+        # logger.debug(f"self.__dict__: {self.__dict__}")
+        # logger.debug(f"vars(self): {vars(self)}")
+
+        location = copy.deepcopy(self._location) 
+        name = copy.deepcopy(self._name)
+        constant = copy.deepcopy(self.constant)
+        system = copy.deepcopy(self.system)
+        times = copy.deepcopy(self._times) 
+
+        # logger.debug(f"registry: {self._registry}")
+        
+        # registry = copy.deepcopy(self._registry)
+
+        return type(self)(location, name, times, constant, system)
+
+    def __iter__(self):
+        logger.debug(f"vars(self).keys(): {vars(self).keys()}")
+        for key in vars(self).keys(): 
+            if isinstance(self.__getattribute__(key), ofDict):
+                yield (key, dict(self.__getattribute__(key)))
+            elif isinstance(self.__getattribute__(key), _ofFolderBase):
+                yield (key, dict(self.__getattribute__(key)))
+            elif isinstance(self.__getattribute__(key), ofTimeReg):
+                yield (key, dict(self.__getattribute__(key)))
+            elif isinstance(self.__getattribute__(key), _ofTypeBase):
+                yield (key, self.__getattribute__(key).value)
+            else:
+                yield (key, self.__getattribute__(key))
+
 def ofCase(path=Path.cwd()):
 
     if isinstance(path, Path) is False:
         path = Path(path)
 
+    # attrList = []
+    #TODO:  This is attribute list is a copy of _ofCaseBase attributes. 
+    #       Initialize the super() class instead.
     attrList = [
-        ('location', Path, field(default=path.parent)),
-        ('name', str, field(default=path.name)),
+        ('_location', str, field(default=str(path.parent))),
+        ('_name', str, field(default=path.name)),
+        ('_times', ofTimeReg,  field(default=ofTimeReg())),
         ('constant', _ofFolderBase, 
             field(default=FolderParser('constant').makeOFFolder())),
         ('system', _ofFolderBase, 
-            field(default=FolderParser('system').makeOFFolder())),
-        ('times', ofTimeReg,  field(default=ofTimeReg())),
-        ('registry', list, field(default=_populateRegistry(path)))
+            field(default=FolderParser('system').makeOFFolder()))
+        # ('_registry', list, field(default=_populateRegistry(path)))
     ]
     for obj in path.iterdir():
         if (obj.is_dir() and all(obj.name != default for default in
                                  ['constant', 'system'])):
-            fields = [attr[0] for attr in attrList]
+            # fields = [attr[0] for attr in attrList]
+            logger.debug(f"_ofCaseBase: \
+                {_ofCaseBase}")
+            fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
             if any([obj.name == field for field in fields]):
                 warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                               "Skipping directory: {obj} ")
                 continue
-                attrList.append((obj, ofFolder, field(default=ofFolder(obj))))
+            if obj.name.startswith('.'):
+                #- ignore hidden directories.  These are included in ofTimeReg
+                continue
+            name_ = obj.name.replace('.', '_')
+            
+            if name_[0].isdigit() or name_ == 'postProcessing':
+                #- Do not parse time directories
+                continue
 
-    return make_dataclass('ofCase', attrList)(
-        path.parent, path.name, FolderParser('constant').makeOFFolder(),
-        FolderParser('system').makeOFFolder(), 
-        ofTimeReg(), _populateRegistry(path))
+            attrList.append((name_, _ofFolderBase, 
+                field(default=FolderParser(obj.name).makeOFFolder())))
 
+    #- TODO: Add __deepcopy__ and __iter__ classes
 
-@dataclass
-class _ofFolderBase:
-    _path: Path
+    dc_ =   make_dataclass('ofCase', attrList, 
+                            bases=(_ofCaseBase, ))(
+        str(path.parent), path.name,  
+        ofTimeReg(),
+        FolderParser('constant').makeOFFolder(),
+        FolderParser('system').makeOFFolder()
+    )
+
+    # #- Define class methods for dataclass:
+    # def deepcopy(self, memo=None):
+    #     logger.debug(f"self: {self}")
+    #     # logger.debug(f"self.__dict__: {self.__dict__}")
+    #     # logger.debug(f"vars(self): {vars(self)}")
+    #     return type(self)(copy.deepcopy(
+    #         self._location, self._name, self.constant, self.system,
+    #         self._time, self._registry
+    #     ))
+
+    # def iter(self):
+    #     logger.debug(f"vars(self).keys(): {vars(self).keys()}")
+    #     for key in vars(self).keys(): 
+    #         if isinstance(self.__getattribute__(key), _ofTypeBase):
+    #             yield (key, self.__getattribute__(key).value)
+    #         else:
+    #             yield (key, self.__getattribute__(key))
+
+    # dc_.__deepcopy__ = deepcopy
+    # dc_.__iter__ = iter
+
+    # def post_init(self, path):
+    #     super(self).__init__(self, path)
+
+    # dc_.__post_init__ = post_init
+
+    return dc_
 
 @dataclass
 class _ofDictFileBase:
@@ -217,52 +398,6 @@ class _ofDictFileBase:
     #
     # def _keytransform(self, key):
     #     return key
-
-
-#TODO: Common functionality for all ofTypes (e.g. print str as OpenFOAM entry)
-@dataclass
-class _ofTypeBase:
-    """Common derived class to group all ofTypes"""
-    pass
-
-@dataclass 
-class _ofUnnamedTypeBase(_ofTypeBase):
-    """
-    Base class for unnamed values.  'value' should be stored as a Python type.
-    For derived classes where the conversion from python type back to the ofType
-    is not intuitive, a secondary '_value' attribute should be defined that
-    stores the appropriate string repesentation of the OpenFOAM value.
-    
-    Iterable derived types (e.g. ofList) should store ofTypes as values.
-
-    """
-    value : str = None
-
-@dataclass 
-class _ofNamedTypeBase(_ofUnnamedTypeBase):
-    """
-    Base class for named values.  'value' should be stored as a Python type.
-    For derived classes where the conversion from python type back to the ofType
-    is not intuitive, a secondary '_value' attribute should be defined that
-    stores the appropriate string repesentation of the OpenFOAM value.
-
-    Iterable derived types (e.g. ofDict) should store ofTypes as values.
-
-    call signatures:
-        with single argument:   _ofNamedTypeBase(value)
-        with two arguments:     _ofNamedTypeBase(name, value)
-
-    """
-    name: str = None
-    # value : str = None
-
-    def __post_init__(self, *args, **kwargs):
-        if len(args) == 1:
-            self.value = args[0]
-            self.name = None
-        elif len(args) == 2:
-            self.name = args[0]
-            self.name = args[1]
 
 
 #TODO: Eliminate this class
@@ -313,7 +448,7 @@ class _ofDictFileDefaultsBase:
 #                 self._nUnnamed += 1
 #                 name_ = '_unnamed'+str(self._nUnnamed)
 #             if '_unnamed' in itemName or itemName == '_name':
-#                 self._userMsg("Found reserved name in dictionary key.", 'WARNING')
+#                 userMsg("Found reserved name in dictionary key.", 'WARNING')
 #             else:
 #                 name_ = item.name
 #             return dict.__setitem__(name_, item.value)
@@ -358,10 +493,10 @@ class _ofListBase(_ofDictFileBase):
         _list = []
         return [v.value if isinstance(v, _ofIntBase) else v for v in self.value]
 
-@dataclass
-class _ofNamedListBase(_ofListBase):
-    name: str = None
-    value: List = field(default_factory=lambda:[])
+# @dataclass
+# class _ofNamedListBase(_ofListBase):
+#     name: str = None
+#     value: List = field(default_factory=lambda:[])
 
 
 @dataclass
@@ -388,15 +523,15 @@ class _ofIncludeBase(_ofDictFileBase):
     _name: str="#include"
     value: str = None
 
-@dataclass
-class _ofBoolBase(_ofIntBase):
-    name: str = None
-    value: None
-    _valueStr: str = field(init=False)  #User cant pass a value
+# @dataclass
+# class _ofBoolBase(_ofIntBase):
+#     name: str = None
+#     value: None
+#     #_valueStr: str = field(init=False)  #User cant pass a value
 
-    def __post_init__(self):
-        self._valueStr = self.value
-        self.value = OF_BOOL_VALUES[self._valueStr]
+#     def __post_init__(self):
+#         self._valueStr = self.value
+#         self.value = OF_BOOL_VALUES[self._valueStr]
 
 @dataclass
 class _ofDimensionedScalarBase(_ofFloatBase):
@@ -481,28 +616,29 @@ class ofDict(dict, _ofTypeBase):
         self._entryTypes = {}
         self._nUnnamed = 0
         #- Keep a list of class variables to filter printed dict items:
-        self.CLASS_VARS = ['CLASS_VARS', '_name', 
+        self._CLASS_VARS = ['_CLASS_VARS', '_name', 
                             '_entryTypes', '_nUnnamed']
 
         if (len(args) == 1 and isinstance(args[0], list)
             and  all([isinstance(v, _ofTypeBase) for v in args[0]])):
             #- Parse list of ofTypes with ofDict().update function
-            super().__init__(**kwargs)
+            super(ofDict, self).__init__(**kwargs)
             self.update(args[0])
         else:
-            super().__init__(*args, **kwargs)
+            super(ofDict, self).__init__(*args, **kwargs)
 
 
     # ref: https://stackoverflow.com/questions/2352181/how-to-use-a-dot-to-access-members-of-dictionary
-    def __getattr__(*args):
-        val = dict.get(*args)
-        return ofDict(val) if type(val) is dict else val
+    def __getattr__(self, attr):
+        return self.get(attr)
+    
     def __setitem__(self, item, value=None):
         nameTag = None
-        if isinstance(item, _ofIntBase):  # _ofIntBase is base type for all other ofTypes
-            nameTag = 'name'
-        elif isinstance(item, ofDict):
+
+        if isinstance(item, ofDict):
             nameTag = '_name'
+        elif isinstance(item, _ofTypeBase):
+            nameTag = 'name'
         
         if nameTag is not None:
             itemName = item.__getattr__[nameTag]
@@ -510,42 +646,63 @@ class ofDict(dict, _ofTypeBase):
                 self._nUnnamed += 1
                 name_ = '_unnamed'+str(self._nUnnamed)
             if '_unnamed' in itemName or itemName == '_name':
-                self._userMsg("Found reserved name in dictionary key.", 'WARNING')
+                userMsg("Found reserved name in dictionary key.", 'WARNING')
             else:
                 name_ = item.name
-            return dict.__setitem__(name_, item.value)
+            self.__setattr__(name_, item)
+
         else:
-            return dict.__setitem__(item, value)
+            super(ofDict, self).__setattr__(item, value)
 
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
 
-    _update = dict.update
+    def __setattr__(self, key, value):
+        super(ofDict, self).__setitem__(key, value)
+        super(ofDict, self).__setattr__(key, value)
+        self.__dict__[key] = value
+        super(ofDict, self).__dict__[key] = value
+    def __delattr__(self, name):
+        super(ofDict, self).__delitem__(self, name)
+        super(ofDict, self).__delattr__(self, name)
+        self.__dict__.pop(name)
+
+    # _update = dict.update
 
     def _NoneKey(self):
         self._nUnnamed += 1
         return '_unnamed'+str(self._nUnnamed)
     
     def update(self, iterable):
-        # logger.debug(f"ofDict initalizer iterable type: {type(iterable)}")
+        #TODO:  Can this function be simplified since self.__setitem__ parses
+        #          both ofTypes and built-in python types?
+        logger.debug(f"ofDict initalizer iterable type: {type(iterable)}")
+        logger.debug(f"ofDict initalizer iterable: {iterable}")
         if iterable is None:
             return
         if (isinstance(iterable, _ofIntBase) 
             or isinstance(iterable, _ofNamedTypeBase)):
-            self._update({iterable.name: iterable.value})
+            self.__setitem__(iterable.name, iterable)
         elif isinstance(iterable, _ofUnnamedTypeBase):
-            self._update({self._NoneKey(): iterable.value})
+            self.__setitem__(self._NoneKey(), iterable)
         elif isinstance(iterable, list):
             listTypes = set([type(item) for item in iterable])
             if all([isinstance(v, _ofTypeBase) for v in iterable]):
                 # dict_ = {item.name: item for item in iterable}
                 for item in iterable:
-                    self.update(item)
+                    #self.update(item)
+                    try:
+                        name = item.name
+                    except AttributeError:
+                        name = item._name
+                    self.__setitem__(name, item)
         elif isinstance(iterable, ofDict):
-            self._update({iterable._name: iterable.__dict__})
+            # super(ofDict, self).update({iterable._name: iterable.__dict__})
             # self._entryTypes[iterable.name] = type(iterable)
+            self.__setitem__(iterable._name, iterable)
+        elif isinstance(iterable, dict):
+            for key, value in iterable.items():
+                self.__setitem__(key, value)
         else:
-            self._update(iterable)
+            self.__setitem__(iterable)
 
     def asString(self) -> str:
         if self._name:
@@ -559,7 +716,7 @@ class ofDict(dict, _ofTypeBase):
             try:
                 self.__getattribute__(k)
             except AttributeError: # Do not print dictionary attributes
-                if any([k == v for v in self.CLASS_VARS]):
+                if any([k == v for v in self._CLASS_VARS]):
                     continue # do not print class varibales
                 #- Handle unnamed values in dicts:
                 # if '_unnamed' in k:
@@ -579,15 +736,48 @@ class ofDict(dict, _ofTypeBase):
     def __str__(self):
         return self.asString().rstrip(';\n')
 
+    #- for dict() conversion; ref: https://stackoverflow.com/a/23252443/10592330
+    def __iter__(self):
+        logger.debug(f"Inside {self} __iter__.")
+        for item in vars(self).items():
+            yield item
+
+    def __deepcopy__(self, memo=None):
+        print("__deepcopy__ type(self):", type(self))
+        new = self.from_dict({})
+        for key in self.keys():
+            new.set_attribute(key, copy.deepcopy(self[key], memo=memo))
+        return new
+    
+    #TODO:  can this clas be replaced with a dict() conversion?
+    def toDict(self):  
+        return {k: v for k, v in self.__iter__() }
+
 @dataclass
 class ofDictFile(ofDict):
-    # - TODO: Add ability to read in dictionary entries as python variables
-
     def __init__(self, *args, **kwargs):
-        self._location = Path(kwargs.pop('_location', Path.cwd()))
+        self._location = str(Path(kwargs.pop('_location', Path.cwd())))
 
-        super().__init__(*args, **kwargs)
-        self.CLASS_VARS.append('_location')
+        logger.debug(f"location: {self._location}")
+
+        super(ofDictFile, self).__init__(*args, **kwargs)
+        self._CLASS_VARS.append('_location')
+
+# @dataclass
+# class ofDict(DotMap, _ofTypeBase):
+#     pass
+
+# class ofDictFile(DotMap):
+#     # - TODO: Add ability to read in dictionary entries as python variables
+#     #_location : str = field(default=str(Path.cwd()))
+
+#     def __init__(self, *args, **kwargs):
+#         self._location = Path(kwargs.pop('_location', Path.cwd()))
+
+#         logger.debug(f"location: {self._location}")
+
+#         super().__init__(*args, **kwargs)
+#         self._CLASS_VARS.append('_location')
 
 @dataclass
 # class ofInt(_ofDictFileBase, _ofIntBase):
@@ -613,7 +803,15 @@ class ofStr(_ofNamedTypeBase):
 TYPE_REGISTRY.append(ofStr)
 
 @dataclass
-class ofBool(ofInt, _ofBoolBase):
+class ofBool(_ofNamedTypeBase):
+    name: str = None
+    value: None
+    _valueStr: str = field(init=False)  #User cant pass a value
+
+    def __post_init__(self):
+        self._valueStr = self.value
+        self.value = OF_BOOL_VALUES[self._valueStr]
+
     def asString(self) -> str:
         return printNameStr(self.name)+self._valueStr+';\n'
 
@@ -634,7 +832,8 @@ class ofVar(_ofNamedTypeBase):
         return self.asString().rstrip(';\n')
 
 @dataclass
-class ofNamedList(ofDictFile, _ofNamedListBase):
+class ofNamedList(_ofNamedTypeBase):
+    value: List = field(default_factory=lambda:[])
 
     def asString(self) -> str:
         return printNameStr(self.name)+self.valueStr+";\n"
@@ -773,20 +972,20 @@ class ofTable(ofNamedList):
     def __str__(self):
         return self.asString().rstrip(';\n')
 
-@dataclass
-class ofNamedSplitList(ofNamedList, _ofNamedListBase):
-    #- Same as ofNamedList except entries are split on multiple lines according the
-    #  OpenFoam Programmer's Style Guide
+# @dataclass
+# class ofNamedSplitList(ofNamedList, _ofNamedListBase):
+#     #- Same as ofNamedList except entries are split on multiple lines according the
+#     #  OpenFoam Programmer's Style Guide
 
-    def asString(self) -> str:
-        printStr = self.name+'\n(\n'
-        for v in self.value:
-            printStr += TAB_STR+str(v)+'\n'
-        printStr += ');\n'
-        return printStr
+#     def asString(self) -> str:
+#         printStr = self.name+'\n(\n'
+#         for v in self.value:
+#             printStr += TAB_STR+str(v)+'\n'
+#         printStr += ');\n'
+#         return printStr
 
-    def __str__(self):
-        return self.asString().rstrip(';\n')
+#     def __str__(self):
+#         return self.asString().rstrip(';\n')
 
 @dataclass
 class ofDimension():
@@ -1015,17 +1214,19 @@ class DictFileParser:
         with open(filepath, 'r') as f:
             self.lines = f.readlines()
         self.status = None
-        self.entryList = []
+        self.dictFile = ofDictFile()
         self.i=0
-        self.extraLine = None
+        self.extraLine = []
 
 
     def _addExtraLine(self, line):
-        if self.extraLine is not None:
-            logger.error("Unhandled sequence.  Found multiple extra lines")
-            raise Exception
-        else:
-            self.extraLine = line
+        # if self.extraLine is not None:
+        #     logger.error("Unhandled sequence.  Found multiple extra lines")
+        #     raise Exception
+        # else:
+        if line != "":
+            logger.debug(f"Adding extra text:  {line}")
+            self.extraLine.append(line)
     
 
     def _getLinesList(self, i):
@@ -1088,14 +1289,23 @@ class DictFileParser:
             value = self._parseLine()
 
             if value is not None:
-                self.entryList.append(value)
+            #     self.entryList.append(value)
+                if hasattr(value, '_name'):
+                    self.dictFile.update({value._name: value})
+                elif hasattr(value, 'name'):
+                    self.dictFile.update({value.name: value})
+                else:
+                    logger.error(f"Invalid value type: {type(value)}.")
+                    sys.exit
 
             # [status, lineStatus] = _readDictEntry(status, ofType, lines, i)
 
-        return ofDictFile(self.entryList
-                        #location=Path(file).parent, 
-                        #filename=Path(file).name
-                        )
+        # return ofDictFile(self.entryList
+        #                 #location=Path(file).parent, 
+        #                 #filename=Path(file).name
+        #                 )
+
+        return self.dictFile
 
     # TODO: Handle case of multiLineEntry with more than 1 word on  first line.
     def _parseLine(self):
@@ -1112,11 +1322,11 @@ class DictFileParser:
 
         parsingExtraLine = False
 
-        if self.extraLine is None:
+        if len(self.extraLine) == 0:
             #- Ignore comments and split line into list
             lineList = self.lines[self.i].strip().split('//')[0].split()
         else:
-            lineList = self.extraLine.strip().split('//')[0].split()
+            lineList = self.extraLine[0].strip().split('//')[0].split()
             parsingExtraLine = True
 
         logger.debug(f"\tlineList: {lineList}")
@@ -1144,10 +1354,18 @@ class DictFileParser:
                 logger.debug(f"listOrDictName: {listOrDictName}")                
                 if any([listOrDictName is char for char in ['(', '{']]):
                     logger.debug("Parsing unnamed list or dictionary.")
-                    return self._parseListOrDict(None)
+                    value = self._parseListOrDict(None)
+
+                    logger.debug(f"_parseLine list or dict:\n{value}")
+
+                    return value
                 else:
                     self.i += 1
-                    return self._parseListOrDict(listOrDictName)
+                    value = self._parseListOrDict(listOrDictName)
+
+                    logger.debug(f"_parseLine list or dict:\n{value}")
+
+                    return value
             elif len(lineList) == 2:
                 return self._parseLineLenTwo()
             else:  # Multiple value entry
@@ -1156,8 +1374,8 @@ class DictFileParser:
             raise e
         finally:
             if parsingExtraLine:
-                self.extraLine = None #- reset the extra line to parse 
-                                      #  next line in file.
+                self.extraLine =  self.extraLine[1:] #- remove the line that was 
+                                                     #  just parsed.
             else:
                 self.i += 1
 
@@ -1202,11 +1420,11 @@ class DictFileParser:
         elif hasattr(type_, '_name'):
             return type_(_name=key, value=value_)
         else:
-            self._userMsg(f"Could not set name for type {type_}.  Returning "\
+            userMsg(f"Could not set name for type {type_}.  Returning "\
                 "value only!", "WARNING")
             return type_(value=value_)
 
-    def _parseListOrDict(self, name):
+    def _parseListOrDict(self, name, line : str = None):
         """
         Parse a list or dictionary with name `name`, starting from the opening 
         parenthesis `(` in the case of a list or opening bracket '{' in the case of 
@@ -1216,9 +1434,8 @@ class DictFileParser:
             name [str or None]:  The name of the list or dict;  None if an unnamed 
             value.
 
-            lines [list(str)]:  The dictionary file read in as a list of lines.
-
-            i [int]:  The `lines` index currently being parsed 
+            line (str):  If specified, parse this line rather than 
+            self.lines[self.i].
 
         Returns:
             value [ofList or ofDict]:  The value of the list or dict items to 
@@ -1231,11 +1448,14 @@ class DictFileParser:
         if name is not None:
             name = name.strip()
 
-        lineList = self.lines[self.i].strip().split()
+        if line is not None:
+            lineList = line.strip().split()
+        else:
+            lineList = self.lines[self.i].strip().split()
 
         logger.debug(f"parseListOrDict name: {name}")
 
-        logger.debug(f"lines[{self.i+1}]: {self.lines[self.i].split()}")
+        logger.debug(f"lineList[{self.i+1}]: {lineList}")
 
         openingChar = None
         if any([lineList[0].startswith(c) for c in ['(', '{']]):
@@ -1247,7 +1467,7 @@ class DictFileParser:
         logger.debug(f'openingChar: {openingChar}')
 
         if openingChar is None:
-            self._userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
+            userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
             f"file '{self.filepath}'.", level='ERROR')
                  
         logger.debug(f"Opening char: {openingChar}")
@@ -1273,9 +1493,14 @@ class DictFileParser:
             # - Parse the dictionary recursively to capture dict of dicts
             self.i += 1
             logger.debug(f"Parsing {name} dictionary.")
-            return ofDict(self._parseDict(name))
+            # return ofDict(self._parseDict(name))
+            dict_ = self._parseDict(name)
+
+            logger.debug(f"dict_: {dict_}")
+
+            return dict_
         # else:
-        #     self._userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
+        #     userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
         #     f"file '{self.filepath}'.", level='ERROR')
         #     # logger.error(f"Invalid syntax on line {self.i+1} of dictionary "
         #     # f"file '{self.filepath}'.")
@@ -1336,7 +1561,7 @@ class DictFileParser:
             if self.i == i_start:
                 #- ignore first (
                 if line.strip() != "" and line.strip()[0] != '(':
-                    self._userMsg("Inavlid syntax.  List value does not "\
+                    userMsg("Inavlid syntax.  List value does not "\
                         "begin with '('.", 'ERROR')
                 line=line.strip()[1:]
             if ';' in line:
@@ -1476,7 +1701,7 @@ class DictFileParser:
         level = 1
         while True: # Find matching parenthesis
             if i >= len(string):
-                self._userMsg("Unhandled expression.  Could not find "\
+                userMsg("Unhandled expression.  Could not find "\
                     f"end of list on line {self.i+1} of {self.filepath}.",
                     'ERROR')
             if string[i] == openingChar:
@@ -1507,7 +1732,19 @@ class DictFileParser:
                     #  _parseLine
 
         while self.i <= i_end:
-            dict_.update(self._parseLine())
+            value_ = self._parseLine()
+            if value_ is not None:
+                if isinstance(value_, ofDict):
+                    dict_.update({value_._name: value_})
+                elif hasattr(value_, 'name'):
+                    dict_.update({value_.__getattribute__('name'): value_})    
+                else:
+                    # logger.debug(f"{type(value_)} attributes: {vars(value_).keys()}")
+                    # logger.error("Invalid type returned to dictionary")
+                    # sys.exit()
+                    dict_.update({None: value_})
+                # logger.debug(f"{type(value_)} attributes: {vars(value_).keys()}")
+                # dict_.update({value_.__getattribute__(name_): value_})
 
         logger.debug(f"dict_:\n{dict_}")
 
@@ -1552,8 +1789,9 @@ class DictFileParser:
         #- Parse to the first opening bracket to initialize second while loop
         while level == 0:
             if i_ >= len(self.lines):
-                self._userMsg(f'Invalid syntax.  Could not locate start of '\
-                    f'{type} from line {self.i+1}.', 'ERROR')
+                userMsg(f'Invalid syntax.  Could not locate start of '\
+                    f'{type} from line {self.i+1} in file {self.filepath}.',
+                    'ERROR')
 
             level = searchLine(level, i_)
             i_+=1
@@ -1562,7 +1800,7 @@ class DictFileParser:
 
         while level > 0:
             if i_ >= len(self.lines):
-                self._userMsg(f'Invalid syntax.  Could not locate end of '\
+                userMsg(f'Invalid syntax.  Could not locate end of '\
                     f'{type} starting on line {self.i+1}.', 'ERROR')
             line = self.lines[i_]
             logger.debug(f"i: {i_}")
@@ -1572,12 +1810,12 @@ class DictFileParser:
                     level += 1
                     logger.debug(f'found char: {BRACKET_CHARS[type][0]}')
                     logger.debug(f"level: {level}")
-                    logger.debug(f"line: {i_}")
+                    logger.debug(f"line: {i_+1}")
                 if char == BRACKET_CHARS[type][1]:
                     level -= 1 
                     logger.debug(f'found char: {BRACKET_CHARS[type][1]}')
                     logger.debug(f"level: {level}")
-                    logger.debug(f"line: {i_}")
+                    logger.debug(f"line: {i_+1}")
             i_+=1
 
         logger.debug(f"Found {type} entry from lines {self.i+1} to {i_}.")
@@ -1613,14 +1851,14 @@ class DictFileParser:
         """
 
         if string is not None: # parse string 
-            line = string
+            line = string.strip(';')
             logger.debug(f"parseTable string: {string}")
             if line.split()[1] == 'table': # whole line is passed as input
                 lineList = line.split()[2:] # Remove the 'table' designation
             elif line.strip().startswith('(('):  # only list value is passed as input
                 lineList = line.split()
             else:
-                self._userMsg(f"Unhandled syntax for table found on line "\
+                userMsg(f"Unhandled syntax for table found on line "\
                     f"{self.i+1} of {self.filepath}.", "ERROR")
             list_ = self._parseListValues(" ".join(lineList))
             return ofTable(name=name, value = list_) 
@@ -1734,13 +1972,15 @@ class DictFileParser:
 
         if ';' in line:
             #- add extra text after ';' as a new line to be parsed later
-            #- Remove ';',) and extra closing ')' or '}' (maybe).  Assuming within list 
-            # or dict.  Other possibilities (e.g dimensioned types) should be
-            # handled prior to this point in the method.
-            extraText = ''.join(line.split(';')[1:]).replace('\n', '') 
+            #- Remove ';'.  Assuming within list or dict.  Other possibilities 
+            # (e.g dimensioned types) should be handled prior to this point in 
+            # the method.
+            extraText = ''.join(line.split(';')[1:]).replace('\n', '')
             self._addExtraLine(extraText)
             #line = line.split(';')[0][:-1] 
-            line = line.split(';')[0] # do not remove last ')' or '}' 
+            line = line.split(';')[0]+';' # do not remove last ')' or '}'
+            logger.debug(f"line[{self.i+1}]: {line}") 
+
 
         if ' (' in line or ' {' in line:
             #- Found list or dict
@@ -1756,13 +1996,25 @@ class DictFileParser:
 
             if entryName:
                 entryNameList = entryName.split()
+                #- check for table type
                 if len(entryNameList) == 2 and entryNameList[1] == 'table':
                     list_ = line.strip()[len(entryName):]
                     self._parseTable(entryNameList[0], list_)
+                #- check for named list as value
+                elif len(entryNameList) == 2:
+                    list_ = line.strip()[len(entryName):]
+                    listStr = " ".join([entryNameList[1], list_])
+                    value_ = ofNamedList(self._parseListValues(listStr),
+                                            entryNameList[1])
+                    return ofNamedList(value_,  entryNameList[0])
                 else:
-                    self._parseListOrDict(entryName)
+                    #- remove entry name from line string
+                    line_ = line.strip()[len(entryName):].strip()
+                    logger.debug(f"line_: {line_}")
+                    value = self._parseListOrDict(entryName, line=line_)
+                    return value
             else:
-                self._userMsg(f"Invalid syntax found on line {self.i+1} of file "
+                userMsg(f"Invalid syntax found on line {self.i+1} of file "
                 f"{self.filepath}", 'ERROR')
                 sys.exit()
         else:
@@ -1793,7 +2045,7 @@ class DictFileParser:
             while not self.lines[self.i].strip().endswith('*/'):
                 self.i+=1
                 if self.i >= len(self.lines):
-                    self._userMsg("Could not find end of commented block in"\
+                    userMsg("Could not find end of commented block in"\
                         f" file {self.filepath}.", 'ERROR')
             return True
 
@@ -2068,6 +2320,14 @@ class DictFileParser:
                 if (foamFileFound and line.startswith('{')):
                     foamFileStart = True
                 if (foamFileFound and foamFileStart and '}' in line):
+                    return i+1
+
+        #- If FoamFile is not found, parse to end of first commented block
+        #TODO: Can this be made more efficient, i.e. without two `with open(..)`
+        #       statements.
+        with open(self.filepath) as f:
+            for i, line in enumerate(f.readlines()):
+                if '*/' in line:
                     return i+1
 
         logger.error('Invalid OpenFOAM file specified: '+str(self.filepath))
