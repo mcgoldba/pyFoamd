@@ -61,9 +61,15 @@ def writeCase(case, filepath=Path('.pyfoamd') / '_case.json'):
         logger.debug(f"Parsing obj: {obj}")
 
         if isinstance(obj, str):
-            return obj 
+            return obj
+        if isinstance(obj, type):
+            return str(obj)
         elif isinstance(obj, ofDict):
-            return dict((key, toDict(val)) for key, val in obj.toDict().items())
+            return dict((key, toDict(val)) for 
+                            key, val in obj.attrDict().items())
+        elif isinstance(obj, _ofTypeBase):
+            logger.debug(f"attrDict: {obj.attrDict()}")
+            return toDict(obj.attrDict())
         elif isinstance(obj, dict):
             return dict((key, toDict(val)) for key, val in obj.items())
         # elif isinstance(obj, _ofTypeBase):

@@ -30,7 +30,7 @@ class CommandLine:
         #- store the case data as json file:
         #TODO:  This doesn't work.  Does it create a new instance of `case`
         #       from file?
-        pf.writeParams(case, Path('.pyfoamd') / '_case.json', sort=False)
+        pf.writeCase(case)
 
     def edit(self):
         """
@@ -44,7 +44,7 @@ class CommandLine:
         import pyfoamd.functions as pf
         import pyfoamd.types as pt
         try:
-            case = pf.readCaseFromCache()
+            case = pf.load()
         except FileNotFoundError:
             userMsg("No cached case data found.  Run 'pf init'"\
             " before 'pf edit'.", "WARNING")
@@ -57,7 +57,8 @@ class CommandLine:
 
         IPython.embed(config=c)
         if case is not None:
-            pf.writeParams(case, '_case.json')
+            # pf.writeParams(case, '_case.json')
+            pf.writeCase(case)
 
     def setConfig(self):
         """

@@ -56,6 +56,7 @@ from .isOFDict import isOFDict
 from .init import init
 from .readCaseFromCache import readCaseFromCache
 from .writeCase import writeCase
+from .load import load
 
 #import logging
 
