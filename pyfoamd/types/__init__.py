@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field, make_dataclass
+import difflib
 from signal import valid_signals
 from typing import List, Dict
-import operator
-from collections.abc import MutableMapping
 import copy
 from pathlib import Path
+import os
 import warnings
 import sys
 import string #- to check for whitespace
@@ -304,9 +304,11 @@ class _ofCaseBase(_ofTypeBase):
     system : _ofFolderBase = field( init=False)
 
     def __post_init__(self):
-        self._path = Path(self._path)
-        self._location = self._path.parent
-        self._name = self._path.name
+        logger.debug(f"ofCase post init path: {self._path}")
+        if not isinstance(self._path, Path):
+            self._path = Path(self._path)
+        self._location = str(self._path.parent)
+        self._name = str(self._path.name)
         self.constant = FolderParser('constant').makeOFFolder()
         self.system = FolderParser('system').makeOFFolder()
 
@@ -386,7 +388,9 @@ class _ofCaseBase(_ofTypeBase):
 
             if isinstance(obj, str):
                 return obj
-            if isinstance(obj, type):
+            if isinstance(obj, Path):
+                return str(obj)
+            elif isinstance(obj, type):
                 return str(obj)
             elif isinstance(obj, ofDict):
                 return dict((key, toDict(val)) for 
@@ -427,6 +431,23 @@ class _ofCaseBase(_ofTypeBase):
         `ofCase`.  Saves file diffs in cache for backup (Uses python'd builtin 
         `difflib`.)
         """
+        logger.debug(f'self._path: {self._path}')
+
+        caseFromFile = CaseParser(self._path).makeOFCase()
+
+        #- Save the diffs to file
+        diff = difflib.ndiff(caseFromFile, self)
+        logger.debug(f"File diff: {diff}")
+
+        n=0
+        diffPath = Path('.pyfoamd') / f'_case.diff{n}'
+        while diffPath.is_file():
+            n+=1
+            diffPath = Path('.pyfoamd') / f'_case.diff{n}'
+
+        with open(diffPath, 'w') as f:
+            f.write(diff)
+    
 
 
 class CaseParser:
@@ -435,21 +456,25 @@ class CaseParser:
   
     def makeOFCase(self):
 
-        path = Path(self.path)
+        if not isinstance(self.path, Path):
+            path = Path(self.path)
+        else:
+            path = self.path
 
-        # attrList = []
+        attrList = []
         #TODO:  This is attribute list is a copy of _ofCaseBase attributes. 
         #       Initialize the super() class instead.
-        attrList = [
-            ('_location', str, field(default=str(path.parent))),
-            ('_name', str, field(default=path.name)),
-            ('_times', ofTimeReg,  field(default=ofTimeReg())),
-            ('constant', _ofFolderBase, 
-                field(default=FolderParser('constant').makeOFFolder())),
-            ('system', _ofFolderBase, 
-                field(default=FolderParser('system').makeOFFolder()))
-            # ('_registry', list, field(default=_populateRegistry(path)))
-        ]
+        # attrList = [
+        #     # ('_path', Path, field(default=path)),
+        #     ('_location', str, field(default=str(path.parent))),
+        #     ('_name', str, field(default=path.name)),
+        #     ('_times', ofTimeReg,  field(default=ofTimeReg())),
+        #     ('constant', _ofFolderBase, 
+        #         field(default=FolderParser('constant').makeOFFolder())),
+        #     ('system', _ofFolderBase, 
+        #         field(default=FolderParser('system').makeOFFolder()))
+        #     # ('_registry', list, field(default=_populateRegistry(path)))
+        # ]
         for obj in path.iterdir():
             if (obj.is_dir() and all(obj.name != default for default in
                                     ['constant', 'system'])):
@@ -473,15 +498,16 @@ class CaseParser:
                 attrList.append((name_, _ofFolderBase, 
                     field(default=FolderParser(obj.name).makeOFFolder())))
 
-        #- TODO: Add __deepcopy__ and __iter__ classes
+        # dc_ =   make_dataclass('ofCase', attrList, 
+        #                         bases=(_ofCaseBase, ))(
+        #     str(path.parent), path.name,  
+        #     ofTimeReg(),
+        #     FolderParser('constant').makeOFFolder(),
+        #     FolderParser('system').makeOFFolder()
+        # )
 
         dc_ =   make_dataclass('ofCase', attrList, 
-                                bases=(_ofCaseBase, ))(
-            str(path.parent), path.name,  
-            ofTimeReg(),
-            FolderParser('constant').makeOFFolder(),
-            FolderParser('system').makeOFFolder()
-        )
+                                bases=(_ofCaseBase, ))(path)
 
         return dc_
 

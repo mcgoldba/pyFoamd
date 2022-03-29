@@ -23,14 +23,28 @@ class CommandLine:
         """
         Read an OpenFOAM case and store as a Python dictionary.
         """
-        case = pf.init()
+        self.prog+= ' init'
+
+        parser = argparse.ArgumentParser(prog=self.prog)
+
+        parser.add_argument('-path',type=str, nargs='?',
+                            help='The path of the OpenFOAM case to parse.')
+
+        args = parser.parse_args(self.addArgs)
+        
+        if args.path is None:
+            case = pf.init()
+        else:
+            case = pf.init(path=args.path)
 
         logger.debug(f"case: {case}")
 
         #- store the case data as json file:
         #TODO:  This doesn't work.  Does it create a new instance of `case`
         #       from file?
-        pf.writeCase(case)
+        # pf.writeCase(case)
+        if case is not None:
+            case.save()
 
     def edit(self):
         """
@@ -58,7 +72,8 @@ class CommandLine:
         IPython.embed(config=c)
         if case is not None:
             # pf.writeParams(case, '_case.json')
-            pf.writeCase(case)
+            # pf.writeCase(case)
+            case.save()
 
     def setConfig(self):
         """
