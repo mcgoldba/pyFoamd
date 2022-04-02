@@ -1,15 +1,24 @@
 import pyfoamd.functions as pf
 import warnings
 import IPython
+from IPython.terminal.prompts import Prompts, Token
+from code import InteractiveConsole
+import atexit
+import os
 import argparse
 from configparser import ConfigParser
 from pyfoamd import userMsg
 from pathlib import Path
 from traitlets.config import Config # for IPython config
 # import config
+import sys
 
 import logging
 logger = logging.getLogger('pf')
+
+class PyFoamdConsole(InteractiveConsole):
+    def __init__(*args, **kwargs):
+        InteractiveConsole.__init__(*args, **kwargs)
 
 class CommandLine:
     def __init__ (self, addArgs, configFilepath):
@@ -40,9 +49,6 @@ class CommandLine:
         logger.debug(f"case: {case}")
 
         #- store the case data as json file:
-        #TODO:  This doesn't work.  Does it create a new instance of `case`
-        #       from file?
-        # pf.writeCase(case)
         if case is not None:
             case.save()
 
@@ -52,28 +58,78 @@ class CommandLine:
 
         Console automatic imports:
             `import pyfoamd.functions as pf`
-            `case = pf.readCaseFromCache()`
+            `import pyfoamd.types as pt`
+            `case = pf.load()`
 
         """
-        import pyfoamd.functions as pf
-        import pyfoamd.types as pt
-        try:
-            case = pf.load()
-        except FileNotFoundError:
-            userMsg("No cached case data found.  Run 'pf init'"\
-            " before 'pf edit'.", "WARNING")
-            case = None
 
-        c = Config()
-        c.InteractiveShell.colors = 'LightBG'
-        c.InteractiveShell.confirm_exit = False
-        c.TerminalIPythonApp.display_banner = False
+        #TODO:  Is this method loading a case multiple times?
 
-        IPython.embed(config=c)
-        if case is not None:
-            # pf.writeParams(case, '_case.json')
-            # pf.writeCase(case)
-            case.save()
+        self.prog+= ' edit'
+
+        parser = argparse.ArgumentParser(prog=self.prog)
+
+        parser.add_argument('-ipython',type=bool, nargs=1, default=True,
+                            help='If `True`, starts an IPython console instead \
+                                of a Python console.')
+
+
+        args = parser.parse_args(self.addArgs)
+
+        # import pyfoamd.functions as pf
+        # import pyfoamd.types as pt
+        # try:
+        #     case = pf.load()
+        # except FileNotFoundError:
+        #     userMsg("No cached case data found.  Run 'pf init'"\
+        #     " before 'pf edit'.", "WARNING")
+        #     case = None
+
+        case = pf.load()
+
+        #TODO:  Automatically save case before exiting or maybe automatically
+        #          save case everytime the ofCase is modified?
+        if args.ipython:
+
+            c = Config()
+            c.TerminalInteractiveShell.confirm_exit = False
+            c.TerminalIPythonApp.display_banner = False
+            c.InteractiveShellApp.exec_files = [
+                str(Path(__file__).parent /  '_iPython_env.py')
+            ]
+
+            # IPython.embed(header="", config=c, prompt=PyFoamdPrompt)
+            IPython.start_ipython(argv=[], config=c)
+
+            logger.debug(f"case: {case}")
+            # if case is not None:
+            #     # pf.writeParams(case, '_case.json')
+            #     # pf.writeCase(case)
+            #     case.save()
+        else:  # Use a customized version of the standard Python console
+            
+            def atExitCommands():
+                try:
+                    print("Saving case to PyFoamd cache (i.e. as a JSON object)")
+                    print(locals())
+                    locals()['case'].save()
+                finally:
+                    sys.exit()
+            
+            # atexit.register(atExitCommands)
+
+            exit = atExitCommands
+
+            #exit = atExitCommands
+
+
+
+            # namespace = {'case':case}
+            console = PyFoamdConsole(locals=dict(globals(), **locals()))
+            console.interact()
+
+            atexit.unregister(atExitCommands)
+
 
     def setConfig(self):
         """

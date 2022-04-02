@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field, make_dataclass
-import difflib
 from signal import valid_signals
 from typing import List, Dict
 import copy
@@ -12,6 +11,7 @@ import re
 import pandas as pd
 import copyreg
 import json
+import pickle
 
 from inspect import signature #- just for debugging
 
@@ -33,13 +33,13 @@ OF_BOOL_VALUES = {
     'yes': True, 'no':False
     }
 TAB_SIZE = 4
-OF_HEADER = """/*--------------------------------*- C++ -*----------------------------------*\
-  =========                 |
-  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
-   \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Version:  7
-     \\/     M anipulation  |
-\*---------------------------------------------------------------------------*/"""
+OF_HEADER = ["/*--------------------------------*- C++ -*----------------------------------*\\",
+"  =========                 |",
+"  \\      /  F ield         |",
+"   \\    /   O peration     |",
+"    \\  /    A nd           |",
+"     \\/     M anipulation  |",
+"\*---------------------------------------------------------------------------*/"]
 #- Build the string to be used as a tab
 TAB_STR = ""
 for _ in range(TAB_SIZE): TAB_STR+= " "
@@ -166,6 +166,48 @@ class ofTimeReg(_ofTypeBase):
         for key, value in self.__dict__.items():
             yield (key, value)
 
+@dataclass
+class ofHeader(_ofTypeBase):
+    _rawLineList : list = None
+    line1 : str = field(init=False, default="")
+    line2 : str = field(init=False, default="")
+    line3 : str = field(init=False, default="")
+    line4 : str = field(init=False, default="")
+    line5 : str = field(init=False, default="")
+
+
+    def __post_init__(self):
+        
+        if self._rawLineList is None:
+            self._rawLineList = OF_HEADER
+
+        self.line1 = self._rawLineList[1][29:]
+        self.line2 = self._rawLineList[2][29:]
+        self.line3 = self._rawLineList[3][29:]
+        self.line4 = self._rawLineList[4][29:]
+        self.line5 = self._rawLineList[5][29:]
+
+
+        for i, line in enumerate(
+            [self.line1, self.line2, self.line3, self.line4]):
+            if len(line) > 50:
+                userMsg(f"Header line length is too long.  Value will be \
+                    truncated:\n {line[:51]}")
+                line[i] = line[:51]
+
+    def toString(self):
+        headerStr = OF_HEADER[0]+'\n'
+        headerStr += OF_HEADER[1]+self.line1
+        headerStr += OF_HEADER[2]+self.line2
+        headerStr += OF_HEADER[3]+self.line3
+        headerStr += OF_HEADER[4]+self.line4
+        headerStr += OF_HEADER[5]+self.line5
+        headerStr += OF_HEADER[6]
+
+        return headerStr
+
+
+
 
 # @dataclass(frozen=True)
 # class ofFolder:
@@ -220,6 +262,13 @@ class _ofFolderBase:  # Note: not an '_ofTypeBase' because frozen
                 yield (key, self.__getattribute__(key).value)
             else:
                 yield (key, self.__getattribute__(key))
+
+    def attrDict(self):
+        """
+        Return the class __dict__ with the _type propeerty added.  Used for
+        writing class to JSON to be loaded later.
+        """
+        return dict(vars(self), _type=self._type)
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
 def pickleOfFolder(f):
@@ -361,6 +410,10 @@ class _ofCaseBase(_ofTypeBase):
     def __iter__(self):
         logger.debug(f"vars(self).keys(): {vars(self).keys()}")
         for key in vars(self).keys(): 
+            if isinstance(self.__getattribute__(key), _ofCaseBase):
+                logger.warning("Found ofCase "\
+                    f"{self.__getattribute__(key)._name} within ofCase")
+                continue
             if isinstance(self.__getattribute__(key), ofDict):
                 yield (key, dict(self.__getattribute__(key)))
             elif isinstance(self.__getattribute__(key), _ofFolderBase):
@@ -372,34 +425,45 @@ class _ofCaseBase(_ofTypeBase):
             else:
                 yield (key, self.__getattribute__(key))
 
-    def save(self, filepath=Path('.pyfoamd') / '_case.json'):
+    #- Recursively convert an ofCase object (or any type) to a dictionary.
+    def toDict(self, obj=None):
         """
-        Save the case to a JSON file
+        Convert an ofCase to it's python dictionary representation.
         """
-        if str(filepath)[-5:] != '.json':
-            filepath = Path(str(filepath)+'.json')
 
-        logger.debug(f"case: {self}")
+        if obj is None:
+            obj = self
 
-        #- Recursively convert an ofCase object (or any type) to a dictionary.
-        def toDict(obj):
-
+        # Define inner loop to distinush between the user command case.toDict(),
+        # and the recursive function returning a `None` object.
+        def _toDict(obj):
             logger.debug(f"Parsing obj: {obj}")
 
             if isinstance(obj, str):
                 return obj
-            if isinstance(obj, Path):
+            elif isinstance(obj, Path):
                 return str(obj)
             elif isinstance(obj, type):
                 return str(obj)
-            elif isinstance(obj, ofDict):
-                return dict((key, toDict(val)) for 
-                                key, val in obj.attrDict().items())
+            # elif isinstance(obj, ofDictFile):
+            #     logger.debug(f"attrDict: {obj.attrDict()}")
+            #     # return _toDict(obj.attrDict())
+            #     return dict((key, _toDict(val)) for 
+            #                     key, val in obj.attrDict().items())            
+            # elif isinstance(obj, ofDict):
+            #     return dict((key, _toDict(val)) for 
+            #                     key, val in obj.attrDict().items())
             elif isinstance(obj, _ofTypeBase):
                 logger.debug(f"attrDict: {obj.attrDict()}")
-                return toDict(obj.attrDict())
+                return dict((key, _toDict(val)) for 
+                                key, val in obj.attrDict().items())
+                # return _toDict(obj.attrDict())
+            elif isinstance(obj, _ofFolderBase):
+                logger.debug("Parsing ofFolder")
+                return dict((key, _toDict(val)) for 
+                            key, val in obj.attrDict().items())
             elif isinstance(obj, dict):
-                return dict((key, toDict(val)) for key, val in obj.items())
+                return dict((key, _toDict(val)) for key, val in obj.items())
             # elif isinstance(obj, _ofTypeBase):
             #     return toDict(dict(obj))
             # elif isinstance(obj, _ofFolderBase):
@@ -407,47 +471,93 @@ class _ofCaseBase(_ofTypeBase):
             # elif isinstance(obj, Iterable):
             #     return [toDict(val) for val in obj]
             elif hasattr(obj, '__dict__'):
-                return toDict(vars(obj))
+                return _toDict(vars(obj))
             elif hasattr(obj, '__slots__'):
-                return toDict(dict((name, getattr(obj, name)) for 
+                return _toDict(dict((name, getattr(obj, name)) for 
                 name in getattr(obj, '__slots__')))
             return obj
 
-        case_ = toDict(self)
+        return _toDict(obj)
+
+    def save(self, filepath=Path('.pyfoamd') / '_case.json'):
+        """
+        Save the case to a JSON file.
+        """
+        if str(filepath)[-5:] != '.json':
+            filepath = Path(str(filepath)+'.json')
+
+        logger.debug(f"case: {self}")
+
+        case_ = self.toDict(self)
 
         logger.debug(f"case_: {case_}")
 
+       
         if not Path(filepath).parent.is_dir():
             os.mkdir(Path(filepath).parent)
 
         with open(filepath, 'w')  as fp:
             json.dump(case_, fp, skipkeys=False, indent=TAB_SIZE, 
                         sort_keys=False)
-                    # cls=JSONPyFoamdEncoder)
+                        # cls=JSONPyFoamdEncoder)
+
     
+    def toJSON(self):
+        """
+        Convert the case to a JSON object and return as a string.
+        """
+
+        case_ = self.toDict(self)
+
+        return json.dumps(case_)
+
     def write(self):
         """
-        Overwrite the existing OpenFOAM dictionary case with values in the
-        `ofCase`.  Saves file diffs in cache for backup (Uses python'd builtin 
-        `difflib`.)
+        Save the case, and overwrite the existing OpenFOAM dictionary case with 
+        values in the `ofCase`.  Saves existing case structure in cache for 
+        backup.
         """
+
+
         logger.debug(f'self._path: {self._path}')
 
         caseFromFile = CaseParser(self._path).makeOFCase()
 
-        #- Save the diffs to file
-        diff = difflib.ndiff(caseFromFile, self)
-        logger.debug(f"File diff: {diff}")
 
+
+        #- Save the existing case to file as backup
+        self.save()
         n=0
-        diffPath = Path('.pyfoamd') / f'_case.diff{n}'
-        while diffPath.is_file():
+        backupPath = Path('.pyfoamd') / f'_case.backup{n}'
+        while backupPath.is_file():
             n+=1
-            diffPath = Path('.pyfoamd') / f'_case.diff{n}'
+            backupPath = Path('.pyfoamd') / f'_case.backup{n}'
 
-        with open(diffPath, 'w') as f:
-            f.write(diff)
-    
+        # TODO: Write JSON data as binary to save disk space.
+        #- Read in the file that was just saaved as binary:
+        with open(Path(self._path) / '.pyfoamd' / '_case.json', 'r') as f_:
+            savedCase = f_.read()
+            with open(backupPath, 'w') as f:
+                f.write(savedCase)
+
+        def _writeCaseObj(obj):
+            logger.debug(f"_writeCaseObj: parsing obj: {obj}")
+            if any([isinstance(obj, t) for t in [_ofCaseBase, _ofFolderBase]]):
+                for key, item in obj.attrDict().items():
+                    if not key.startswith('_'):
+                        _writeCaseObj(item)
+            elif isinstance(obj, ofDictFile):
+                with open(obj._path, 'w') as f:
+                    f.write(obj.toString())
+
+        _writeCaseObj(self)
+
+
+#for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
+def pickleOfCase(f):
+    return _ofCaseBase, (f._path, )
+
+copyreg.pickle(_ofCaseBase, pickleOfCase)
 
 
 class CaseParser:
@@ -1017,14 +1127,35 @@ class ofDict(dict, _ofTypeBase):
             self.__setattr__(name_, item)
 
         else:
-            super(ofDict, self).__setattr__(item, value)
+            #- convert the python type to an ofType
+            # type_, value_ = DictFileParser._parseValue(item)
+            # ofValue = type_(name=item, value=value_)
+            # super(ofDict, self).__setattr__(ofValue.name, ofValue)
+            self.__setattr__(item, value)
 
 
     def __setattr__(self, key, value):
+        logger.debug(f"ofDict.__setattr__ key value: {key}, {value}")
         super(ofDict, self).__setitem__(key, value)
+        # self.__setitem__(key, value)
         super(ofDict, self).__setattr__(key, value)
-        self.__dict__[key] = value
-        super(ofDict, self).__dict__[key] = value
+        # self.__setattr__(key, value)
+        # if key not in self._CLASS_VARS:
+        if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
+        # if key not in self._CLASS_VARS:
+            if not isinstance(value, _ofTypeBase):
+                logger.debug("finding ofType...")
+                type_, value_ = DictFileParser._parseValue(value)
+                logger.debug(f"type, value: {type_}, {value_}")
+                ofType = type_(name=key, value=value_)
+            else:
+                ofType = value
+            logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
+            # self.__dict__[key] = ofType
+            super(ofDict, self).__dict__[key] = ofType
+        else:
+            # self.__dict__[key] = value
+            super(ofDict, self).__dict__[key] = value
     def __delattr__(self, name):
         super(ofDict, self).__delitem__(self, name)
         super(ofDict, self).__delattr__(self, name)
@@ -1064,11 +1195,12 @@ class ofDict(dict, _ofTypeBase):
             return
         if (isinstance(iterable, _ofIntBase) 
             or isinstance(iterable, _ofNamedTypeBase)):
+            logger.debug(f"Setting item for _ofNamedType.")
             self.__setitem__(iterable.name, iterable)
         elif isinstance(iterable, _ofUnnamedTypeBase):
             self.__setitem__(self._NoneKey(), iterable)
         elif isinstance(iterable, list):
-            listTypes = set([type(item) for item in iterable])
+            # listTypes = set([type(item) for item in iterable])
             if all([isinstance(v, _ofTypeBase) for v in iterable]):
                 # dict_ = {item.name: item for item in iterable}
                 for item in iterable:
@@ -1122,9 +1254,11 @@ class ofDict(dict, _ofTypeBase):
     
     def toString(self, ofRep = False) -> str:
         """ 
-        Convert to a string representation.  If ofRep is True prints string
+        Convert to a string representation.  If ofRep is `True` prints  a string
         conforming to an OpenFOAM dictionry. 
         """
+        logging.getLogger('pf').setLevel(logging.DEBUG)
+
         if self._name:
             dStr = self._name+"\n{\n"
         else:
@@ -1157,24 +1291,79 @@ class ofDict(dict, _ofTypeBase):
     #TODO:  can this class be replaced with a dict() conversion?
     def toDict(self):
         """
-        Convert value to a dictionary including pyFoamd hidden attributes.
+        Convert value to a dictionary including PyFoamd hidden attributes.
         """  
         return {k: v for k, v in self.__iter__() }
 
 @dataclass
 class ofDictFile(ofDict):
     def __init__(self, *args, **kwargs):
+        super(ofDictFile, self).__init__(*args, **kwargs)
         self._location = str(Path(kwargs.pop('_location', Path.cwd())))
+        self._CLASS_VARS.append('_location')
+        self._header : ofHeader = ofHeader()
+        self._CLASS_VARS.append('_header')
+        self._foamFile: ofFoamFile = ofFoamFile()
+        self._CLASS_VARS.append('_foamFile')
 
         logger.debug(f"location: {self._location}")
 
-        super(ofDictFile, self).__init__(*args, **kwargs)
-        self._CLASS_VARS.append('_location')
-
-    #TODO:  Why do I need to replicate this.  Should be inhereted from base
+    #TODO:  Why do I need to replicate this?  Should be inhereted from base
     #       class
     def __str__(self):
         return self.toString()
+
+    def toString(self):
+        """
+        Prints as an OpenFOAM dictionary representation.
+        """
+    
+        str_ = self._header.toString()
+        str_ += self._foamFile.toString() 
+        str_ += super(ofDictFile, self).toString()
+        return str_
+        # return self._header.toString() + self._foamFile.toString() + \
+        #     super(ofDictFile, self).toString()
+
+
+@dataclass
+class ofFoamFile(ofDict):
+
+    def __post_init__(self, *args, **kwargs):
+        super(ofFoamFile, self).__init__(*args, **kwargs)
+        self._name = 'FoamFile'
+
+
+
+    # def __setitem__(self, key, value=None):
+
+
+    def update(self, iterable):
+
+        if isinstance(iterable, _ofTypeBase):        
+
+        # if isinstance(value, _ofTypeBase):
+        #     value_ = value
+        # else:
+        #     value_ = key
+
+            value_ = iterable
+
+            if any([isinstance(value_, t) for t in [ofFloat, ofInt]]):
+                if value_.name != "version":
+                    userMsg(f"Inavlid value '{value_.name}' for {value_._type}.  Only \
+                        'version' is allowed.")
+                else:
+                    super(ofFoamFile, self).update(iterable)
+            elif isinstance(value_, ofStr):
+                if value_.name in ['version', 'format', 'class', 'object']:
+                    super(ofFoamFile, self).update(iterable)
+                else:
+                    userMsg(f"Inavlid value '{value_.name}' for {value_._type}.  Only \
+                        'version', 'format', 'class', and 'object' are allowed.")
+
+        
+
 
 
 
@@ -1488,12 +1677,28 @@ class DictFileParser:
 
         self.i = self._findEndOfHeader()
 
+        logger.debug(f"End of header at line {self.i+1}.")
+
+        self.dictFile._header = ofHeader(self.lines[:self.i])
+
+        while self.lines[self.i].strip() == "":
+            self.i+=1
+
+        #- Manually parse the FoamFile (assumes FoamFile is located immediately
+        #   after header):
+        #TODO:  Implement the FoamFile class?  Currently doesnt store dictionary
+        #       values properly.
+        if self.lines[self.i].strip() == 'FoamFile':
+            self.i+=1
+            self.dictFile._foamFile = self._parseListOrDict('FoamFile')
+
         attempts = 0
         while True:
             attempts += 1
             logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
             if attempts > 1000:
-                logger.error("Error reading dictionary file.  Maximum lines exceeded")
+                logger.error("Error reading dictionary file.  Maximum "\
+                    "number of lines exceeded.")
                 sys.exit()
             if self.i >= len(self.lines):
                 break
@@ -1706,6 +1911,9 @@ class DictFileParser:
             #value = { name: None }
             # - Parse the dictionary recursively to capture dict of dicts
             self.i += 1
+            # if name == 'FoamFile':
+            #     dict_ = self._parseFoamFile()
+            # else:
             logger.debug(f"Parsing {name} dictionary.")
             # return ofDict(self._parseDict(name))
             dict_ = self._parseDict(name)
@@ -2037,6 +2245,20 @@ class DictFileParser:
         return i_-1
             
 
+    def _parseFoamFile(self):
+        foamFile = ofFoamFile()
+        while self.lines[self.i].strip() != '}':
+            logger.debug(f"Parsing FoamFile line {self.i+1}")
+            if self.i == len(self.lines):
+                userMsg("Could not find end of 'FoamFile'.", "ERROR")
+            # value_ = self._parseLine()
+            # foamFile.update({value_.name: value_})
+            foamFile.update(self._parseLine())
+            logger.debug(f"FoamFile dict keys: {foamFile.keys()}")
+        
+        return foamFile
+
+
     def _parseIncludes(self, key, value):
         """
         Extract value as the appropriate include type
@@ -2081,8 +2303,8 @@ class DictFileParser:
             list_ = self._parseList(name)
             return ofTable(name=name, value = list_.value)
 
-
-    def _parseValue(self, value):
+    @staticmethod
+    def _parseValue(value):
         """
         Parse a single value to get the appropraite ofType.
         """
@@ -2524,19 +2746,19 @@ class DictFileParser:
         return endOfDict
 
     def _findEndOfHeader(self):
-        foamFileFound = False
-        foamFileStart = False
+        # foamFileFound = False
+        # foamFileStart = False
 
-        with open(self.filepath) as f:
-            for i, line in enumerate(f.readlines()):
-                if line.strip() == 'FoamFile':
-                    foamFileFound = True
-                if (foamFileFound and line.startswith('{')):
-                    foamFileStart = True
-                if (foamFileFound and foamFileStart and '}' in line):
-                    return i+1
+        # with open(self.filepath) as f:
+        #     for i, line in enumerate(f.readlines()):
+        #         if line.strip() == 'FoamFile':
+        #             foamFileFound = True
+        #         if (foamFileFound and line.startswith('{')):
+        #             foamFileStart = True
+        #         if (foamFileFound and foamFileStart and '}' in line):
+        #             return i+1
 
-        #- If FoamFile is not found, parse to end of first commented block
+        #-  Parse to end of first commented block, and always parse the FoamFile
         #TODO: Can this be made more efficient, i.e. without two `with open(..)`
         #       statements.
         with open(self.filepath) as f:

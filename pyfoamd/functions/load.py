@@ -1,5 +1,5 @@
 from types import NoneType
-from pyfoamd import getPyFoamdConfig, setLoggerLevel
+from pyfoamd import getPyFoamdConfig, setLoggerLevel, userMsg
 from pyfoamd.types import CaseParser, FolderParser, _ofCaseBase
 from pathlib import Path
 import json
@@ -12,7 +12,7 @@ logger = logging.getLogger('pf')
 
 # from pyfoamd.config import DEBUG
 
-def load(path=Path.cwd() / '.pyfoamd' / '_case.json'):
+def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
     """
     Read in an OpenFOAM case saved as a JSON object
     """
@@ -20,8 +20,12 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json'):
     if not isinstance(path, Path):
         path = Path(path)
 
-    if str(path)[-5:] != '.json':
-        path = Path(str(path)+'.json')
+    if not _backup:
+        if str(path)[-5:] != '.json':
+            path = Path(str(path)+'.json')
+    # else:
+    #     if str(path)[-5:] == '.json':
+    #         path = Path(str(path)[:-5])
 
 
     # def toOfType(dict_):
@@ -46,13 +50,17 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json'):
     #                     obj.__setattr__(key, value)
     #             return obj
     #     else:
-    #         return dict_
-
+    #         return dict_)
 
     setLoggerLevel("DEBUG" if getPyFoamdConfig('debug').lower() == 'true'
                     else "INFO")
 
-    with open(path) as fp:
+    if not path.is_file():
+        userMsg("No cached case data found.  Run 'pf init'"\
+            " before 'pf edit'.", "WARNING")
+        return None
+
+    with open(path, 'r') as fp:
         # caseDict = json.load(fp, object_hook=toOfType)
         caseDict = json.load(fp)
 
@@ -83,7 +91,8 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json'):
             if '_type' in obj.keys():
                 logger.debug(f"{tabStr}Parsing {obj['_type']}.")
                 if obj['_type'] == 'ofFolder':
-                    #TODO:  THis reads folder from existingpath rathr than copying
+                    #TODO:  This reads folder from existing path rather than 
+                    # copying 
                     # obj = FolderParser(path=dict_['_path']).makeOFFolder()
                     obj_ = FolderParser(path=obj['_path']).initOFFolder()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")

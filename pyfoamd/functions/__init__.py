@@ -57,6 +57,7 @@ from .init import init
 from .readCaseFromCache import readCaseFromCache
 from .writeCase import writeCase
 from .load import load
+from .restore import restore
 
 #import logging
 
