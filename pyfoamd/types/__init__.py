@@ -12,6 +12,7 @@ import pandas as pd
 import copyreg
 import json
 import pickle
+from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 
 from inspect import signature #- just for debugging
 
@@ -238,10 +239,11 @@ class ofHeader(_ofTypeBase):
 #                                         bases=(ofFolder,), frozen=True)
 
 
-@dataclass(frozen=True)
-class _ofFolderBase:  # Note: not an '_ofTypeBase' because frozen
+# @dataclass(frozen=True)
+@dataclass
+class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
                       #         Type checking must be handled separately.
-    _path: str
+    _path: str = None
     _type: type = 'ofFolder'
 
     def __deepcopy__(self, memo=None):
@@ -305,18 +307,49 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 )
 
         dc_ = make_dataclass('ofFolder', 
-                            attrList, bases=(_ofFolderBase, ), frozen=True)
+                            attrList, bases=(_ofFolderBase, )) #, frozen=True)
 
         # logger.debug(f"ofFolder dataclass: {dc_}")
         # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
 
         return dc_()
 
+    # def loadOFFolder(self, attrList):
+    #     """
+    #     Create an ofFolder instance from a list of attributes with a "_type"
+    #     specification.  (e.g. a dict as loaded from a JSON serialization).   
+    #     """
+
+    #     # logger.debug(f"attrList.items(): {list(attrDict.items())}")
+
+    #     # # attrList = list(attrDict.items())
+
+    #     # # for i, item in enumerate(attrList):
+    #     # #     attrList[i] = (item[0], type(item[0]), item[1])
+
+    #     # attrList = []
+        
+    #     # for key, value in attrDict.items():
+    #     #     logger.debug(f"attrDict value: {value}")
+    #     #     # type_ = locate('pyfoamd.types.'+value['_type'])
+    #     #     attrList.append((key, type(value), value))
+
+    #     logger.debug(f"attrList: {attrList}")
+
+    #     dc_ = make_dataclass('ofFolder', 
+    #                     attrList, bases=(_ofFolderBase, ), 
+    #                     frozen=True)
+        
+    #     return dc_(self.path)
+
     def initOFFolder(self):
-
-        return make_dataclass('ofFolder', 
-                            [], bases=(_ofFolderBase, ), frozen=True)
-
+        """
+        Initialize an ofFolder instance. without parsing the directory.   
+        """
+        dc_ = make_dataclass('ofFolder', 
+                        [], bases=(_ofFolderBase, ))
+        
+        return dc_(self.path)
 
 
 # @dataclass
@@ -342,13 +375,14 @@ class FolderParser:  # Class id required because 'default_factory' argument
 #
 #         self.__class__ = make_dataclass('ofCase', addDirs, bases=(self,))
 
-@dataclass
+@dataclass(kw_only=True)
 class _ofCaseBase(_ofTypeBase):
     _path : Path = field(default=Path.cwd())
+    # _path : Path
     _location : str = field(init=False, default="None")
     _name : str = field(init=False, default="None")
     _times : ofTimeReg = field(init=False, default=ofTimeReg())
-    #_registry : list = _populateRegistry(path)
+    # _registry : list = _populateRegistry(path)
     constant : _ofFolderBase = field( init=False)
     system : _ofFolderBase = field( init=False)
 
@@ -547,6 +581,7 @@ class _ofCaseBase(_ofTypeBase):
                     if not key.startswith('_'):
                         _writeCaseObj(item)
             elif isinstance(obj, ofDictFile):
+                logger.debug(f"ofDictFile path: {obj._path}")
                 with open(obj._path, 'w') as f:
                     f.write(obj.toString())
 
@@ -562,14 +597,12 @@ copyreg.pickle(_ofCaseBase, pickleOfCase)
 
 class CaseParser:
     def __init__(self, path=Path.cwd()):
-        self.path = path
+        if not isinstance(path, Path):
+            self.path = Path(path)
+        else:
+            self.path = path
   
     def makeOFCase(self):
-
-        if not isinstance(self.path, Path):
-            path = Path(self.path)
-        else:
-            path = self.path
 
         attrList = []
         #TODO:  This is attribute list is a copy of _ofCaseBase attributes. 
@@ -585,7 +618,7 @@ class CaseParser:
         #         field(default=FolderParser('system').makeOFFolder()))
         #     # ('_registry', list, field(default=_populateRegistry(path)))
         # ]
-        for obj in path.iterdir():
+        for obj in self.path.iterdir():
             if (obj.is_dir() and all(obj.name != default for default in
                                     ['constant', 'system'])):
                 # fields = [attr[0] for attr in attrList]
@@ -617,13 +650,13 @@ class CaseParser:
         # )
 
         dc_ =   make_dataclass('ofCase', attrList, 
-                                bases=(_ofCaseBase, ))(path)
+                                bases=(_ofCaseBase, ))(_path=self.path)
 
         return dc_
 
     def initOFCase(self):
         return make_dataclass('ofCase', [], 
-                                bases=(_ofCaseBase, ))()
+                                bases=(_ofCaseBase, ))(_path=self.path)
 
 # @dataclass
 # class _ofDictFileBase:
@@ -2311,6 +2344,11 @@ class DictFileParser:
         # TODO: Should I assume list values of certain length are tensors?
         # TODO:  Add ofScalar?
         
+        if isinstance(value, int):
+            return ofInt, value
+        if isinstance(value, float):
+            return ofFloat, value
+
         # check for a spherical tensor, (e,g, '(0)')
         if value[0] == '(' and value[-1] == ')':
             #- Value is a list

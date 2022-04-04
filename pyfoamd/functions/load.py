@@ -1,6 +1,8 @@
+from dataclasses import FrozenInstanceError
 from types import NoneType
 from pyfoamd import getPyFoamdConfig, setLoggerLevel, userMsg
-from pyfoamd.types import CaseParser, FolderParser, _ofCaseBase
+from pyfoamd.types import CaseParser, FolderParser, _ofCaseBase, ofDictFile
+from dataclasses import field
 from pathlib import Path
 import json
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
@@ -68,7 +70,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
 
 
 
-    def parseCaseDict(obj, tabStr=None):
+    def _parseCaseDict(obj, tabStr=None):
         """
         Recursrively parse a JSON dictionary representation of an ofCase
 
@@ -90,10 +92,38 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
         if isinstance(obj, dict):
             if '_type' in obj.keys():
                 logger.debug(f"{tabStr}Parsing {obj['_type']}.")
+                # if obj['_type'] == 'ofFolder':
+                #     #TODO:  This reads folder from existing path rather than 
+                #     # copying 
+                #     # obj = FolderParser(path=dict_['_path']).makeOFFolder()
+
+                #     attrList = []
+
+                #     for key, value in obj.items():
+                #         value_ = _parseCaseDict(value)
+                #         type_ = type(value_)
+                #         # attrList.append((key, type_, field(default=value_)))
+                #         if isinstance(value_, ofDictFile): 
+                #             attrList.append((key, type_, 
+                #                         field(default_factory=type_)))
+                #         else:
+                #             attrList.append((key, type_, value_))
+
+                #     # attrList = [(key, _parseCaseDict(value, tabStr)) 
+                #     #                 for key, value in obj.items()]
+
+                #     # #- Sort list so default underscore arguments are at end:
+                #     # attrList = []
+                #     # for key, value in reversed(attrList_):
+                #     #     if key.startswith('_'):
+                #     #         attrList.append((key, value))
+                #     #     else:
+                #     #         attrList.insert(0, (key, value))  
+
+                #     obj_ = FolderParser(path=obj['_path']).loadOFFolder(
+                #                 attrList)
+                #     return obj_
                 if obj['_type'] == 'ofFolder':
-                    #TODO:  This reads folder from existing path rather than 
-                    # copying 
-                    # obj = FolderParser(path=dict_['_path']).makeOFFolder()
                     obj_ = FolderParser(path=obj['_path']).initOFFolder()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif obj['_type'] =='ofCase':
@@ -109,12 +139,16 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                         raise e
                 for key, value in obj.items():
                     logger.debug(f"{tabStr}Parsing key {key}.")
-                    if key != '_type' and key :
+                    if key != '_type':
                         logger.debug(f"{tabStr}Setting key {key}.")
-                        value_ = parseCaseDict(value, tabStr)
+                        value_ = _parseCaseDict(value, tabStr)
                         logger.debug(f"{tabStr}value_: {value_}")
                         logger.debug(f"{tabStr}obj_: {obj_}")
-                        setattr(obj_, key, value_)
+                        try:
+                            setattr(obj_, key, value_)
+                        except FrozenInstanceError:
+                            logger.warning(f"{tabStr}Could not set frozen "\
+                                f"instance key: {key}: {value}.")
                 logger.debug(f"{tabStr}Returning {obj_}.")
                 return obj_
             else:
@@ -123,7 +157,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
             logger.debug(f"{tabStr}Returning {obj}.")
             return obj
             
-    case_ = parseCaseDict(caseDict, )
+    case_ = _parseCaseDict(caseDict, )
 
 
     if isinstance(case_, _ofCaseBase):
