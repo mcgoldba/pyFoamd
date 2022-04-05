@@ -129,12 +129,16 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                 elif obj['_type'] =='ofCase':
                     obj_ = CaseParser().initOFCase()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
+                elif obj['_type'] == 'ofDictFile':
+                    #TODO: simplify initialization
+                    obj_ = ofDictFile(_name= obj['_name'], 
+                                _location=obj['_location'])
+                    logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 else:
                     type_ = locate('pyfoamd.types.'+obj['_type'])
                     try:
                         obj_ = type_()
-                        logger.debug(f"{tabStr}Defined obj_: {obj_}")
-                    except TypeError as e:
+                    except Exception as e:
                         logger.error(f"Could not find suitable type: {obj['_type']}.")
                         raise e
                 for key, value in obj.items():

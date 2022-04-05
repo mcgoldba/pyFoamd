@@ -36,11 +36,12 @@ OF_BOOL_VALUES = {
 TAB_SIZE = 4
 OF_HEADER = ["/*--------------------------------*- C++ -*----------------------------------*\\",
 "  =========                 |",
-"  \\      /  F ield         |",
-"   \\    /   O peration     |",
-"    \\  /    A nd           |",
-"     \\/     M anipulation  |",
-"\*---------------------------------------------------------------------------*/"]
+"  \\\\      /  F ield         |",
+"   \\\\    /   O peration     |",
+"    \\\\  /    A nd           |",
+"     \\\\/     M anipulation  |",
+"\*---------------------------------------------------------------------------*/",
+""]
 #- Build the string to be used as a tab
 TAB_STR = ""
 for _ in range(TAB_SIZE): TAB_STR+= " "
@@ -152,8 +153,15 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         for key, value in self.__dict__.items():
             yield (key, value)
 
-    def toString(self) -> str:
-        return printNameStr(self.name)+str(self.value)+";\n"
+    def toString(self, ofRep=False) -> str:
+        str_ =  printNameStr(self.name)+str(self.value)
+
+        if ofRep:
+            str_ += ";\n"
+        else:
+            str_ += "\n"
+
+        return str_
 
     def __str__(self):
         return self.toString().rstrip(';\n')
@@ -196,14 +204,14 @@ class ofHeader(_ofTypeBase):
                     truncated:\n {line[:51]}")
                 line[i] = line[:51]
 
-    def toString(self):
+    def toString(self, ofRep=False):
         headerStr = OF_HEADER[0]+'\n'
         headerStr += OF_HEADER[1]+self.line1
         headerStr += OF_HEADER[2]+self.line2
         headerStr += OF_HEADER[3]+self.line3
         headerStr += OF_HEADER[4]+self.line4
         headerStr += OF_HEADER[5]+self.line5
-        headerStr += OF_HEADER[6]
+        headerStr += OF_HEADER[6]+'\n'
 
         return headerStr
 
@@ -403,7 +411,8 @@ class _ofCaseBase(_ofTypeBase):
     #     self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
     #     self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
 
-    # TODO:  This...
+    # TODO:  This... print out a tree representation of the case up to 
+    #        any ofDictFiles
     def __str__(self):
         return str(self._location)
 
@@ -574,15 +583,25 @@ class _ofCaseBase(_ofTypeBase):
             with open(backupPath, 'w') as f:
                 f.write(savedCase)
 
-        def _writeCaseObj(obj):
+        def _writeCaseObj(obj, loc=None):
+            if loc is None:
+                loc = self._location
             logger.debug(f"_writeCaseObj: parsing obj: {obj}")
             if any([isinstance(obj, t) for t in [_ofCaseBase, _ofFolderBase]]):
+                if isinstance(obj, _ofCaseBase):
+                    loc_ = Path(loc) / obj._name
+                else:
+                    loc_ = obj._path
                 for key, item in obj.attrDict().items():
                     if not key.startswith('_'):
-                        _writeCaseObj(item)
+                        # loc_ = Path(loc) / name_ 
+                        _writeCaseObj(item, loc_)
             elif isinstance(obj, ofDictFile):
-                logger.debug(f"ofDictFile path: {obj._path}")
-                with open(obj._path, 'w') as f:
+                logger.debug(f"ofDictFile obj: {obj}")
+                logger.info(f"Writing dictionary {obj._name} to "\
+                    f"{self._location}.")
+                loc_ = Path(loc) / obj._name
+                with open(loc_, 'w') as f:
                     f.write(obj.toString())
 
         _writeCaseObj(self)
@@ -908,11 +927,12 @@ class ofWord(_ofUnnamedTypeBase):
 @dataclass
 # class ofInt(_ofDictFileBase, _ofIntBase):
 class ofInt(_ofNamedTypeBase):
-    def toString(self) -> str:
-        return printNameStr(self.name)+str(self.value)+";\n"
+    value : int = None
+    # def toString(self) -> str:
+    #     return printNameStr(self.name)+str(self.value)+";\n"
 
-    def __str__(self):
-        return self.toString().rstrip(';\n')
+    # def __str__(self):
+    #     return self.toString().rstrip(';\n')
 
 TYPE_REGISTRY.append(ofInt)
 
@@ -940,8 +960,14 @@ class ofBool(_ofNamedTypeBase):
             self.value = OF_BOOL_VALUES[self._valueStr]
 
 
-    def toString(self) -> str:
-        return printNameStr(self.name)+self._valueStr+';\n'
+    def toString(self, ofRep=False) -> str:
+        str_ = printNameStr(self.name)+self._valueStr
+        if ofRep:
+            str_ += ';\n'
+        else:
+            str_ += '\n'
+
+        return str_
 
     def __str__(self):
         return self.toString().rstrip(';\n')
@@ -1285,7 +1311,7 @@ class ofDict(dict, _ofTypeBase):
         # dStr+= "}\n"
         # return dStr
     
-    def toString(self, ofRep = False) -> str:
+    def toString(self, ofRep=False) -> str:
         """ 
         Convert to a string representation.  If ofRep is `True` prints  a string
         conforming to an OpenFOAM dictionry. 
@@ -1303,20 +1329,20 @@ class ofDict(dict, _ofTypeBase):
             if k not in self._CLASS_VARS:
                 if isinstance(v, ofDict):
                     logger.debug("Found ofDict.")
-                    dStr2 = v.toString().split("\n")
+                    dStr2 = v.toString(ofRep=ofRep).split("\n")
                     for i in range(len(dStr2)):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
                         dStr += dStr2[i]
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
-                    dStr += v.toString()
+                    dStr += TAB_STR+v.toString(ofRep=ofRep)
                     logger.debug("Found 'toString()' method.")
                 else:
                     logger.debug("Could not find 'toString()' method.")
-                    dStr += printNameStr(TAB_STR+k)+str(v)+'\n'
+                    dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
 
             logger.debug(f"dict string: {dStr}")
-        dStr+= "}\n"
+        dStr+= "}\n\n"
         if not ofRep:
             dStr = dStr.replace(';', '')
         return dStr
@@ -1329,37 +1355,6 @@ class ofDict(dict, _ofTypeBase):
         return {k: v for k, v in self.__iter__() }
 
 @dataclass
-class ofDictFile(ofDict):
-    def __init__(self, *args, **kwargs):
-        super(ofDictFile, self).__init__(*args, **kwargs)
-        self._location = str(Path(kwargs.pop('_location', Path.cwd())))
-        self._CLASS_VARS.append('_location')
-        self._header : ofHeader = ofHeader()
-        self._CLASS_VARS.append('_header')
-        self._foamFile: ofFoamFile = ofFoamFile()
-        self._CLASS_VARS.append('_foamFile')
-
-        logger.debug(f"location: {self._location}")
-
-    #TODO:  Why do I need to replicate this?  Should be inhereted from base
-    #       class
-    def __str__(self):
-        return self.toString()
-
-    def toString(self):
-        """
-        Prints as an OpenFOAM dictionary representation.
-        """
-    
-        str_ = self._header.toString()
-        str_ += self._foamFile.toString() 
-        str_ += super(ofDictFile, self).toString()
-        return str_
-        # return self._header.toString() + self._foamFile.toString() + \
-        #     super(ofDictFile, self).toString()
-
-
-@dataclass
 class ofFoamFile(ofDict):
 
     def __post_init__(self, *args, **kwargs):
@@ -1369,6 +1364,44 @@ class ofFoamFile(ofDict):
 
 
     # def __setitem__(self, key, value=None):
+
+    def toString(self, ofRep=False) -> str:
+            """ 
+            Convert to a string representation.  If ofRep is `True` prints  a string
+            conforming to an OpenFOAM dictionry. 
+            """
+            logging.getLogger('pf').setLevel(logging.DEBUG)
+
+            if self._name:
+                dStr = self._name+"\n{\n"
+            else:
+                dStr = "{\n"
+            for k, v in zip(self.keys(), self.values()):
+                logger.debug(f"dict entry: {k}: {v}")
+                if k is None:
+                    k=''
+                if k not in self._CLASS_VARS:
+                    # if isinstance(v, ofDict):
+                    #     logger.debug("Found ofDict.")
+                    #     dStr2 = v.toString().split("\n")
+                    #     for i in range(len(dStr2)):
+                    #         dStr2[i] = TAB_STR+dStr2[i]+"\n"
+                    #         dStr += dStr2[i]
+                    if (hasattr(v, 'toString') 
+                        and callable(getattr(v, 'toString'))):
+                        # dStr += printNameStr(TAB_STR+k)+v.toString()
+                        logger.debug(f"FoamFile entry string: {v.toString(ofRep=ofRep)}")
+                        dStr += TAB_STR+v.toString(ofRep=ofRep)
+                        logger.debug("Found 'toString()' method.")
+                    else:
+                        logger.debug("Could not find 'toString()' method.")
+                        dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
+
+                logger.debug(f"dict string: {dStr}")
+            dStr+= "}\n\n"
+            if not ofRep:
+                dStr = dStr.replace(';', '')
+            return dStr
 
 
     def update(self, iterable):
@@ -1397,6 +1430,82 @@ class ofFoamFile(ofDict):
 
         
 
+@dataclass
+class ofDictFile(ofDict):
+    
+    #TODO:  Define setters to extract name and location from path when defined
+    #       Currently need to initialize as ofDictFile(_name=..., _location=...)
+    def __init__(self, *args, **kwargs):
+        super(ofDictFile, self).__init__(*args, **kwargs)
+        self._location : str = kwargs.pop('_location', 
+                                str(Path.cwd() / self._name)) \
+                                    if self._name is not None else ""
+        self._header : ofHeader = ofHeader()
+        self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
+        self._CLASS_VARS.append('_location')
+        self._CLASS_VARS.append('_header')
+        self._CLASS_VARS.append('_foamFile')
+
+        logger.debug(f"location: {self._location}")
+
+    #- ref: https://stackoverflow.com/a/27472354/10592330
+    # def __init__(self, *args, **kwargs):
+    #     self._name = kwargs.pop('_name', None)
+    #     self._entryTypes = {}
+    #     self._nUnnamed = 0
+    #     #- Keep a list of class variables to filter printed dict items:
+    #     self._CLASS_VARS = ['_CLASS_VARS', '_name', 
+    #                         '_entryTypes', '_nUnnamed']
+
+    #     if (len(args) == 1 and isinstance(args[0], list)
+    #         and  all([isinstance(v, _ofTypeBase) for v in args[0]])):
+    #         #- Parse list of ofTypes with ofDict().update function
+    #         super(ofDict, self).__init__(**kwargs)
+    #         self.update(args[0])
+    #     else:
+    #         super(ofDict, self).__init__(*args, **kwargs)
+
+    #TODO:  Why do I need to replicate this?  Should be inhereted from base
+    #       class
+    def __str__(self):
+        return self.toString()
+
+    def toString(self, ofRep=True):
+        """
+        Prints as an OpenFOAM dictionary representation.
+        """
+    
+        str_ = self._header.toString() if \
+            hasattr(self._header, 'toString') else ''
+        str_ += self._foamFile.toString(ofRep=True) if \
+            hasattr(self._foamFile, 'toString') else ''
+        # str_ += super(ofDictFile, self).toString(ofRep=ofRep)
+        for k, v in zip(self.keys(), self.values()):
+            logger.debug(f"dict entry: {k}: {v}")
+            if k is None:
+                k=''
+            if k not in self._CLASS_VARS:
+                # if isinstance(v, ofDict):
+                #     logger.debug("Found ofDict.")
+                #     tStr = v.toString().split("\n")
+                #     for i in range(len(tStr)):
+                #         tStr[i] = TAB_STR+tStr[i]+"\n"
+                #         str_ += tStr[i]
+                if hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                    # dStr += printNameStr(TAB_STR+k)+v.toString()
+                    str_ += v.toString(ofRep=ofRep)
+                    logger.debug("Found 'toString()' method.")
+                else:
+                    logger.debug("Could not find 'toString()' method.")
+                    str_ += printNameStr(k)+str(v)+'\n'
+                str_ += '\n'
+            logger.debug(f"dict string: {str_}")
+        str_+= "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //"
+        if not ofRep:
+            str_ = str_.replace(';', '')
+        return str_
+        # return self._header.toString() + self._foamFile.toString() + \
+        #     super(ofDictFile, self).toString()
 
 
 
@@ -1458,14 +1567,20 @@ class ofDimensionedScalar(ofFloat, ofDimension):
     # 7:  Luminous intensity - candela (cd)')
     #     self._dimensions = d
 
-    def toString(self) -> str:
+    def toString(self, ofRep=False) -> str:
         # #- format the dimensions list properly
         # dimStr = "["
         # for i in range(6):
         #     dimStr+= str(self.dimensions[i])+' '
         # dimStr+= str(self.dimensions[6])+']'
 
-        return printNameStr(self.name)+str(self.dimensions)+" "+str(self.value)+";\n"
+        str_ = printNameStr(self.name)+str(self.dimensions)+" "\
+            +str(self.value)
+            
+        if ofRep:
+            str_ += ";\n"
+
+        return str_
 
     def __str__(self):
         return self.toString().rstrip(';\n')
@@ -1648,7 +1763,8 @@ class DictFileParser:
         with open(filepath, 'r') as f:
             self.lines = f.readlines()
         self.status = None
-        self.dictFile = ofDictFile()
+        self.dictFile = ofDictFile(_name=Path(filepath).name, 
+                            _location=Path(filepath).parent)
         self.i=0
         self.extraLine = []
 
@@ -1713,6 +1829,8 @@ class DictFileParser:
         logger.debug(f"End of header at line {self.i+1}.")
 
         self.dictFile._header = ofHeader(self.lines[:self.i])
+
+        logger.debug(f"ofDictFile: {self.dictFile}")
 
         while self.lines[self.i].strip() == "":
             self.i+=1
