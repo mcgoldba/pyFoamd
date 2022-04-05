@@ -598,9 +598,9 @@ class _ofCaseBase(_ofTypeBase):
                         _writeCaseObj(item, loc_)
             elif isinstance(obj, ofDictFile):
                 logger.debug(f"ofDictFile obj: {obj}")
-                logger.info(f"Writing dictionary {obj._name} to "\
-                    f"{self._location}.")
                 loc_ = Path(loc) / obj._name
+                logger.info(f"Writing dictionary {obj._name} to "\
+                    f"{loc}.")
                 with open(loc_, 'w') as f:
                     f.write(obj.toString())
 
@@ -1398,7 +1398,7 @@ class ofFoamFile(ofDict):
                         dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
 
                 logger.debug(f"dict string: {dStr}")
-            dStr+= "}\n\n"
+            dStr+= "}\n"
             if not ofRep:
                 dStr = dStr.replace(';', '')
             return dStr
