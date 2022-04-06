@@ -1473,7 +1473,8 @@ class ofDictFile(ofDict):
                                 str(Path.cwd() / self._name)) \
                                     if self._name is not None else ""
         self._header : ofHeader = ofHeader()
-        self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
+        # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
+        self._foamFile: ofFoamFile = None 
         self._CLASS_VARS.append('_location')
         self._CLASS_VARS.append('_header')
         self._CLASS_VARS.append('_foamFile')
