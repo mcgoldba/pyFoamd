@@ -13,6 +13,7 @@ import copyreg
 import json
 import pickle
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
+import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
 
 from inspect import signature #- just for debugging
 
@@ -153,6 +154,8 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         for key, value in self.__dict__.items():
             yield (key, value)
 
+    #TODO:  seprate the ofRep argument?  This may prevent all derived classes
+    #       from having to implement this.
     def toString(self, ofRep=False) -> str:
         str_ =  printNameStr(self.name)+str(self.value)
 
@@ -247,6 +250,18 @@ class ofHeader(_ofTypeBase):
 #                                         bases=(ofFolder,), frozen=True)
 
 
+def _checkReserved(name, reserved=[]):
+    """
+    Check if the dictionary key is a Python reserved value or member of 
+    `reserved`.  If so, this causes issues with the dot access of variables in
+    the Python console.
+    Append an `_` to these keys and remove underscore when printing to string.
+    """
+    if name in keyword.kwlist or name in reserved:
+        return name+"_"
+    else:
+        return name
+
 # @dataclass(frozen=True)
 @dataclass
 class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
@@ -298,12 +313,12 @@ class FolderParser:  # Class id required because 'default_factory' argument
         attrList = [('_path', str, field(default=str(self.path)))]
         for obj in Path(self.path).iterdir():
             #- Prevent invalid ofFolder attribute names:
-            name_ = obj.name.replace('.', '_')
+            name_ = _checkReserved(obj.name.replace('.', '_'), ['_path'])
             if obj.is_dir():
-                if obj.name == '_path':
-                    warnings.warn(f"'{obj.name}' is a reserved attribute.  "
-                                "Skipping directory: {obj} ")
-                    continue
+                # if obj.name == '_path':
+                #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+                #                 "Skipping directory: {obj} ")
+                #     continue
                 attrList.append((name_, _ofFolderBase, 
                     field(default_factory=FolderParser(obj).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
@@ -507,6 +522,8 @@ class _ofCaseBase(_ofTypeBase):
                             key, val in obj.attrDict().items())
             elif isinstance(obj, dict):
                 return dict((key, _toDict(val)) for key, val in obj.items())
+            elif isinstance(obj, list):
+                return [_toDict(val) for val in obj]
             # elif isinstance(obj, _ofTypeBase):
             #     return toDict(dict(obj))
             # elif isinstance(obj, _ofFolderBase):
@@ -542,7 +559,6 @@ class _ofCaseBase(_ofTypeBase):
         with open(filepath, 'w')  as fp:
             json.dump(case_, fp, skipkeys=False, indent=TAB_SIZE, 
                         sort_keys=False)
-                        # cls=JSONPyFoamdEncoder)
 
     
     def toJSON(self):
@@ -644,14 +660,14 @@ class CaseParser:
                 logger.debug(f"_ofCaseBase: \
                     {_ofCaseBase}")
                 fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
-                if any([obj.name == field for field in fields]):
-                    warnings.warn(f"'{obj.name}' is a reserved attribute.  "
-                                "Skipping directory: {obj} ")
-                    continue
+                # if any([obj.name == field for field in fields]):
+                #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
+                #                 "Skipping directory: {obj} ")
+                #     continue
                 if obj.name.startswith('.'):
                     #- ignore hidden directories.  These are included in ofTimeReg
                     continue
-                name_ = obj.name.replace('.', '_')
+                name_ = _checkReserved(obj.name.replace('.', '_'), fields)
                 
                 if name_[0].isdigit() or name_ == 'postProcessing':
                     #- Do not parse time directories
@@ -978,8 +994,13 @@ TYPE_REGISTRY.append(ofBool)
 @dataclass
 class ofVar(_ofNamedTypeBase):
     
-    def toString(self) -> str:
-        return f"${self.value};\n"
+    def toString(self, ofRep=False) -> str:
+        str_ =  f"${self.value}"
+        if ofRep:
+            str_+= ";\n"
+        else:
+            str_+= "\n"
+        return str_
 
 
     def __str__(self):
@@ -992,7 +1013,7 @@ class ofNamedList(_ofNamedTypeBase):
     def toString(self) -> str:
         return printNameStr(self.name)+self.valueStr+";\n"
     
-    def toString(self) -> str:
+    def toString(self, ofRep=False) -> str:
         if self.name:
             dStr = self.name+"( "
         else:
@@ -1007,7 +1028,10 @@ class ofNamedList(_ofNamedTypeBase):
                 dStr += v.toString()
             else:
                 dStr += str(v)+" "
-        dStr+= ")\n"
+        if ofRep:
+            dStr+= ");\n"
+        else:
+            dStr+= ")\n"
         return dStr
 
 
@@ -1178,7 +1202,7 @@ class ofDict(dict, _ofTypeBase):
             itemName = item.__getattr__[nameTag]
             if itemName is None:
                 self._nUnnamed += 1
-                name_ = '_unnamed'+str(self._nUnnamed)
+                name_ = '_unnamed_'+str(self._nUnnamed)
             if '_unnamed' in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
             else:
@@ -1190,31 +1214,38 @@ class ofDict(dict, _ofTypeBase):
             # type_, value_ = DictFileParser._parseValue(item)
             # ofValue = type_(name=item, value=value_)
             # super(ofDict, self).__setattr__(ofValue.name, ofValue)
-            self.__setattr__(item, value)
+            if item is None:
+                self._nUnnamed += 1
+                item_ = '_unnamed_'+str(self._nUnnamed)
+            else:
+                item_ = item
+            self.__setattr__(item_, value)
 
 
     def __setattr__(self, key, value):
         logger.debug(f"ofDict.__setattr__ key value: {key}, {value}")
-        super(ofDict, self).__setitem__(key, value)
+        key_ = _checkReserved(key)
+        super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
-        super(ofDict, self).__setattr__(key, value)
+        super(ofDict, self).__setattr__(key_, value)
         # self.__setattr__(key, value)
         # if key not in self._CLASS_VARS:
         if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
         # if key not in self._CLASS_VARS:
-            if not isinstance(value, _ofTypeBase):
+            if value is not None and not isinstance(value, _ofTypeBase):
                 logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
                 logger.debug(f"type, value: {type_}, {value_}")
-                ofType = type_(name=key, value=value_)
+                ofType = type_(name=key_, value=value_)
             else:
                 ofType = value
             logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
             # self.__dict__[key] = ofType
-            super(ofDict, self).__dict__[key] = ofType
+            super(ofDict, self).__dict__[key_] = ofType
         else:
             # self.__dict__[key] = value
-            super(ofDict, self).__dict__[key] = value
+            super(ofDict, self).__dict__[key_] = value
+    
     def __delattr__(self, name):
         super(ofDict, self).__delitem__(self, name)
         super(ofDict, self).__delattr__(self, name)
@@ -1226,11 +1257,11 @@ class ofDict(dict, _ofTypeBase):
     def __repr__(self):
         return self.__str__()
 
-    #- for dict() conversion; ref: https://stackoverflow.com/a/23252443/10592330
-    def __iter__(self):
-        logger.debug(f"Inside {self} __iter__.")
-        for item in vars(self).items():
-            yield item
+    # #- for dict() conversion; ref: https://stackoverflow.com/a/23252443/10592330
+    # def __iter__(self):
+    #     logger.debug(f"Inside {self} __iter__.")
+    #     for item in vars(self).items():
+    #         yield item
 
     def __deepcopy__(self, memo=None):
         print("__deepcopy__ type(self):", type(self))
@@ -1323,6 +1354,7 @@ class ofDict(dict, _ofTypeBase):
         else:
             dStr = "{\n"
         for k, v in zip(self.keys(), self.values()):
+            k = k.rstrip('_') # remove possible "_" added in _checkReserved
             logger.debug(f"dict entry: {k}: {v}")
             if k is None:
                 k=''
@@ -1728,15 +1760,20 @@ class ofDimensionedTensor(ofTensor, ofDimension):
 @dataclass
 class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
 
-    def toString(self) -> str:
-        return printNameStr(self.name)+self.value.toString()+";\n"
+    def toString(self, ofRep = False) -> str:
+        str_ = printNameStr(self.name)+self.value.toString()
+        if ofRep:
+            str_ += ";\n"
+        else:
+            str_ += "\n"
+        return str_
 
     def __str__(self):
         return self.toString().rstrip(';\n')
 
 @dataclass
 class ofInclude(ofDictFile, _ofIncludeBase):
-    def toString(self) -> str:
+    def toString(self, ofRep=False) -> str:
         return printNameStr(self._name)+'"'+str(self.value)+'"\n'
 
     def __str__(self):
@@ -2466,6 +2503,9 @@ class DictFileParser:
             return ofInt, value
         if isinstance(value, float):
             return ofFloat, value
+
+        if value is None:
+            return None, None
 
         # check for a spherical tensor, (e,g, '(0)')
         if value[0] == '(' and value[-1] == ')':
