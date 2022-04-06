@@ -180,24 +180,24 @@ class ofTimeReg(_ofTypeBase):
 
 @dataclass
 class ofHeader(_ofTypeBase):
-    _rawLineList : list = None
-    line1 : str = field(init=False, default="")
-    line2 : str = field(init=False, default="")
-    line3 : str = field(init=False, default="")
-    line4 : str = field(init=False, default="")
-    line5 : str = field(init=False, default="")
+    # _rawLineList : list = None
+    # line1 : str = field(init=False, default="")
+    # line2 : str = field(init=False, default="")
+    # line3 : str = field(init=False, default="")
+    # line4 : str = field(init=False, default="")
+    # line5 : str = field(init=False, default="")
 
 
-    def __post_init__(self):
+    def __init__(self, rawLineList=None):
         
-        if self._rawLineList is None:
-            self._rawLineList = OF_HEADER
+        if rawLineList is None:
+            rawLineList = OF_HEADER
 
-        self.line1 = self._rawLineList[1][29:]
-        self.line2 = self._rawLineList[2][29:]
-        self.line3 = self._rawLineList[3][29:]
-        self.line4 = self._rawLineList[4][29:]
-        self.line5 = self._rawLineList[5][29:]
+        self.line1 = rawLineList[1][29:]
+        self.line2 = rawLineList[2][29:]
+        self.line3 = rawLineList[3][29:]
+        self.line4 = rawLineList[4][29:]
+        self.line5 = rawLineList[5][29:]
 
 
         for i, line in enumerate(
