@@ -113,7 +113,7 @@ class _ofUnnamedTypeBase(_ofTypeBase):
 
     """
     value : str = None
-
+    _comment: str = None
 
     #TODO:  Make sure values print correctly for all types when accessing class 
     #       in console (currently doesn't work for ofDictFile)
@@ -794,26 +794,26 @@ class CaseParser:
 #             self._update(iterable)
         
 
-@dataclass
-class _ofListBase(_ofNamedTypeBase):
-    value: list
+# @dataclass
+# class _ofListBase(_ofNamedTypeBase):
+#     value: list
 
-    @property
-    def valueStr(self):
-        str_ = '('
-        for v in self.value:
-            str_+= str(v)+" "
-        return str_.rstrip()+')'
+#     @property
+#     def valueStr(self):
+#         str_ = '('
+#         for v in self.value:
+#             str_+= str(v)+" "
+#         return str_.rstrip()+')'
 
-    def __str__(self):
-        return self.toString().rstrip(';\n')
+#     def __str__(self):
+#         return self.toString().rstrip(';\n')
 
-    def __list__(self):
-        _list = []
-        return [v.value if isinstance(v, _ofIntBase) else v for v in self.value]
+#     def __list__(self):
+#         _list = []
+#         return [v.value if isinstance(v, _ofIntBase) else v for v in self.value]
 
 # @dataclass
-# class _ofNamedListBase(_ofListBase):
+# class _ofListBase(_ofListBase):
 #     name: str = None
 #     value: List = field(default_factory=lambda:[])
 
@@ -1006,7 +1006,7 @@ class ofVar(_ofNamedTypeBase):
         return self.toString().rstrip(';\n')
 
 @dataclass
-class ofNamedList(_ofNamedTypeBase):
+class ofList(_ofNamedTypeBase):
     value: List = field(default_factory=lambda:[])
 
     def toString(self) -> str:
@@ -1037,42 +1037,77 @@ class ofNamedList(_ofNamedTypeBase):
     def __str__(self):
         return self.toString()
 
-TYPE_REGISTRY.append(ofNamedList)
-
-@dataclass
-class ofList(_ofListBase):
-
-    def toString(self) -> str:
-        dStr = "( "
-        for v in self.value:
-            if isinstance(v, ofDict):
-                dStr2 = v.toString().split(" ")
-                for i in range(len(dStr2)):
-                    dStr2[i] = TAB_STR+dStr2[i]+" "
-                    dStr += dStr2[i]
-            elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                dStr += v.toString()
-            else:
-                dStr += str(v)+" "
-        dStr+= ") "
-        return dStr
-    # def toString(self) -> str:
-    #     return self.valueStr
-    #def toString(self) -> str:
-    #    valueStr = '('
-    #    valueStr += str(self.value[0])
-    #    for i in range(1,len(self.value)):
-    #        valueStr += ' '+str(self.value[i])
-    #    valueStr += ')'
-    #    return printNameStr(self.name)+valueStr+";\n"
-
-    def __str__(self):
-        return self.toString().rstrip(';\n')
-
 TYPE_REGISTRY.append(ofList)
 
+# @dataclass
+# class ofList(_ofListBase):
+
+#     def toString(self) -> str:
+#         dStr = "( "
+#         for v in self.value:
+#             if isinstance(v, ofDict):
+#                 dStr2 = v.toString().split(" ")
+#                 for i in range(len(dStr2)):
+#                     dStr2[i] = TAB_STR+dStr2[i]+" "
+#                     dStr += dStr2[i]
+#             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+#                 dStr += v.toString()
+#             else:
+#                 dStr += str(v)+" "
+#         dStr+= ") "
+#         return dStr
+#     # def toString(self) -> str:
+#     #     return self.valueStr
+#     #def toString(self) -> str:
+#     #    valueStr = '('
+#     #    valueStr += str(self.value[0])
+#     #    for i in range(1,len(self.value)):
+#     #        valueStr += ' '+str(self.value[i])
+#     #    valueStr += ')'
+#     #    return printNameStr(self.name)+valueStr+";\n"
+
+#     def __str__(self):
+#         return self.toString().rstrip(';\n')
+
+# TYPE_REGISTRY.append(ofList)
+
 @dataclass
-class ofTable(ofNamedList):
+class ofSplitList(ofList):
+
+    def toString(self, ofRep=False) -> str:
+        """ 
+        Convert to a string representation.  If ofRep is `True` prints  a string
+        conforming to an OpenFOAM dictionry. 
+        """
+        logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        if self.name:
+            dStr = self.name+"\n(\n"
+        else:
+            dStr = "(\n"
+        for v in self.value:
+            logger.debug(f"list entry: {v}")
+            if isinstance(v, ofDict):
+                logger.debug("Found ofDict.")
+                dStr2 = v.toString(ofRep=ofRep).split("\n")
+                for i in range(len(dStr2)):
+                    dStr2[i] = TAB_STR+dStr2[i]+"\n"
+                    dStr += dStr2[i]
+            elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                # dStr += printNameStr(TAB_STR+k)+v.toString()
+                dStr += TAB_STR+v.toString(ofRep=ofRep)
+                logger.debug("Found 'toString()' method.")
+            else:
+                logger.debug("Could not find 'toString()' method.")
+                dStr += str(v)+'\n'
+            logger.debug(f"dict string: {dStr}")
+        dStr+= ");\n\n"
+        if not ofRep:
+            dStr = dStr.replace(';', '')
+        return dStr
+
+@dataclass
+class ofTable(ofList):
 
     _value = None
 
@@ -1087,7 +1122,7 @@ class ofTable(ofNamedList):
         if isinstance(val, str):
             logger.debug("Found string input.")
             list_ = DictFileParser()._parseListValues(v)
-        elif isinstance(val, _ofListBase):
+        elif isinstance(val, ofList):
             logger.debug("Found ofList input.")
             list_ = list(val)
         elif isinstance(val, list):
@@ -1150,8 +1185,8 @@ class ofTable(ofNamedList):
         return self.toString().rstrip(';\n')
 
 # @dataclass
-# class ofNamedSplitList(ofNamedList, _ofNamedListBase):
-#     #- Same as ofNamedList except entries are split on multiple lines according the
+# class ofNamedSplitList(ofList, _ofListBase):
+#     #- Same as ofList except entries are split on multiple lines according the
 #     #  OpenFoam Programmer's Style Guide
 
 #     def toString(self) -> str:
@@ -2087,14 +2122,14 @@ class DictFileParser:
                     #lineList = self._getLinesList(self.i)
                 logger.debug(f"lineList: {lineList}")
                 #TODO: Handle lists of lists on a single line
-                list_ = ofNamedList(name=name)
+                list_ = ofSplitList(name=name)
                 for v in lineList[1:]:
                     if v != "":
                         list_.value.append(v)
                 return list_
             else:
                 # - Parse the list recursively to capture list of lists
-                return self._parseList(name)
+                return self._parseList(name, split=True)
         elif openingChar == '{':
             #value = { name: None }
             # - Parse the dictionary recursively to capture dict of dicts
@@ -2118,7 +2153,7 @@ class DictFileParser:
 
         #self.i += 1
 
-    def _parseList(self, name):
+    def _parseList(self, name, split=False):
         """
         Parse a list storing values as ofList.  
         
@@ -2135,8 +2170,10 @@ class DictFileParser:
         logger.debug(f"name: {name}")
 
 
-
-        list_ = ofNamedList(name=name)
+        if split:
+            list_ = ofSplitList(name=name)
+        else:
+            list_ = ofList(name=name)
 
         #- check to see if list contains dictionaries:
         contentStr = ' '.join(self.lines[self.i:i_end+1])
@@ -2531,7 +2568,7 @@ class DictFileParser:
             #     if valid:
             #         return ofList, value_                
 
-            return ofNamedList, list_
+            return ofList, list_
 
         try:
             value_ = float(value)
@@ -2636,9 +2673,9 @@ class DictFileParser:
                 elif len(entryNameList) == 2:
                     list_ = line.strip()[len(entryName):]
                     listStr = " ".join([entryNameList[1], list_])
-                    value_ = ofNamedList(self._parseListValues(listStr),
+                    value_ = ofList(self._parseListValues(listStr),
                                             entryNameList[1])
-                    return ofNamedList(value_,  entryNameList[0])
+                    return ofList(value_,  entryNameList[0])
                 else:
                     #- remove entry name from line string
                     line_ = line.strip()[len(entryName):].strip()
@@ -2781,7 +2818,7 @@ class DictFileParser:
     #     pass
 
 
-    # def _storeOFNamedListValue(line):
+    # def _storeofListValue(line):
     #     pass
 
 
@@ -2794,7 +2831,7 @@ class DictFileParser:
 
     #     typeSwitcher = {
     #         '{': ofDict(),
-    #         '(': ofNamedList()
+    #         '(': ofList()
     #     }
 
     #     self.entryList[self.entryList.keys[-1]] = typeSwitcher.get(line)

@@ -17,7 +17,7 @@ def _readDictFile(file):
     Parameters:
         file (str or Path): The OpenFOAM dictionary file to read.
     """
-    #from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
+    #from of.ofTypes import ofDictFile, ofDict, ofList, ofIntValue, ofFloatValue, ofStrValue
 
     #- Function assumes:
     #   - All entries start on a new line
@@ -331,7 +331,7 @@ def _getMultiLineType(line):
 
     typeSwitcher = {
         '{': ofDict(),
-        '(': ofNamedList()
+        '(': ofList()
     }
 
     _entryList[_entryList.keys[-1]] = typeSwitcher.get(line)
