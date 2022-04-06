@@ -902,12 +902,11 @@ class ofWord(_ofUnnamedTypeBase):
     An OpenFOAM word is a specialization of a string with no whitespace,
     quotes, slashes, semicolons, or brace brackets
     """
-    value : str
-
     def __post_init__(self):
         FORBIDDEN_VALUES = ['"', "'", '\\', '/', ";", '{', '}']
-        if (any([fv in self.value for fv in FORBIDDEN_VALUES])
-            or any([c in self.value for c in string.whitespace])):
+        if (self.value is not None 
+            and (any([fv in self.value for fv in FORBIDDEN_VALUES])
+            or any([c in self.value for c in string.whitespace]))):
             raise ValueError("String cannot be converted to a word.")
 
 # def ofDictFile(path):
