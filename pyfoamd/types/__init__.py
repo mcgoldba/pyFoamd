@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, make_dataclass
 from signal import valid_signals
-from typing import List, Dict
+from typing import List, Dict, Sequence
 import copy
 from pathlib import Path
 import os
@@ -131,7 +131,7 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
     is not intuitive, a secondary '_value' attribute should be defined that
     stores the appropriate string repesentation of the OpenFOAM value.
 
-    Iterable derived types (e.g. ofDict) should store ofTypes as values.
+    Iterable derived types (e.g. ofList) should store ofTypes as values.
 
     call signatures:
         with single argument:   _ofNamedTypeBase(value)
@@ -1021,10 +1021,15 @@ class ofList(_ofNamedTypeBase):
             if isinstance(v, ofDict):
                 dStr2 = v.toString().split(" ")
                 for i in range(len(dStr2)):
-                    dStr2[i] = TAB_STR+dStr2[i]+" "
+                    if len(TAB_STR+dStr2[i]+" ") > 79:
+                        dStr2[i] = "\n"+TAB_STR+dStr2[i]+" "
+                    else:
+                        dStr2[i] = TAB_STR+dStr2[i]+" "
                     dStr += dStr2[i]
+            elif isinstance(v, list):
+                dStr += TAB_STR+ofList(value=v).toString()
             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                dStr += v.toString()
+                dStr += v.toString()+" "
             else:
                 dStr += str(v)+" "
         if ofRep:
@@ -1093,13 +1098,20 @@ class ofSplitList(ofList):
                 for i in range(len(dStr2)):
                     dStr2[i] = TAB_STR+dStr2[i]+"\n"
                     dStr += dStr2[i]
+            elif isinstance(v, list):
+                dStr += TAB_STR+ofList(value=v).toString()
+                # if any(isinstance(v_, t) for v_ in v for t in [list, dict]):
+                #     dStr += TAB_STR+ofSplitList(value=v).toString()
+                # else:
+                #     dStr += TAB_STR+ofList(value=v).toString()
+
             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                 # dStr += printNameStr(TAB_STR+k)+v.toString()
                 dStr += TAB_STR+v.toString(ofRep=ofRep)
                 logger.debug("Found 'toString()' method.")
             else:
                 logger.debug("Could not find 'toString()' method.")
-                dStr += str(v)+'\n'
+                dStr += TAB_STR+str(v)+'\n'
             logger.debug(f"dict string: {dStr}")
         dStr+= ");\n\n"
         if not ofRep:
@@ -2115,21 +2127,50 @@ class DictFileParser:
         logger.debug(f"Opening char: {openingChar}")
 
         if openingChar == '(':
-            if len(lineList) > 1:
-                #list in one a single line
-                if lineList[-1][-1] != ';':
-                    return self._parseList(name)
-                    #lineList = self._getLinesList(self.i)
-                logger.debug(f"lineList: {lineList}")
-                #TODO: Handle lists of lists on a single line
-                list_ = ofSplitList(name=name)
-                for v in lineList[1:]:
-                    if v != "":
-                        list_.value.append(v)
-                return list_
-            else:
-                # - Parse the list recursively to capture list of lists
-                return self._parseList(name, split=True)
+            return self._parseList(name)
+            # if len(lineList) > 1:
+            #     #list is on a single line
+            #     if lineList[-1][-1] != ';':
+            #         return self._parseList(name)
+            #         #lineList = self._getLinesList(self.i)
+            #     else:
+            #         logger.ebug(f"lineList: {lineList}")
+            #         #TODO: Handle lists of lists on a single line
+            #         list_ = ofSplitList(name=name)
+            #         for v in lineList[1:]:
+            #             if v != "" and v is not None:
+            #                 list_.value.append(self._parseValue(v))
+            #         return list_
+            # else:
+            #     # - Parse the list recursively to capture list of lists
+            #     return self._parseList(name, split=True)
+
+
+
+            # if line is not None and ');' not in lineList[-1]:
+            #     logger.error("Cannot parse line argument of an incomplete "\
+            #         "list.")
+            #     sys.exit()
+            # # collect lines till end of list statement
+            # startI = self.i
+            # while ');' not in lineList[-1]:
+            #     self.i+=1
+            #     if self.i >= len(self.lines):
+            #         userMsg("Could not find end of list starting at line "\
+            #             f"{startI+1}.")
+            #     lineList_ = self.lines[self.i].strip().split()
+            #     for value in lineList_:
+            #         lineList.append(value)
+            # #parse a complete list statement
+            # #TODO: Handle lists of lists on a single line
+            # list_ = ofSplitList(name=name)
+            # for v in lineList[1:]:
+            #     if v != "" and v is not None:
+            #         #TODO:  Should I pass the raw value or ofType here?
+            #         #       Do I need to parse lists separately
+            #         list_.value.append(v)
+            # return list_
+
         elif openingChar == '{':
             #value = { name: None }
             # - Parse the dictionary recursively to capture dict of dicts
@@ -2193,7 +2234,9 @@ class DictFileParser:
             self.i+=1
 
             while self.i < i_end:
-                list_.value.append(self._parseLine())
+                value_ = self._parseLine()
+                if value_ is not None:
+                    list_.value.append(value_)
 
             logger.debug(f"list_:\n{list_}")
 
@@ -2206,10 +2249,17 @@ class DictFileParser:
         while self.i <= i_end:
             line = self.lines[self.i]
             if self.i == i_start:
-                #- ignore first (
+                #- Ignore first '('
+                #- If line contains key value, ignore as already saved as name.
+                # e.g.  fields      ( U p );
                 if line.strip() != "" and line.strip()[0] != '(':
-                    userMsg("Inavlid syntax.  List value does not "\
-                        "begin with '('.", 'ERROR')
+                    if '(' in line:
+                        #- Remove everything before '(' Assumed to be key 
+                        line = '('+'('.join(line.split('(')[1:])
+                    else:
+                        userMsg("Invalid syntax.  List value does not "\
+                            "begin with '('.", 'ERROR')
+                #- Ignore first '('
                 line=line.strip()[1:]
             if ';' in line:
                 if self.i != i_end:
@@ -2226,7 +2276,12 @@ class DictFileParser:
                 entryList.append(entry)
             strValue = " ".join(entryList)
             if strValue.strip() != "":
-                list_.value.append(self._parseListValues(strValue))
+                #TODO:  Can this be simplified to just call _parseLine()
+                value_ = self._parseListValues(strValue)
+                if value_ is None:
+                    list_.value.append(self._parseLine())
+                else:
+                    list_.value.append(value_)
             # for entry in entryList:
             #     if entry != "":
             #         list_.value = self._parseListValues(" ".join(entry))
@@ -2273,6 +2328,10 @@ class DictFileParser:
                 #- find end of list:
                 logger.debug(f"line list searchStr: {values[i:]}")
                 j=self._findDictOrListEndIndex(values[i:])
+                if j is None:
+                    logger.warning("Could not find end of list on a single "\
+                        "line")
+                    return None
                 subStr = values[i+1:i+j]
                 logger.debug(f"subStr: {subStr}")
                 # if j != len(values)-1:
@@ -2350,14 +2409,17 @@ class DictFileParser:
             if i >= len(string):
                 userMsg("Unhandled expression.  Could not find "\
                     f"end of list on line {self.i+1} of {self.filepath}.",
-                    'ERROR')
+                    'WARNING')
+                return None
             if string[i] == openingChar:
                 level+=1
             if string[i] == closingChar:
                 level-=1
             if level == 0:
+                found = True
                 break 
             i+=1
+
 
         logger.debug(f"list ended at index {i} at char '{string[i]}'.")
 
@@ -2428,10 +2490,15 @@ class DictFileParser:
                     logger.debug(f"line: {i}")
             return level
 
+        # check if list begins and ends on single line
+        if self.lines[self.i].count(BRACKET_CHARS[type][0]) \
+        == self.lines[self.i].count(BRACKET_CHARS[type][0]):
+            return self.i
 
         level = 0
 
         i_ = self.i
+
 
         #- Parse to the first opening bracket to initialize second while loop
         while level == 0:
@@ -2628,13 +2695,17 @@ class DictFileParser:
                 if char == '}':
                     nd-=1
             
-            if nl == 0 and nd == 0:
+            if nl <= 0 and nd <= 0:
                 break
 
             if nl > 0:
                 logger.debug("Found open list..")
+                self.i += 1
+                line += self.lines[self.i]
             if nd > 0:
                 logger.debug("Found open dictionary...")
+                self.i += 1
+                line += self.lines[self.i]
 
             # self.i+=1
             line+=self.lines[self.i]
@@ -2683,9 +2754,11 @@ class DictFileParser:
                     value = self._parseListOrDict(entryName, line=line_)
                     return value
             else:
-                userMsg(f"Invalid syntax found on line {self.i+1} of file "
-                f"{self.filepath}", 'ERROR')
-                sys.exit()
+                value = self._parseListOrDict(None, line=line)
+                return value
+                # userMsg(f"Invalid syntax found on line {self.i+1} of file "
+                # f"{self.filepath}", 'ERROR')
+                # sys.exit()
         else:
             #- Assume entry is a key value pair with a muliple word value.
             #      (e.g. 'default       Gauss linear')
