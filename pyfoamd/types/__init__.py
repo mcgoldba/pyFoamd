@@ -52,6 +52,9 @@ BRACKET_CHARS = {
     'list': ['(', ')']
 }
 
+COMMENT_TAG = "_comment_"
+UNNAMED_TAG = "_unnamed_"
+
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -1006,6 +1009,21 @@ class ofVar(_ofNamedTypeBase):
         return self.toString().rstrip(';\n')
 
 @dataclass
+class ofComment(_ofUnnamedTypeBase):
+    def __init__(self, value:str = None, block : bool = False):
+        self.value = value 
+        self.block = block
+
+    def toString(self, ofRep=False):
+        if self.value is None:
+            return ''
+        if not self.block:
+            return '//'+self.value
+        else:
+            return '/*'+self.value+'*/'
+
+
+@dataclass
 class ofList(_ofNamedTypeBase):
     value: List = field(default_factory=lambda:[])
 
@@ -1248,7 +1266,7 @@ class ofDict(dict, _ofTypeBase):
             itemName = item.__getattr__[nameTag]
             if itemName is None:
                 self._nUnnamed += 1
-                name_ = '_unnamed_'+str(self._nUnnamed)
+                name_ = UNNAMED_TAG+str(self._nUnnamed)
             if '_unnamed' in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
             else:
@@ -1262,7 +1280,7 @@ class ofDict(dict, _ofTypeBase):
             # super(ofDict, self).__setattr__(ofValue.name, ofValue)
             if item is None:
                 self._nUnnamed += 1
-                item_ = '_unnamed_'+str(self._nUnnamed)
+                item_ = UNNAMED_TAG+str(self._nUnnamed)
             else:
                 item_ = item
             self.__setattr__(item_, value)
@@ -1495,7 +1513,7 @@ class ofFoamFile(ofDict):
 
             if any([isinstance(value_, t) for t in [ofFloat, ofInt]]):
                 if value_.name != "version":
-                    userMsg(f"Inavlid value '{value_.name}' for {value_._type}.  Only \
+                    userMsg(f"Invalid value '{value_.name}' for {value_._type}.  Only \
                         'version' is allowed.")
                 else:
                     super(ofFoamFile, self).update(iterable)
@@ -1503,7 +1521,7 @@ class ofFoamFile(ofDict):
                 if value_.name in ['version', 'format', 'class', 'object']:
                     super(ofFoamFile, self).update(iterable)
                 else:
-                    userMsg(f"Inavlid value '{value_.name}' for {value_._type}.  Only \
+                    userMsg(f"Invalid value '{value_.name}' for {value_._type}.  Only \
                         'version', 'format', 'class', and 'object' are allowed.")
 
         
@@ -1851,6 +1869,8 @@ class DictFileParser:
                             _location=Path(filepath).parent)
         self.i=0
         self.extraLine = []
+        self.comment = None
+        self.nComments = 0
 
 
     def _addExtraLine(self, line):
@@ -1863,11 +1883,10 @@ class DictFileParser:
             self.extraLine.append(line)
     
 
-    def _getLinesList(self, i):
+    def _getLinesList(self, line):
         """
-        Parse an OpenFOAM dictionary file to the end of a C++ statement 
-        (i.e. to the `statementEnd` value.) .  Assumes there are no `#include` statements in the 
-        range of lines.
+        Convert a line string to the appropriate lines list without comments and
+        extra whitespace
 
         Parameters:
             lines [list(str)]:  List of lines of the dictionary file as text
@@ -1880,25 +1899,7 @@ class DictFileParser:
             i [int]: index of the current line after parsing the statement 
 
         """
-        
-        linesList = []
-        line = self.lines[self.i]
-        # Pass first opening bracket character ('(' or '{')
-        if any([line[0] == char for char in ['(', '{']]):
-            line = line[1:]
-        attempts = 0
-        while ';' not in line:
-            if attempts > 1000:
-                logger.error('Maximumum number of attempts')
-                sys.exit()
-            for item in line.split():
-                linesList.append(item)
-            self.i+=1
-            line = self.lines[self.i]
-        #parse last line; remove statement end from list:
-        for item in self.lines[self.i][:-1].split():
-            linesList.append(item)
-        return linesList
+        return line.strip().split('//')[0].split()
 
     def readDictFile(self):
 
@@ -1946,6 +1947,10 @@ class DictFileParser:
                     self.dictFile.update({value._name: value})
                 elif hasattr(value, 'name'):
                     self.dictFile.update({value.name: value})
+                elif isinstance(value, ofComment):
+                    name_ = COMMENT_TAG+str(self.nComments)
+                    self.dictFile.update({name_: value})
+                    self.nComments += 1
                 else:
                     logger.error(f"Invalid value type: {type(value)}.")
                     sys.exit
@@ -1975,17 +1980,23 @@ class DictFileParser:
         parsingExtraLine = False
 
         if len(self.extraLine) == 0:
-            #- Ignore comments and split line into list
-            lineList = self.lines[self.i].strip().split('//')[0].split()
+            #- Ignore inline comments and split line into list.  Comments are
+            #   parsed using self.lines[self.i] in _parseComments() below.
+            #lineList = self.lines[self.i].strip().split('//')[0].split()
+            lineList = self._getLinesList(self.lines[self.i])
         else:
-            lineList = self.extraLine[0].strip().split('//')[0].split()
+            #lineList = self.extraLine[0].strip().split('//')[0].split()
+            lineList = self._getLinesList(self.extraLine[0])
             parsingExtraLine = True
 
         logger.debug(f"\tlineList: {lineList}")
 
-        try: 
-            if len(lineList) == 0 or self._parseComments():
-                # Line is blank or comment
+        try:
+            parsedComment = self._parseComments()
+            if parsedComment is not None:
+                return parsedComment  
+            elif len(lineList) == 0:
+                # Line is blank
                 return None
             elif len(lineList) == 1:
                 if lineList[0].strip() == '};' or lineList[0] == ');':
@@ -2034,7 +2045,8 @@ class DictFileParser:
     def _parseLineLenTwo(self):
         logger.debug("Parsing line of length 2.")
 
-        lineList = self.lines[self.i].strip().split()
+        # lineList = self.lines[self.i].strip().split()
+        lineList = self._getLinesList(self.lines[self.i])
         
         #logger.debug(f"lineList: {lineList}")
         
@@ -2103,9 +2115,11 @@ class DictFileParser:
             name = name.strip()
 
         if line is not None:
-            lineList = line.strip().split()
+            # lineList = line.strip().split()
+            lineList = self._getLinesList(line)
         else:
-            lineList = self.lines[self.i].strip().split()
+            # lineList = self.lines[self.i].strip().split()
+            lineList = self._getLinesList(self.lines[self.i])
 
         logger.debug(f"parseListOrDict name: {name}")
 
@@ -2174,7 +2188,7 @@ class DictFileParser:
         elif openingChar == '{':
             #value = { name: None }
             # - Parse the dictionary recursively to capture dict of dicts
-            self.i += 1
+            # self.i += 1
             # if name == 'FoamFile':
             #     dict_ = self._parseFoamFile()
             # else:
@@ -2185,12 +2199,14 @@ class DictFileParser:
             logger.debug(f"dict_: {dict_}")
 
             return dict_
-        # else:
-        #     userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
-        #     f"file '{self.filepath}'.", level='ERROR')
-        #     # logger.error(f"Invalid syntax on line {self.i+1} of dictionary "
-        #     # f"file '{self.filepath}'.")
-        #     # sys.exit()
+        else:
+            #- Assume value is a single value list or dict entry:
+            return ofWord(name)
+            # userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
+            # f"file '{self.filepath}'.", level='ERROR')
+            # logger.error(f"Invalid syntax on line {self.i+1} of dictionary "
+            # f"file '{self.filepath}'.")
+            # sys.exit()
 
         #self.i += 1
 
@@ -2429,6 +2445,8 @@ class DictFileParser:
         """
         Recursively parse a dictionary storing values as ofDict 
         """
+
+        i_start = self.i
         # - Find the end of dictionary        
         i_end = self._findDictOrListEndLine('dict')
 
@@ -2439,6 +2457,14 @@ class DictFileParser:
 
         # self.i -= 1 #- reset index because will increment automatically in
                     #  _parseLine
+
+        #- skip the opening '{'
+        if '{' in self.lines[self.i]:
+            line_ = self.lines[self.i].strip()
+            extraLine = '{'.join(line_.split('{')[1:])
+            if extraLine != "":
+                self._addExtraLine(extraLine) 
+        self.i += 1
 
         while self.i <= i_end:
             value_ = self._parseLine()
@@ -2457,7 +2483,7 @@ class DictFileParser:
 
         logger.debug(f"dict_:\n{dict_}")
 
-        self.i-=1 # Reset line index since it will increment in _parseLine
+        #self.i-=1 # Reset line index since it will increment in _parseLine
 
         logger.debug(f"Finished parsing dict {name} on line {self.i+1}")
 
@@ -2492,7 +2518,7 @@ class DictFileParser:
 
         # check if list begins and ends on single line
         if self.lines[self.i].count(BRACKET_CHARS[type][0]) \
-        == self.lines[self.i].count(BRACKET_CHARS[type][0]):
+        == self.lines[self.i].count(BRACKET_CHARS[type][1]):
             return self.i
 
         level = 0
@@ -2582,9 +2608,11 @@ class DictFileParser:
             line = string.strip(';')
             logger.debug(f"parseTable string: {string}")
             if line.split()[1] == 'table': # whole line is passed as input
-                lineList = line.split()[2:] # Remove the 'table' designation
+                # lineList = line.split()[2:] # Remove the 'table' designation
+                lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
             elif line.strip().startswith('(('):  # only list value is passed as input
-                lineList = line.split()
+                # lineList = line.split()
+                lineList = self._getLinesList(line)
             else:
                 userMsg(f"Unhandled syntax for table found on line "\
                     f"{self.i+1} of {self.filepath}.", "ERROR")
@@ -2762,15 +2790,18 @@ class DictFileParser:
         else:
             #- Assume entry is a key value pair with a muliple word value.
             #      (e.g. 'default       Gauss linear')
-            lineList = line.split()
+            # lineList = line.split()
+            lineList = self._getLinesList(line)
             self._parseSingleLineEntry(key=lineList[0], 
                                        value=' '.join(lineList[1:]))
 
 
     def _parseComments(self):
         """
-        Returns 'True' if the current line is a C++ comment type.  If block 
-        comment, self.i is incremented to end of comment block.
+        Returns 'ofComment' if the current line is a C++ comment type.  If block 
+        comment, self.i is incremented to end of comment block.  If line is not 
+        a comment, stores any inline comments to self and returns line string 
+        without an inline comment
         """
         #TODO: Doesnt handle comments in middle of line (Maybe this should be 
         # handled elsewhere)
@@ -2781,17 +2812,30 @@ class DictFileParser:
         # logger.debug(f"line: {line}")
 
         if line.strip().startswith('//'):
-            return True
+            return ofComment(line.strip()[2:])
 
         if line.strip().startswith('/*'):
+            firstLine = True
+            comment_ = ""
             while not self.lines[self.i].strip().endswith('*/'):
+                if firstLine:
+                    #- Remove the '*/
+                    comment_ += self.lines[self.i].strip()[2:]
+                    firstLine = False
+                else:
+                    comment_ += self.lines[self.i].strip()
                 self.i+=1
                 if self.i >= len(self.lines):
                     userMsg("Could not find end of commented block in"\
                         f" file {self.filepath}.", 'ERROR')
-            return True
+            comment_ += self.lines[self.i].strip()[:-2] # remove ending `*/`
+            return ofComment(comment_, block=True)
 
-        return False
+        if '//' in line:
+            self.comment = '//'.join(line.split('//')[1:])
+            logger.debug(f"comment: {self.comment}")
+
+        return None
 
     def _parseDimensionedType(self):
         """ 
@@ -2813,7 +2857,8 @@ class DictFileParser:
             i_+=1
             line += self.lines[i_]
         
-        lineList = line.split()
+        # lineList = line.split()
+        lineList = self._getLinesList(line)
 
         if not len(lineList) >= 9:
             return None # Need at least nine entries to define a dimensioned type 
