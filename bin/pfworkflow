@@ -38,7 +38,8 @@ fi
 # Source tutorial run functions
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 . $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
-if [[ $WM_PROJECT_VERSION -le 7 ]];
+foamVersion=$(echo $WM_PROJECT_VERSION | sed 's/[^0-9]*//g')  #remove non-numeric characters
+if [[ $foamVersion -le 7 ]];
 then
   . $SCRIPT_DIR/../bash/RunFunctionsv7 #Prints log to stdout AND the log.* file
 else
