@@ -1018,9 +1018,9 @@ class ofComment(_ofUnnamedTypeBase):
         if self.value is None:
             return ''
         if not self.block:
-            return '//'+self.value
+            return '//'+self.value+'\n'
         else:
-            return '/*'+self.value+'*/'
+            return '/*'+self.value+'*/'+'\n'
 
 
 @dataclass
@@ -1053,7 +1053,7 @@ class ofList(_ofNamedTypeBase):
         if ofRep:
             dStr+= ");\n"
         else:
-            dStr+= ")\n"
+            dStr+= ")"
         return dStr
 
 
@@ -2082,13 +2082,13 @@ class DictFileParser:
         logger.debug(f"{type_} signature: {signature(type_)}")
 
         if hasattr(type_, 'name'):
-            return type_(name=key, value=value_)
+            return type_(name=key, value=value_, _comment=self.comment)
         elif hasattr(type_, '_name'):
-            return type_(_name=key, value=value_)
+            return type_(_name=key, value=value_, _comment=self.comment)
         else:
             userMsg(f"Could not set name for type {type_}.  Returning "\
                 "value only!", "WARNING")
-            return type_(value=value_)
+            return type_(value=value_, _comment=self.comment)
 
     def _parseListOrDict(self, name, line : str = None):
         """
@@ -2285,32 +2285,55 @@ class DictFileParser:
                 self._addExtraLine(''.join(line.split(';')[1:]))
                 #- ignore last );
                 line = line.split(';')[0].rsplit(')')[0] 
-                
+
             logger.debug(f"line[{self.i+1}]: {line}")
 
-            for entry in line.strip().split():
-                entryList.append(entry)
-            strValue = " ".join(entryList)
-            if strValue.strip() != "":
-                #TODO:  Can this be simplified to just call _parseLine()
-                value_ = self._parseListValues(strValue)
-                if value_ is None:
-                    list_.value.append(self._parseLine())
-                else:
-                    list_.value.append(value_)
-            # for entry in entryList:
-            #     if entry != "":
-            #         list_.value = self._parseListValues(" ".join(entry))
-            self.i+=1
-            logger.debug(f"self.i: {self.i}")
-            
-        
+            #- Parse comment
+            comment = self._parseComments()
+            if comment is not None:
+                entryList.append(comment)
+                continue
+
+            lineList = self._getLinesList(line)
+            # for entry in line.strip().split():
+            for i, entry in enumerate(lineList):
+                #- Store as ofType
+                # entry_ = self._parseListValues(entry)
+                type_, value_ = self._parseValue(entry)
+                # entry_._comment = comment
+                entry_ = type_(value=value_)
+                if i == len(lineList)-1:
+                    entry_._comment = comment
+                entryList.append(entry_)
+
+            # logger.debug(f"self.i: {self.i}")
+            self.i += 1
+
+        # strValue = " ".join(entryList)
+
+        # logger.debug(f"*********************strValue: {strValue}")
+
+        # if strValue.strip() != "":
+        #     #TODO:  Can this be simplified to just call _parseLine()
+        #     value_ = self._parseListValues(strValue)
+        #     if value_ is None:
+        #         list_.value.append(self._parseLine())
+        #     else:
+        #         # list_.value.append(value_)
+        #         list_.value = value_
+        # for entry in entryList:
+        #     if entry != "":
+        #         list_.value = self._parseListValues(" ".join(entry))
+
+        list_.value = entryList
+
+        list_._comment = self.comment        
 
         return list_
 
     def _parseListValues(self, values : str):
         """
-        convert a string value from file into the appropriate of type.
+        convert a string value from file into the appropriate ofType.
         """
 
         logger.debug(f"list values: {values}")
@@ -2345,9 +2368,10 @@ class DictFileParser:
                 logger.debug(f"line list searchStr: {values[i:]}")
                 j=self._findDictOrListEndIndex(values[i:])
                 if j is None:
-                    logger.warning("Could not find end of list on a single "\
+                    logger.error("Could not find end of list on a single "\
                         "line")
-                    return None
+                    sys.exit()
+                    # return None
                 subStr = values[i+1:i+j]
                 logger.debug(f"subStr: {subStr}")
                 # if j != len(values)-1:
@@ -2922,7 +2946,7 @@ class DictFileParser:
         if returnType:
             self.i = i_ 
             return returnType(value=value, name=lineList[0],
-                              dimensions=dims)
+                              dimensions=dims, _comment=self.comment)
 
         return None #- Could not find a suitable dimensioned type based on
                     # length of list 
