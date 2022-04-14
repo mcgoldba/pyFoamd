@@ -33,7 +33,7 @@ def readConfig(key=None, file="xcfd.json"):
     #entry = {str(key): str(value) for key, value in entry.items()}
 
     if os.path.isfile(filepath) is False:
-        log.warning("Config file not found!:\n"+filepath)
+        log.warning("Config file not found!: "+filepath)
         return None
     else:
         config = json.load(open(filepath))

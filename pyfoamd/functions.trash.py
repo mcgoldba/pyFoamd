@@ -5,7 +5,7 @@ if  sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported.')
 
 
-from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
+from pyfoamd.types import ofDictFile, ofDict, ofList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
 
 
 import os
@@ -196,7 +196,7 @@ def removeBlockEntries(file, blockList, searchValues=False):
 
 def readDictFile(file):
 
-    #from of.ofTypes import ofDictFile, ofDict, ofNamedList, ofIntValue, ofFloatValue, ofStrValue
+    #from of.ofTypes import ofDictFile, ofDict, ofList, ofIntValue, ofFloatValue, ofStrValue
 
     #- Function assumes:
     #   - All entries start on a new line

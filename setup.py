@@ -10,6 +10,11 @@ setup(
     name='pyFoamd',
     version='0.1.0',
     description='Pythonic interface for OpenFOAM dictionaries and case files.',
+    entry_points = {
+        'console_scripts': [
+            'pf = pyfoamd.__main__:main'
+        ]
+    },
     long_description=readme,
     author='Marc Goldbach',
     author_email='mcgoldba@gmail.com',
@@ -19,6 +24,7 @@ setup(
     python_requires='>=3.7',
     install_requires=[
         'pint',
-        'pandas'
+        'pandas',
+        'rich'
     ]
 )

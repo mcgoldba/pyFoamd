@@ -6,10 +6,9 @@ print(sys.version)
 if sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported.')
 
-global DEBUG
-DEBUG = False
-
-from pyfoamd.types import ofDictFile, ofDict, ofNamedList, ofNamedSplitList, ofInt, ofFloat, ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, ofDimensionedVector, TAB_STR
+from pyfoamd.types import ofDictFile, ofDict, ofList, ofInt, ofFloat, \
+    ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, \
+        ofDimensionedVector, TAB_STR
 
 import os
 from shutil import copyfile
@@ -39,7 +38,6 @@ from .getLatestTime import getLatestTime
 from .replaceEntry import replaceEntry
 from .removeEntry import removeEntry
 from .removeBlockEntries import removeBlockEntries
-from .readDictFile import readDictFile
 from .readInputs import readInputs
 from .writeParams import writeParams
 from .printInputs import printInputs
@@ -48,14 +46,18 @@ from .isDecomposed import isDecomposed
 from .isReconstructed import isReconstructed
 from .isMeshed import isMeshed
 from .cleanDictFile import cleanDictFile
-from .readDictFile import readDictFile
 from .isCase import isCase
 from .listCases import listCases
 from .monitor import monitor
 from .writeConfig import writeConfig
 from .readConfig import readConfig
 from .extractLogData import extractLogData
-
+from .isOFDict import isOFDict
+from .init import init
+from .readCaseFromCache import readCaseFromCache
+from .writeCase import writeCase
+from .load import load
+from .restore import restore
 
 #import logging
 

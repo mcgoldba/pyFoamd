@@ -17,11 +17,11 @@ def richLogger(level="INFO"):
     }
 
     format = "%(message)s"
-    # logging.basicConfig(
-    #                     level=level,
-    #                     format=FORMAT, datefmt="[%X]",
-    #                     handlers=[RichHandler(rich_tracebacks=True)]
-    # )
+    logging.basicConfig(
+                        level=level,
+                        format=format, datefmt="[%X]",
+                        handlers=[RichHandler(rich_tracebacks=True)]
+    )
 
     logger = logging.getLogger("pf")
 
