@@ -590,8 +590,6 @@ class _ofCaseBase(_ofTypeBase):
 
         caseFromFile = CaseParser(self._path).makeOFCase()
 
-
-
         #- Save the existing case to file as backup
         self.save()
         n=0
@@ -1037,7 +1035,7 @@ class ofList(_ofNamedTypeBase):
     
     def toString(self, ofRep=False) -> str:
         if self.name:
-            dStr = self.name+"( "
+            dStr = printNameStr(self.name)+"( "
         else:
             dStr = "( "
         for v in self.value:
@@ -1050,15 +1048,15 @@ class ofList(_ofNamedTypeBase):
                         dStr2[i] = TAB_STR+dStr2[i]+" "
                     dStr += dStr2[i]
             elif isinstance(v, list):
-                dStr += TAB_STR+ofList(value=v).toString()
+                dStr += TAB_STR+ofList(value=v).toString().strip()
             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                dStr += v.toString()+" "
+                dStr += v.toString().strip()+" "
             else:
-                dStr += str(v)+" "
+                dStr += str(v).strip()+" "
         if ofRep:
             dStr+= ");\n"
         else:
-            dStr+= ")"
+            dStr+= ")\n"
         return dStr
 
 
@@ -1842,7 +1840,8 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
         return self.toString().rstrip(';\n')
 
 @dataclass
-class ofInclude(ofDictFile, _ofIncludeBase):
+class ofInclude(ofDictFile, _ofUnnamedTypeBase):
+    _name: str = field(init=False, default="#include")
     def toString(self, ofRep=False) -> str:
         return printNameStr(self._name)+'"'+str(self.value)+'"\n'
 
@@ -1853,13 +1852,15 @@ TYPE_REGISTRY.append(ofInclude)
 
 @dataclass
 class ofIncludeEtc(ofInclude):
-    _name: str = "#includeEtc"
+    # _name: str = "#includeEtc"
+    _name: str = field(init=False, default="#includeEtc")
 
 TYPE_REGISTRY.append(ofIncludeEtc)
 
 @dataclass
 class ofIncludeFunc(ofInclude):
-    _name: str = "#includeFunc"
+    # _name: str = "#includeFunc"
+    _name: str = field(init=False, default="#includeFunc")
 
 TYPE_REGISTRY.append(ofIncludeFunc)
 
@@ -2297,6 +2298,7 @@ class DictFileParser:
             comment = self._parseComments()
             if comment is not None:
                 entryList.append(comment)
+                self.i += 1
                 continue
 
             lineList = self._getLinesList(line)

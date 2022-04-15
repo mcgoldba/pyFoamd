@@ -123,6 +123,9 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                 #     obj_ = FolderParser(path=obj['_path']).loadOFFolder(
                 #                 attrList)
                 #     return obj_
+
+                parseValue = True
+
                 if obj['_type'] == 'ofFolder':
                     obj_ = FolderParser(path=obj['_path']).initOFFolder()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
@@ -134,6 +137,12 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     obj_ = ofDictFile(_name= obj['_name'], 
                                 _location=obj['_location'])
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
+                elif obj['_type'] == 'ofList' or obj['_type'] == 'ofSplitList':
+                    type_ = locate('pyfoamd.types.'+obj['_type'])
+                    obj_ = type_(
+                        value = [_parseCaseDict(v) for v in obj['value']]
+                        )
+                    parseValue = False
                 else:
                     type_ = locate('pyfoamd.types.'+obj['_type'])
                     try:
@@ -143,7 +152,8 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                         raise e
                 for key, value in obj.items():
                     logger.debug(f"{tabStr}Parsing key {key}.")
-                    if key != '_type':
+                    if (key != '_type' 
+                        and not (not parseValue and key == 'value')):
                         logger.debug(f"{tabStr}Setting key {key}.")
                         value_ = _parseCaseDict(value, tabStr)
                         logger.debug(f"{tabStr}value_: {value_}")

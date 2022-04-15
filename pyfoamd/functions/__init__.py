@@ -58,6 +58,7 @@ from .readCaseFromCache import readCaseFromCache
 from .writeCase import writeCase
 from .load import load
 from .restore import restore
+from .allRun import allRun
 
 #import logging
 
