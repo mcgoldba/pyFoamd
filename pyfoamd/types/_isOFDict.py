@@ -71,16 +71,21 @@ Description
 
             if (commentedBlock[0].startswith(
 '/*--------------------------------*- C++ -*----------------------------------')
-            and commentedBlock[1].startswith(
-                '  =========                 |')
-            and commentedBlock[2].startswith(
-                '  \\\\      /  F ield         |')
-            and commentedBlock[3].startswith(
-                '   \\\\    /   O peration     |')
-            and commentedBlock[4].startswith(
-                '    \\\\  /    A nd           |')
-            and commentedBlock[5].startswith(
-                '     \\\\/     M anipulation  |')
+            # and commentedBlock[1].startswith(
+            #     '  =========                 |')
+            # and commentedBlock[2].startswith(
+            #     '  \\\\      /  F ield         |')
+            # and commentedBlock[3].startswith(
+            #     '   \\\\    /   O peration     |')
+            # and commentedBlock[4].startswith(
+            #     '    \\\\  /    A nd           |')
+            # and commentedBlock[5].startswith(
+            #     '     \\\\/     M anipulation  |')
+            and '=========' in commentedBlock[1]
+            and '\\\\      /  F ield' in commentedBlock[2]
+            and '\\\\    /   O peration' in commentedBlock[3]
+            and '\\\\  /    A nd' in commentedBlock[4]
+            and '\\\\/     M anipulation' in commentedBlock[5]
             ):
                 isOFDict = True
 
@@ -105,5 +110,10 @@ Description
         #         if line.startswith('FoamFile'):
         #             isOFDict = True
         #         break
+
+    if isOFDict:
+        logger.debug(f"'{file}' is a an OpenFOAM dictionary file.")
+    else:
+        logger.debug(f"'{file}' is not an OpenFOAM dictionary file.")
 
     return isOFDict

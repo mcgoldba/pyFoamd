@@ -157,5 +157,15 @@ class CommandLine:
 
         userMsg(f"Setting '{args.key[0]}' config option" 
             f" to '{args.value[0]}'.", "INFO")
+    
+    def write(self):
+        """
+        Save the case, and overwrite the existing OpenFOAM dictionary case with 
+        values in the `ofCase`.  Saves existing case structure in cache for 
+        backup.
+        """
+        case = pf.load()
+
+        case.write()
 
 

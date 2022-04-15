@@ -54,6 +54,7 @@ BRACKET_CHARS = {
 
 COMMENT_TAG = "_comment_"
 UNNAMED_TAG = "_unnamed_"
+TIME_PREFIX = "t_"
 
 def printNameStr(name) -> str:
     if name is None:
@@ -317,6 +318,9 @@ class FolderParser:  # Class id required because 'default_factory' argument
         for obj in Path(self.path).iterdir():
             #- Prevent invalid ofFolder attribute names:
             name_ = _checkReserved(obj.name.replace('.', '_'), ['_path'])
+            if name_.split('_')[0].isdigit():
+                #- Add time prefix to time directories
+                name_ = TIME_PREFIX+name_
             if obj.is_dir():
                 # if obj.name == '_path':
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
@@ -643,8 +647,6 @@ class CaseParser:
     def makeOFCase(self):
 
         attrList = []
-        #TODO:  This is attribute list is a copy of _ofCaseBase attributes. 
-        #       Initialize the super() class instead.
         # attrList = [
         #     # ('_path', Path, field(default=path)),
         #     ('_location', str, field(default=str(path.parent))),
@@ -672,9 +674,11 @@ class CaseParser:
                     continue
                 name_ = _checkReserved(obj.name.replace('.', '_'), fields)
                 
-                if name_[0].isdigit() or name_ == 'postProcessing':
-                    #- Do not parse time directories
-                    continue
+                logger.debug(f"digit test value: {name_.split('_')[0]}")
+
+                if name_.split('_')[0].isdigit():
+                    #- rename time directories to t_<tiime>
+                    name_ = TIME_PREFIX+name_
 
                 attrList.append((name_, _ofFolderBase, 
                     field(default=FolderParser(obj.name).makeOFFolder())))
