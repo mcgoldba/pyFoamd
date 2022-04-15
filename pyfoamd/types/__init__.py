@@ -206,10 +206,11 @@ class ofHeader(_ofTypeBase):
 
         for i, line in enumerate(
             [self.line1, self.line2, self.line3, self.line4]):
+            logger.debug(f"line: {line}")
             if len(line) > 50:
                 userMsg(f"Header line length is too long.  Value will be \
                     truncated:\n {line[:51]}")
-                line[i] = line[:51]
+                self.__setattr__('line'+str(i), line[:51])
 
     def toString(self, ofRep=False):
         headerStr = OF_HEADER[0]+'\n'
