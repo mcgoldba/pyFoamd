@@ -1662,7 +1662,7 @@ class ofNamedDimension(ofDimension):
             dimStr = ""
         
         dimStr += super(ofNamedDimension, self).toString()
-        dimStr += ';'
+        dimStr += ';\n'
 
         return str(dimStr)
 
@@ -1836,8 +1836,11 @@ class _ofNamedVectorBase(_ofNamedTypeBase):
 class ofNamedVector(ofVector, _ofNamedVectorBase):
 
 
-    def toString(self) -> str:
-        return printNameStr(self.name)+self.valueStr+";\n"
+    def toString(self, ofRep = True) -> str:
+        str_ =  printNameStr(self.name)+self.valueStr
+        
+        if ofRep:
+            str_ += ";\n"
 
 
 
@@ -1849,9 +1852,14 @@ class _ofDimensionedVectorBase(_ofDimensionedScalarBase):
 class ofDimensionedSphericalTensor(ofSphericalTensor, ofDimension):
     name : str = None
 
-    def toString(self) -> str:
-        return printNameStr(self.name)+self.dimensions+\
-            self.value.toString()+";\n"
+    def toString(self, ofRep = False) -> str:
+        str_ = printNameStr(self.name)+self.dimensions+\
+            self.value.toString()
+            
+        if ofRep:
+            str_ += ";\n"
+        
+        return str_
 
     def __str__(self):
         return self.toString().rstrip(';\n')
