@@ -2766,6 +2766,20 @@ class DictFileParser:
 
         value = value.strip()
 
+        #try to convert to numeric
+        try:
+            v_ = int(value)
+            return ofInt, v_
+        except ValueError:
+            pass
+        try:
+            v_ = float(value)
+            return ofFloat, v_
+        except:
+            pass
+
+
+
         logger.debug(f"value: '{value}'")
 
         # check for a list field type.  e.g. a spherical tensor '(0)' 
@@ -2967,6 +2981,12 @@ class DictFileParser:
                 # f"{self.filepath}", 'ERROR')
                 # sys.exit()
         else:
+            #- Check for uniform scalarField
+            lineList_ = self._getLinesList(line)
+            value = self._parseUniformField(lineList_[0], line)
+            if value is not None:
+                return value
+
             #- Assume entry is a key value pair with a muliple word value.
             #      (e.g. 'default       Gauss linear')
             # lineList = line.split()
