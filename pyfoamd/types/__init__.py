@@ -2987,7 +2987,7 @@ class DictFileParser:
                 if char == '{' or char == '(':
                     # reevaluate entry name to be everything before opening list
                     line_ = entryName+" "+valueStr
-                    entryName = line[:len(entryName)+i+1].lstrip().rstrip()
+                    entryName = line[:len(entryName)+i+2].lstrip().rstrip()
                     logger.debug(entryName)
                     # valueList = line[i:].split(" ").rstrip(char+';')
                     break
