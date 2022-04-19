@@ -130,6 +130,22 @@ class _ofUnnamedTypeBase(_ofTypeBase):
     def __repr__(self):
         return self.__str__()
 
+@dataclass
+class ofWord(_ofUnnamedTypeBase):
+    """
+    An OpenFOAM word is a specialization of a string with no whitespace,
+    quotes, slashes, semicolons, or brace brackets
+    """
+    # TODO: Update to property with setter.  THis does not parse modifications
+    #       of an existing ofWord object
+    def __post_init__(self):
+        FORBIDDEN_VALUES = ['"', "'", '\\', '/', ";", '{', '}']
+        if (self.value is not None 
+            and (any([fv in self.value for fv in FORBIDDEN_VALUES])
+            or any([c in self.value for c in string.whitespace]))):
+            raise ValueError("String cannot be converted to a word.")
+
+
 @dataclass 
 class _ofNamedTypeBase(_ofUnnamedTypeBase):
     """
@@ -145,16 +161,57 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         with two arguments:     _ofNamedTypeBase(name, value)
 
     """
-    name: str = None
+
+    # name: str = None
+    #_name: str = None
     # value : str = None
 
-    def __post_init__(self, *args, **kwargs):
-        if len(args) == 1:
-            self.value = args[0]
+    # def __post_init__(self, *args, **kwargs):
+        #     logger.debug(f"_ofNamedType len(args): {len(args)}")
+        # if len(args) == 1:
+        #     self.value = args[0]
+        #     self.name = None
+        # elif len(args) == 2:
+        #     self.name = args[0]
+        #     self.value = args[1]
+        # else:
+        #     logger.debug("Setting name to 'None'")
+        #     self.name = kwargs.pop('name', None)
+    def __init__(self, arg1=None, arg2=None, **kwargs):
+        logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
+        if arg1 == None and arg2 == None:
+            self.value = None
+            logger.debug("Setting ofNamedType .name")
             self.name = None
-        elif len(args) == 2:
-            self.name = args[0]
-            self.name = args[1]
+        if arg2 == None:
+            self.value : str = arg1
+            logger.debug("Setting ofNamedType .name")
+            self.name : str = None
+        else:
+            logger.debug("Setting ofNamedType .name")
+            self.name : str = arg1
+            self.value : str = arg2
+
+    @property
+    def name(self):
+        return self._name
+    
+    @name.setter
+    def name(self, n):
+        logger.debug(f"name: {n}")
+        if n is not None:
+            logger.debug(f"n.split(): {n.split()}")
+            if len(n.split()) != 1:
+                raise ValueError("Name must be a single word.")
+            try:
+                ofWord(n)
+            except ValueError:
+                raise ValueError(f"The name '{n}' is not a valid key.")
+
+            self._name = n
+        else:
+            self._name = n
+
 
     #- for dict() conversion; ref: https://stackoverflow.com/a/23252443/10592330
     def __iter__(self):
@@ -904,20 +961,6 @@ class _ofDimensionedScalarBase(_ofFloatBase):
 # class _ofNamedVectorDefaultsBase(_ofFloatBase):
 #     pass
 
-
-@dataclass
-class ofWord(_ofUnnamedTypeBase):
-    """
-    An OpenFOAM word is a specialization of a string with no whitespace,
-    quotes, slashes, semicolons, or brace brackets
-    """
-    def __post_init__(self):
-        FORBIDDEN_VALUES = ['"', "'", '\\', '/', ";", '{', '}']
-        if (self.value is not None 
-            and (any([fv in self.value for fv in FORBIDDEN_VALUES])
-            or any([c in self.value for c in string.whitespace]))):
-            raise ValueError("String cannot be converted to a word.")
-
 # def ofDictFile(path):
 #
 #     attrList = [('_path', Path, field(default=path))]
@@ -951,7 +994,23 @@ class ofWord(_ofUnnamedTypeBase):
 @dataclass
 # class ofInt(_ofDictFileBase, _ofIntBase):
 class ofInt(_ofNamedTypeBase):
-    value : int = None
+    def __init__(self, *args, **kwargs):
+        super(ofInt, self).__init__(*args, **kwargs)
+
+    @property
+    def value(self):
+        return self._value
+    
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            try: 
+                self._value = int(v)
+            except ValueError:
+                raise ValueError("ofInt value must be an integer.")
+        else:
+            self._value = None
+
     # def toString(self) -> str:
     #     return printNameStr(self.name)+str(self.value)+";\n"
 
@@ -962,7 +1021,23 @@ TYPE_REGISTRY.append(ofInt)
 
 @dataclass
 class ofFloat(_ofNamedTypeBase):
-    value: float
+    def __init__(self, *args, **kwargs):
+        super(ofFloat, self).__init__(*args, **kwargs)
+    
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            try: 
+                self._value = float(v)
+            except ValueError:
+                raise ValueError("ofFloat value must be a numeric.")
+        else:
+            self._value = None
+
 
 TYPE_REGISTRY.append(ofFloat)
 
@@ -975,7 +1050,7 @@ TYPE_REGISTRY.append(ofStr)
 @dataclass
 class ofBool(_ofNamedTypeBase):
     name: str = None
-    value: None
+    value: bool =  None
     _valueStr: str = field(init=False, default="None")  #User cant pass a value
 
     def __post_init__(self):
@@ -1001,7 +1076,32 @@ TYPE_REGISTRY.append(ofBool)
 #TODO:  Add abilty to get value based on variable name
 @dataclass
 class ofVar(_ofNamedTypeBase):
+    def __init__(self, *args, **kwargs):
+        super(ofVar, self).__init__(*args, **kwargs)
     
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, n):
+        n = str(n)
+        if n is not None:
+            if len(n.split()) != 1:
+                raise ValueError("Name must be a single word.")
+            if n.startswith('$'):
+                n_ = n[1:]
+            else:
+                n_ = n
+            try:
+                ofWord(n_)
+            except ValueError:
+                raise ValueError(f"The name '{n_}' is not a valid key.")
+
+            self._name = n_
+        else:
+            self._name = None
+
     def toString(self, ofRep=False) -> str:
         str_ =  f"${self.value}"
         if ofRep:
@@ -1031,7 +1131,22 @@ class ofComment(_ofUnnamedTypeBase):
 
 @dataclass
 class ofList(_ofNamedTypeBase):
-    value: List = field(default_factory=lambda:[])
+    def __init__(self, *args, **kwargs):
+        super(ofList, self).__init__(*args, **kwargs)
+    
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            if isinstance(v, list):
+                self._value = v
+            else:
+                raise ValueError("ofList value must be a list.")
+        else:
+            self._value = None
 
     def toString(self) -> str:
         return printNameStr(self.name)+self.valueStr+";\n"
@@ -1102,6 +1217,8 @@ TYPE_REGISTRY.append(ofList)
 
 @dataclass
 class ofSplitList(ofList):
+    def __init__(self, *args, **kwargs):
+        super(ofSplitList, self).__init__(*args, **kwargs)
 
     def toString(self, ofRep=False) -> str:
         """ 
@@ -1278,11 +1395,13 @@ class ofDict(dict, _ofTypeBase):
                 "attribute.")
             # itemName = item.__getattr__[nameTag]
 
-            itemName = item.__dict__[nameTag]
+            # itemName = item.__dict__[nameTag]
+            # itemName = item.__dict__['_name']
+            itemName = item._name
             if itemName is None:
                 self._nUnnamed += 1
                 name_ = UNNAMED_TAG+str(self._nUnnamed)
-            if '_unnamed' in itemName or itemName == '_name':
+            elif '_unnamed' in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
             elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
                 #- Replace special chars with attribute acceptable string
@@ -1831,6 +1950,28 @@ class ofTensor(ofVector):
 
 @dataclass
 class ofUniformField(_ofNamedTypeBase):
+    name: str = None
+
+    @property
+    def name(self):
+        return self._name    
+
+    @name.setter
+    def name(self, n):
+        n=str(n)
+        if len(n.split()) == 2 and n.split()[1] == 'uniform':
+            n_ = n.split()[0]
+        else:
+            n_ = n
+
+        if len(n_.split()) != 1:
+            raise ValueError("Name must be a single word.")
+        try:
+            ofWord(n_)
+        except ValueError:
+            raise ValueError(f"The name '{n_}' is not a valid key.")
+
+        self._name = n_
 
     @property
     def value(self):
@@ -1841,7 +1982,7 @@ class ofUniformField(_ofNamedTypeBase):
         fieldList_ = [ofInt, ofFloat, ofVector, ofSphericalTensor, ofSymmTensor, 
         ofTensor,  ofDimensionedScalar, ofDimensionedVector, 
         ofDimensionedSphericalTensor, ofDimensionedSymmTensor, 
-        ofDimensionedTensor]
+        ofDimensionedTensor, ofVar]
         if v is not None and not any([isinstance(v, t) for t in fieldList_]):
             raise ValueError("'value' attribute must be a valid OpenFOAM field "\
                 f"type. Got {type(v)}, need one of:\n{fieldList_}")
@@ -2176,13 +2317,13 @@ class DictFileParser:
         logger.debug(f"{type_} signature: {signature(type_)}")
 
         if hasattr(type_, 'name'):
-            return type_(name=key, value=value_, _comment=self.comment)
+            return type_(key, value_, _comment=self.comment)
         elif hasattr(type_, '_name'):
-            return type_(_name=key, value=value_, _comment=self.comment)
+            return type_(key, value_, _comment=self.comment)
         else:
             userMsg(f"Could not set name for type {type_}.  Returning "\
                 "value only!", "WARNING")
-            return type_(value=value_, _comment=self.comment)
+            return type_(value_, _comment=self.comment)
 
     def _parseListOrDict(self, name, line : str = None):
         """
@@ -2771,8 +2912,12 @@ class DictFileParser:
             #     f"{self.i+1} of {self.filepath}.", "ERROR")
         valueStr_ = line.split('uniform')[-1].strip()
         logger.debug(f"valueStr: {valueStr_}")
+        logger.debug(f"name: {name}")
         type_, value_ = self._parseValue(valueStr_)
-        return ofUniformField(name=name, value= type_(value=value_)) 
+        logger.debug(f"type: {type_}")
+        # logger.debug(f"value: {type_(value=value_)}")
+        value__ = type_(value=value_)
+        return ofUniformField(name=name, value=value__) 
         # else: # parse lines
         #     line = self.lines[self.i]
         #     type_, value_ = self._parseValue(line)
@@ -2812,6 +2957,13 @@ class DictFileParser:
             v_ = float(value)
             return ofFloat, v_
         except:
+            pass
+
+        #- Check for ofVar
+        try:
+            v_ = ofVar(value=value)
+            return ofVar, v_
+        except ValueError:
             pass
 
 
