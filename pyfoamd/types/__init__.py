@@ -55,7 +55,10 @@ BRACKET_CHARS = {
 COMMENT_TAG = "_comment_"
 UNNAMED_TAG = "unnamed_"
 TIME_PREFIX = "t_"
-
+SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute 
+                 ')': '_',  # assignment of name.  Assume that key value 
+                 ',': '_',  # doesnt start with '('
+                 '*': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -1260,18 +1263,41 @@ class ofDict(dict, _ofTypeBase):
     def __setitem__(self, item, value=None):
         nameTag = None
 
+        logger.debug(f"ofDict.__setitem__: {item}, {value}")
+        logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
+
         if isinstance(item, ofDict):
             nameTag = '_name'
-        elif isinstance(item, _ofTypeBase):
+        # elif isinstance(item, ofComment):
+        #     nameTag = None #ofComments havve no names
+        elif isinstance(item, _ofNamedTypeBase):
             nameTag = 'name'
         
         if nameTag is not None:
-            itemName = item.__getattr__[nameTag]
+            logger.debug("****Processing ofDict entry name for specification as "\
+                "attribute.")
+            # itemName = item.__getattr__[nameTag]
+
+            itemName = item.__dict__[nameTag]
             if itemName is None:
                 self._nUnnamed += 1
                 name_ = UNNAMED_TAG+str(self._nUnnamed)
             if '_unnamed' in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
+            elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
+                #- Replace special chars with attribute acceptable string
+                name_ = ""
+                for c in itemName:
+                    found=False
+                    for special in SPECIAL_CHARS.keys():
+                        if c == special:
+                            name_+= SPECIAL_CHARS[special]
+                            found = True
+                            break
+                    if not found:
+                        name_ += c
+                logger.debug("Revised name string from '{itemName}' to \
+                    '{name_}'")
             else:
                 name_ = item.name
             self.__setattr__(name_, item)
@@ -1350,10 +1376,12 @@ class ofDict(dict, _ofTypeBase):
         logger.debug(f"ofDict initalizer iterable: {iterable}")
         if iterable is None:
             return
-        if (isinstance(iterable, _ofIntBase) 
-            or isinstance(iterable, _ofNamedTypeBase)):
+        # if (isinstance(iterable, _ofIntBase) 
+        #    or isinstance(iterable, _ofNamedTypeBase)):
+        if isinstance(iterable, _ofNamedTypeBase):
             logger.debug(f"Setting item for _ofNamedType.")
-            self.__setitem__(iterable.name, iterable)
+            #self.__setitem__(iterable.name, iterable)
+            self.__setitem__(iterable)
         elif isinstance(iterable, _ofUnnamedTypeBase):
             self.__setitem__(self._NoneKey(), iterable)
         elif isinstance(iterable, list):
@@ -1373,7 +1401,10 @@ class ofDict(dict, _ofTypeBase):
             self.__setitem__(iterable._name, iterable)
         elif isinstance(iterable, dict):
             for key, value in iterable.items():
-                self.__setitem__(key, value)
+                if isinstance(value, _ofNamedTypeBase):
+                    self.__setitem__(value)
+                else:
+                    self.__setitem__(key, value)
         else:
             self.__setitem__(iterable)
 
@@ -2007,6 +2038,8 @@ class DictFileParser:
                 break
 
             value = self._parseLine()
+
+            logger.debug(f"** FINAL VALUE: {value}")
 
             if value is not None:
             #     self.entryList.append(value)
@@ -2726,21 +2759,24 @@ class DictFileParser:
 
         if string is not None: # parse string 
             line = string.strip(';')
-            logger.debug(f"parseUniformField string: {line}")
-            if line.split()[1] == 'uniform': # whole line is passed as input
-                # lineList = line.split()[2:] # Remove the 'table' designation
-                lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
-            else:
-                userMsg(f"Unhandled syntax for ofUniformField found on line "\
-                    f"{self.i+1} of {self.filepath}.", "ERROR")
-            valueStr_ = line.split('uniform')[-1].strip()
-            logger.debug(f"valueStr: {valueStr_}")
-            type_, value_ = self._parseValue(valueStr_)
-            return ofUniformField(name=name, value= type_(value=value_)) 
-        else: # parse lines
-            line = self.lines[self.i]
-            type_, value_ = self._parseValue(line)
-            return ofUniformField(name=name, value = type_(value=value_))
+        else:
+            line = self.lines[self.i].strip(';')
+        logger.debug(f"parseUniformField string: {line}")
+        if line.split()[1] == 'uniform': # whole line is passed as input
+            # lineList = line.split()[2:] # Remove the 'table' designation
+            lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
+        else:
+            return None
+            # userMsg(f"Unhandled syntax for ofUniformField found on line "\
+            #     f"{self.i+1} of {self.filepath}.", "ERROR")
+        valueStr_ = line.split('uniform')[-1].strip()
+        logger.debug(f"valueStr: {valueStr_}")
+        type_, value_ = self._parseValue(valueStr_)
+        return ofUniformField(name=name, value= type_(value=value_)) 
+        # else: # parse lines
+        #     line = self.lines[self.i]
+        #     type_, value_ = self._parseValue(line)
+        #     return ofUniformField(name=name, value = type_(value=value_))
 
     @staticmethod
     def _parseValue(value):
@@ -2871,6 +2907,7 @@ class DictFileParser:
 
         logger.debug("Parsing line of length greater than two...")
 
+        #TODO:  Does this need to check self.extraLine as well?
         line = self.lines[self.i]
         entryName = None
 
@@ -2892,16 +2929,21 @@ class DictFileParser:
         if dimValue is not None:
             return dimValue
 
-        # Check if line is single statement
+        # Extract key values, not that key may contain parenthises, 
+        # e.g. as in the fvSchemes dictionary
+        lineList = self._getLinesList(line)
+        entryName = lineList[0]
+        valueStr = " ".join(lineList[1:])
 
 
 
-        #- check if the line terminates in an open list or dict
+
+        #- check if the line value terminates in an open list or dict
         nl = 0
         nd = 0
 
         while True:
-            for char in line:
+            for char in valueStr:
                 if char == '(':
                     nl+=1
                 if char == ')':
@@ -2938,12 +2980,14 @@ class DictFileParser:
             logger.debug(f"line[{self.i+1}]: {line}") 
 
 
-        if ' (' in line or ' {' in line:
+        if ' (' in valueStr or ' {' in valueStr:
             #- Found list or dict
             # - find the entry type
-            for i, char in enumerate(line):
+            for i, char in enumerate(valueStr):
                 if char == '{' or char == '(':
-                    entryName = line[:i].lstrip().rstrip()
+                    # reevaluate entry name to be everything before opening list
+                    line_ = entryName+" "+valueStr
+                    entryName = line[:len(entryName)+i+1].lstrip().rstrip()
                     logger.debug(entryName)
                     # valueList = line[i:].split(" ").rstrip(char+';')
                     break
@@ -2991,7 +3035,7 @@ class DictFileParser:
             #      (e.g. 'default       Gauss linear')
             # lineList = line.split()
             lineList = self._getLinesList(line)
-            self._parseSingleLineEntry(key=lineList[0], 
+            return self._parseSingleLineEntry(key=lineList[0], 
                                        value=' '.join(lineList[1:]))
 
 
