@@ -53,7 +53,7 @@ BRACKET_CHARS = {
 }
 
 COMMENT_TAG = "_comment_"
-UNNAMED_TAG = "_unnamed_"
+UNNAMED_TAG = "unnamed_"
 TIME_PREFIX = "t_"
 
 def printNameStr(name) -> str:
@@ -1432,6 +1432,11 @@ class ofDict(dict, _ofTypeBase):
                     for i in range(len(dStr2)):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
                         dStr += dStr2[i]
+                elif isinstance(v, ofList):
+                    vList = v.toString(ofRep=False).split('\n')
+                    for v_ in vList:
+                        dStr+= TAB_STR+v_+'\n'
+                    dStr+=';'
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
                     dStr += TAB_STR+v.toString(ofRep=ofRep)
@@ -1610,8 +1615,7 @@ class ofDictFile(ofDict):
 
 
 @dataclass
-class ofDimension():
-    
+class ofDimension(_ofTypeBase):
     dimensions: List = field(default_factory=lambda:[])
 
     #- Ensure dimensions are a list of length 7 per OpenFOAM convention
@@ -1624,14 +1628,14 @@ class ofDimension():
         if not isinstance(d, list):
             d = [0, 0, 0, 0, 0, 0, 0]
         if (len(d) != 7 or any(isinstance(i, int) for i in d) is False):
-            raise Exception('Dimensions must be a list of 7 integer values, where each entry corresponds to a base unit type: \
-    1:  Mass - kilogram (kg) \
-    2:  Length - meter (m) \
-    3:  Time - second (s) \
-    4:  Temperature - Kelvin (K) \
-    5:  Quantity - mole (mol) \
-    6:  Current - ampere (A) \
-    7:  Luminous intensity - candela (cd)')
+            raise ValueError('Dimensions must be a list of 7 integer values, where each entry corresponds to a base unit type: \
+    \n\t1:  Mass - kilogram (kg) \
+    \n\t2:  Length - meter (m) \
+    \n\t3:  Time - second (s) \
+    \n\t4:  Temperature - Kelvin (K) \
+    \n\t5:  Quantity - mole (mol) \
+    \n\t6:  Current - ampere (A) \
+    \n\t7:  Luminous intensity - candela (cd)')
         self._dimensions = d
 
     def toString(self) -> str:
@@ -1645,6 +1649,22 @@ class ofDimension():
 
     def __str__(self):
         return self.toString().rstrip(';\n')
+
+@dataclass
+class ofNamedDimension(ofDimension):
+    name : str = None
+
+    def toString(self, ofRep=False) -> str:
+        #- format the dimensions list properly
+        if self.name is not None:
+            dimStr = printNameStr(self.name)
+        else:
+            dimStr = ""
+        
+        dimStr += super(ofNamedDimension, self).toString()
+        dimStr += ';'
+
+        return str(dimStr)
 
 @dataclass
 class ofDimensionedScalar(ofFloat, ofDimension):
@@ -1704,12 +1724,15 @@ class ofVector(_ofUnnamedTypeBase):
 
     @value.setter
     def value(self, v):
-        if isinstance(v, list) is False:
-            raise TypeError("Value for 'ofVector' must be a list of length 3.  Got '"+str(v)+"'")
-        if (len(v) != 3 or any(isinstance(i, (int, float)) for i in v)
-                is False):
-            raise Exception("'ofVector' values must be a numeric list of length 3.")
-        self._value = v
+        if v is not None:
+            if isinstance(v, list) is False:
+                raise TypeError("Value for 'ofVector' must be a list of length 3.  Got '"+str(v)+"'")
+            if (len(v) != 3 or any(isinstance(i, (int, float)) for i in v)
+                    is False):
+                raise Exception("'ofVector' values must be a numeric list of length 3.")
+            self._value = v
+        else:
+            self._value = [0.0, 0.0, 0.0]
 
     def toString(self) -> str:
         return self.valueStr
@@ -1772,8 +1795,38 @@ class ofTensor(ofVector):
             raise TypeError("Value for 'ofVector' must be a list of length 3.  Got '"+str(v)+"'")
         if (len(v) != 9 or any(isinstance(i, (int, float)) for i in v)
                 is False):
-            raise Exception("'ofTensor' values must be a numeric list of length 9.")
+            raise ValueError("'ofTensor' values must be a numeric list of length 9.")
         self._value = v
+
+@dataclass
+class ofUniformField(_ofNamedTypeBase):
+
+    @property
+    def value(self):
+        return self._value
+    
+    @value.setter
+    def value(self, v):
+        fieldList_ = [ofInt, ofFloat, ofVector, ofSphericalTensor, ofSymmTensor, 
+        ofTensor,  ofDimensionedScalar, ofDimensionedVector, 
+        ofDimensionedSphericalTensor, ofDimensionedSymmTensor, 
+        ofDimensionedTensor]
+        if v is not None and not any([isinstance(v, t) for t in fieldList_]):
+            raise ValueError("'value' attribute must be a valid OpenFOAM field "\
+                f"type. Got {type(v)}, need one of:\n{fieldList_}")
+        self._value = v
+
+    def toString(self, ofRep=False) -> str:
+
+        str_ = printNameStr(self.name)+"uniform "\
+            +str(self.value)
+            
+        if ofRep:
+            str_ += ";\n"
+
+        return str_
+
+
 
 @dataclass
 class _ofNamedVectorBase(_ofNamedTypeBase):
@@ -1970,14 +2023,8 @@ class DictFileParser:
 
         return self.dictFile
 
-    # TODO: Handle case of multiLineEntry with more than 1 word on  first line.
     def _parseLine(self):
-        # switcher = {
-        #     "parse": ,
-        #     : ['multiLineUnknown', 'readMultiLine'],
-        #     2: ['singleLineSingleValuedEntry', 'read']
-        # }
-
+    
         logger.debug("Parsing new line.")
         logger.debug(f"\tself.extraLine: {self.extraLine}")
 
@@ -2147,7 +2194,7 @@ class DictFileParser:
         logger.debug(f"Opening char: {openingChar}")
 
         if openingChar == '(':
-            return self._parseList(name)
+            return self._parseList(name, split=True)
             # if len(lineList) > 1:
             #     #list is on a single line
             #     if lineList[-1][-1] != ';':
@@ -2514,9 +2561,10 @@ class DictFileParser:
 
         logger.debug(f"dict_:\n{dict_}")
 
-        #self.i-=1 # Reset line index since it will increment in _parseLine
+        self.i-=1 # Reset line index since it will increment in _parseLine
 
         logger.debug(f"Finished parsing dict {name} on line {self.i+1}")
+
 
         return dict_
 
@@ -2654,6 +2702,38 @@ class DictFileParser:
             list_ = self._parseList(name)
             return ofTable(name=name, value = list_.value)
 
+    def _parseUniformField(self, name, string = None):
+        """
+        Parse a uniform field entry specified as 
+
+        <name>   uniform <value>
+
+        where value is either a scalar, vector, spherical tensor, symmetric
+        tensor or tensor.
+
+        if `string` is not `None` parses `string` rather than 
+        `self.lines[self.i]`.
+
+        """
+
+        if string is not None: # parse string 
+            line = string.strip(';')
+            logger.debug(f"parseUniformField string: {line}")
+            if line.split()[1] == 'uniform': # whole line is passed as input
+                # lineList = line.split()[2:] # Remove the 'table' designation
+                lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
+            else:
+                userMsg(f"Unhandled syntax for ofUniformField found on line "\
+                    f"{self.i+1} of {self.filepath}.", "ERROR")
+            valueStr_ = line.split('uniform')[-1].strip()
+            logger.debug(f"valueStr: {valueStr_}")
+            type_, value_ = self._parseValue(valueStr_)
+            return ofUniformField(name=name, value= type_(value=value_)) 
+        else: # parse lines
+            line = self.lines[self.i]
+            type_, value_ = self._parseValue(line)
+            return ofUniformField(name=name, value = type_(value=value_))
+
     @staticmethod
     def _parseValue(value):
         """
@@ -2670,14 +2750,52 @@ class DictFileParser:
         if value is None:
             return None, None
 
-        # check for a spherical tensor, (e,g, '(0)')
+        if isinstance(value, _ofTypeBase):
+            return type(value), value
+
+        if not isinstance(value, str):
+            raise TypeError(f"Invalid type '{type(value)}' found for 'value'")
+
+        value = value.strip()
+
+        logger.debug(f"value: '{value}'")
+
+        # check for a list field type.  e.g. a spherical tensor '(0)' 
         if value[0] == '(' and value[-1] == ')':
             #- Value is a list
             try:
-                value_ = float(value.strip('()'))
-                return ofSphericalTensor, value_
-            except:
+                value_ = []
+                for v in value.strip('()').split():
+                    value_.append(float(v))
+                logger.debug(f"value_: {value_}")
+            except ValueError:
                 pass
+            else:
+                logger.debug("finding list field type...")
+                try:
+                    ofSphericalTensor(value=value_)
+                    return ofSphericalTensor, value_
+                except:
+                    pass
+
+                try:
+                    ofVector(value=value_)
+                    logger.debug("found ofVector.")
+                    return ofVector, value_
+                except:
+                    pass
+
+                try:
+                    ofSymmTensor(value=value_)
+                    return ofSymmTensor, value_
+                except:
+                    pass
+
+                try:
+                    ofTensor(value=value_)
+                    return ofTensor, value_
+                except:
+                    pass
 
             #- Check if the str value can be conveted into a list
             list_ = value.strip('()').split()
@@ -2696,6 +2814,16 @@ class DictFileParser:
 
             return ofList, list_
 
+        #- check if value is ofDimension
+        if all(v in value for v in ['[', ']']):
+            dimList = []
+            for value_ in value.split():
+                dimList.append(value_.strip('[];'))
+            try: 
+                dimValue = ofDimension(value=dimList)
+            except:
+                pass
+
         try:
             value_ = float(value)
             if '.' in value:
@@ -2711,15 +2839,12 @@ class DictFileParser:
         #     pass
         if any([value == b for b in OF_BOOL_VALUES.keys()]):
             return ofBool, value
-        
+
         return ofStr, value
 
     def _parseLineLenGreaterThanTwo(self):
         """
-        Parse a line that has more than two words.  Assumes that the line
-        defines either a dict or list since list entries appearing on a single
-        line are handled within the '_parseList' method, and should not be
-        encountered here.
+        Parse a line that has more than two words.
         """
 
         logger.debug("Parsing line of length greater than two...")
@@ -2738,6 +2863,16 @@ class DictFileParser:
         if dimType is not None:
             return dimType
         
+        #- Check if value is a dimension
+        #   (e.g. dimension     [0 2 -2 0 0 0 0];)
+        dimValue = self._parseDimensionValue()
+        logger.debug(f"dimValue: {dimValue}")
+        if dimValue is not None:
+            return dimValue
+
+        # Check if line is single statement
+
+
 
         #- check if the line terminates in an open list or dict
         nl = 0
@@ -2798,7 +2933,12 @@ class DictFileParser:
                 #- check for table type
                 if len(entryNameList) == 2 and entryNameList[1] == 'table':
                     list_ = line.strip()[len(entryName):]
-                    self._parseTable(entryNameList[0], list_)
+                    # self._parseTable(entryNameList[0], list_)
+                    return self._parseTable(entryNameList[0], line)
+                #- check for uniform field
+                if len(entryNameList) == 2 and entryNameList[1] == 'uniform':
+                    list_ = line.strip()[len(entryName):]
+                    return self._parseUniformField(entryNameList[0], line)
                 #- check for named list as value
                 elif len(entryNameList) == 2:
                     list_ = line.strip()[len(entryName):]
@@ -3100,6 +3240,41 @@ class DictFileParser:
     #         raise
 
     #     return start, stop
+
+    def _parseDimensionValue(self):
+        """ 
+        Check to see if the line containd key value entry for a ofDimension 
+        value.  If so, return the ofType, else return None.
+
+        Example syntax: 
+
+        dimension      [0 2 -1 0 0 0 0];
+
+        """
+
+        line = self.lines[self.i]
+
+        lineList = self._getLinesList(line)
+        
+        try:
+            ofWord(lineList[0])
+        except:
+            return None  # first item is not valid key
+        #- try to convert list to dimension, return None if error
+        dimList = []
+        for value in lineList[1:]:
+            try:
+                v = int(value.strip('[];'))
+                dimList.append(v)
+            except ValueError:
+                pass
+        logger.debug(f"dimList: {dimList}")
+        try:
+            dimValue = ofNamedDimension(name=lineList[0], 
+                                        dimensions=dimList)
+            return dimValue
+        except ValueError:
+            return None
 
     def _findEndOfDict(self):
         """
