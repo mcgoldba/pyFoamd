@@ -208,10 +208,12 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
             logger.debug(f"n.split(): {n.split()}")
             if len(n.split()) != 1:
                 raise ValueError("Name must be a single word.")
-            try:
-                ofWord(n)
-            except ValueError:
-                raise ValueError(f"The name '{n}' is not a valid key.")
+            #TODO: Keywords can accept optional values.
+            #       e.g. "(U|p|epsilon|omega)" 
+            # try:
+            #     ofWord(n)
+            # except ValueError:
+            #     raise ValueError(f"The name '{n}' is not a valid key.")
 
             self._name = n
         else:
@@ -1169,7 +1171,7 @@ class ofList(_ofNamedTypeBase):
             else:
                 raise ValueError("ofList value must be a list.")
         else:
-            self._value = None
+            self._value = []
 
     def toString(self) -> str:
         return printNameStr(self.name)+self.valueStr+";\n"
@@ -2107,8 +2109,25 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
         return self.toString().rstrip(';\n')
 
 @dataclass
-class ofInclude(ofDictFile, _ofUnnamedTypeBase):
+class ofInclude(_ofUnnamedTypeBase):
     _name: str = field(init=False, default="#include")
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            if isinstance(v, str):
+                self._value = v
+            else:
+                raise ValueError(f"The 'include' value must be a string.  Got "\
+                    f"'{v}'.")
+        else:
+            self._value = v
+
+
     def toString(self, ofRep=False) -> str:
         return printNameStr(self._name)+'"'+str(self.value)+'"\n'
 
@@ -2937,6 +2956,8 @@ class DictFileParser:
         else:
             line = self.lines[self.i].strip(';')
         logger.debug(f"parseUniformField string: {line}")
+        if line == "":
+            return None
         if line.split()[1] == 'uniform': # whole line is passed as input
             # lineList = line.split()[2:] # Remove the 'table' designation
             lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
