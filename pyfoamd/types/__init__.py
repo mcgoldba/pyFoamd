@@ -161,6 +161,7 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         with two arguments:     _ofNamedTypeBase(name, value)
 
     """
+    #TODO:  Can I get call signatures to show name as well?
 
     # name: str = None
     #_name: str = None
@@ -180,9 +181,9 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
     def __init__(self, arg1=None, arg2=None, **kwargs):
         logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
         if arg1 == None and arg2 == None:
-            self.value = None
+            self.value : str = None
             logger.debug("Setting ofNamedType .name")
-            self.name = None
+            self.name : str = None
         if arg2 == None:
             self.value : str = arg1
             logger.debug("Setting ofNamedType .name")
@@ -1043,20 +1044,37 @@ TYPE_REGISTRY.append(ofFloat)
 
 @dataclass
 class ofStr(_ofNamedTypeBase):
-    pass
+    #TODO:  Why do I need to call 'super' here?
+    def __init__(self, *args, **kwargs):
+        super(ofStr, self).__init__(*args, **kwargs)
 
 TYPE_REGISTRY.append(ofStr)
 
 @dataclass
 class ofBool(_ofNamedTypeBase):
-    name: str = None
-    value: bool =  None
-    _valueStr: str = field(init=False, default="None")  #User cant pass a value
+    def __init__(self, *args, **kwargs):
+        super(ofBool, self).__init__(*args, **kwargs)
+    # name: str = None
+    # value: bool =  None
+    # _valueStr: str = field(init=False, default="None")  #User cant pass a value
 
-    def __post_init__(self):
-        if self.value is not None:
-            self._valueStr = self.value
-            self.value = OF_BOOL_VALUES[self._valueStr]
+    # def __post_init__(self):
+    #     if self.value is not None:
+    #         self._valueStr = self.value
+    #         self.value = OF_BOOL_VALUES[self._valueStr]
+
+    @property
+    def value(self):
+        return self._value
+    
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            self._valueStr = v
+            self._value = OF_BOOL_VALUES[v]
+        else:
+            self._valueStr = None
+            self._value = None
 
 
     def toString(self, ofRep=False) -> str:
@@ -1075,32 +1093,32 @@ TYPE_REGISTRY.append(ofBool)
 
 #TODO:  Add abilty to get value based on variable name
 @dataclass
-class ofVar(_ofNamedTypeBase):
+class ofVar(_ofUnnamedTypeBase):
     def __init__(self, *args, **kwargs):
         super(ofVar, self).__init__(*args, **kwargs)
     
     @property
-    def name(self):
-        return self._name
+    def value(self):
+        return self._value
 
-    @name.setter
-    def name(self, n):
-        n = str(n)
-        if n is not None:
-            if len(n.split()) != 1:
+    @value.setter
+    def value(self, v):
+        v = str(v)
+        if v is not None:
+            if len(v.split()) != 1:
                 raise ValueError("Name must be a single word.")
-            if n.startswith('$'):
-                n_ = n[1:]
+            if v.startswith('$'):
+                v_ = v[1:]
             else:
-                n_ = n
+                v_ = v
             try:
-                ofWord(n_)
+                ofWord(v_)
             except ValueError:
-                raise ValueError(f"The name '{n_}' is not a valid key.")
+                raise ValueError(f"The value '{v_}' is not a valid key.")
 
-            self._name = n_
+            self._value = v_
         else:
-            self._name = None
+            self._value = None
 
     def toString(self, ofRep=False) -> str:
         str_ =  f"${self.value}"
@@ -1755,7 +1773,7 @@ class ofDictFile(ofDict):
                     str_ += printNameStr(k)+str(v)+'\n'
                 str_ += '\n'
             logger.debug(f"dict string: {str_}")
-        str_+= "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //"
+        
         if not ofRep:
             str_ = str_.replace(';', '')
         return str_
@@ -1958,20 +1976,24 @@ class ofUniformField(_ofNamedTypeBase):
 
     @name.setter
     def name(self, n):
-        n=str(n)
-        if len(n.split()) == 2 and n.split()[1] == 'uniform':
-            n_ = n.split()[0]
+        if n is not None:
+            logger.debug(f"name: {n}")
+            n=str(n)
+            if len(n.split()) == 2 and n.split()[1] == 'uniform':
+                n_ = n.split()[0]
+            else:
+                n_ = n
+
+            if len(n_.split()) != 1:
+                raise ValueError(f"Name must be a single word.  Got {n}")
+            try:
+                ofWord(n_)
+            except ValueError:
+                raise ValueError(f"The name '{n_}' is not a valid key.")
+
+            self._name = n_
         else:
-            n_ = n
-
-        if len(n_.split()) != 1:
-            raise ValueError("Name must be a single word.")
-        try:
-            ofWord(n_)
-        except ValueError:
-            raise ValueError(f"The name '{n_}' is not a valid key.")
-
-        self._name = n_
+            self._name = None
 
     @property
     def value(self):
@@ -1979,14 +2001,17 @@ class ofUniformField(_ofNamedTypeBase):
     
     @value.setter
     def value(self, v):
-        fieldList_ = [ofInt, ofFloat, ofVector, ofSphericalTensor, ofSymmTensor, 
-        ofTensor,  ofDimensionedScalar, ofDimensionedVector, 
-        ofDimensionedSphericalTensor, ofDimensionedSymmTensor, 
-        ofDimensionedTensor, ofVar]
-        if v is not None and not any([isinstance(v, t) for t in fieldList_]):
-            raise ValueError("'value' attribute must be a valid OpenFOAM field "\
-                f"type. Got {type(v)}, need one of:\n{fieldList_}")
-        self._value = v
+        if v is not None:
+            fieldList_ = [ofInt, ofFloat, ofVector, ofSphericalTensor, ofSymmTensor, 
+            ofTensor,  ofDimensionedScalar, ofDimensionedVector, 
+            ofDimensionedSphericalTensor, ofDimensionedSymmTensor, 
+            ofDimensionedTensor, ofVar]
+            if v is not None and not any([isinstance(v, t) for t in fieldList_]):
+                raise ValueError("'value' attribute must be a valid OpenFOAM field "\
+                    f"type. Got {type(v)}, need one of:\n{fieldList_}")
+            self._value = v
+        else:
+            self._value = None
 
     def toString(self, ofRep=False) -> str:
 
@@ -2194,7 +2219,7 @@ class DictFileParser:
                     self.nComments += 1
                 else:
                     logger.error(f"Invalid value type: {type(value)}.")
-                    sys.exit
+                    sys.exit()
 
             # [status, lineStatus] = _readDictEntry(status, ofType, lines, i)
 
@@ -2916,7 +2941,7 @@ class DictFileParser:
         type_, value_ = self._parseValue(valueStr_)
         logger.debug(f"type: {type_}")
         # logger.debug(f"value: {type_(value=value_)}")
-        value__ = type_(value=value_)
+        value__ = type_(value_)
         return ofUniformField(name=name, value=value__) 
         # else: # parse lines
         #     line = self.lines[self.i]
@@ -2960,13 +2985,9 @@ class DictFileParser:
             pass
 
         #- Check for ofVar
-        try:
+        if len(value.split()) == 1 and value[0] == '$':
             v_ = ofVar(value=value)
             return ofVar, v_
-        except ValueError:
-            pass
-
-
 
         logger.debug(f"value: '{value}'")
 

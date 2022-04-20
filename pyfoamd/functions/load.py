@@ -171,7 +171,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
             logger.debug(f"{tabStr}Returning {obj}.")
             return obj
             
-    case_ = _parseCaseDict(caseDict, )
+    case_ = _parseCaseDict(caseDict)
 
 
     if isinstance(case_, _ofCaseBase):
