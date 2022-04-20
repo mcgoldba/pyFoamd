@@ -1099,7 +1099,7 @@ TYPE_REGISTRY.append(ofBool)
 
 #TODO:  Add abilty to get value based on variable name
 @dataclass
-class ofVar(_ofUnnamedTypeBase):
+class ofVar(_ofNamedTypeBase):
     def __init__(self, *args, **kwargs):
         super(ofVar, self).__init__(*args, **kwargs)
     
@@ -1127,7 +1127,11 @@ class ofVar(_ofUnnamedTypeBase):
             self._value = None
 
     def toString(self, ofRep=False) -> str:
-        str_ =  f"${self.value}"
+        if self.name is not None:
+            str_ = printNameStr(self.name)
+        else:
+            str_ = ''
+        str_ +=  f"${self.value}"
         if ofRep:
             str_+= ";\n"
         else:
@@ -2027,7 +2031,7 @@ class ofUniformField(_ofNamedTypeBase):
     def toString(self, ofRep=False) -> str:
 
         str_ = printNameStr(self.name)+"uniform "\
-            +str(self.value)
+            +str(self.value).strip()
             
         if ofRep:
             str_ += ";\n"
