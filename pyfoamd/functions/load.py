@@ -153,7 +153,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                 for key, value in obj.items():
                     logger.debug(f"{tabStr}Parsing key {key}.")
                     if (key != '_type' 
-                        and not (not parseValue and key == 'value')):
+                        and not (not parseValue and key == '_value')):
                         logger.debug(f"{tabStr}Setting key {key}.")
                         value_ = _parseCaseDict(value, tabStr)
                         logger.debug(f"{tabStr}value_: {value_}")
