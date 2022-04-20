@@ -140,7 +140,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                 elif obj['_type'] == 'ofList' or obj['_type'] == 'ofSplitList':
                     type_ = locate('pyfoamd.types.'+obj['_type'])
                     obj_ = type_(
-                        value = [_parseCaseDict(v) for v in obj['value']]
+                        value = [_parseCaseDict(v) for v in obj['_value']]
                         )
                     parseValue = False
                 else:

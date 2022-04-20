@@ -192,6 +192,10 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
             logger.debug("Setting ofNamedType .name")
             self.name : str = arg1
             self.value : str = arg2
+        if 'name' in kwargs.keys():
+            self.name = kwargs.pop('name')
+        if 'value' in kwargs.keys():
+            self.value = kwargs.pop('value')
 
     @property
     def name(self):
@@ -1073,7 +1077,7 @@ class ofBool(_ofNamedTypeBase):
             self._valueStr = v
             self._value = OF_BOOL_VALUES[v]
         else:
-            self._valueStr = None
+            self._valueStr = ""
             self._value = None
 
 
@@ -1158,6 +1162,7 @@ class ofList(_ofNamedTypeBase):
 
     @value.setter
     def value(self, v):
+        logger.debug(f"ofList setter value: {v}")
         if v is not None:
             if isinstance(v, list):
                 self._value = v
@@ -1174,21 +1179,22 @@ class ofList(_ofNamedTypeBase):
             dStr = printNameStr(self.name)+"( "
         else:
             dStr = "( "
-        for v in self.value:
-            if isinstance(v, ofDict):
-                dStr2 = v.toString().split(" ")
-                for i in range(len(dStr2)):
-                    if len(TAB_STR+dStr2[i]+" ") > 79:
-                        dStr2[i] = "\n"+TAB_STR+dStr2[i]+" "
-                    else:
-                        dStr2[i] = TAB_STR+dStr2[i]+" "
-                    dStr += dStr2[i]
-            elif isinstance(v, list):
-                dStr += TAB_STR+ofList(value=v).toString().strip()
-            elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                dStr += v.toString().strip()+" "
-            else:
-                dStr += str(v).strip()+" "
+        if self.value is not None:
+            for v in self.value:
+                if isinstance(v, ofDict):
+                    dStr2 = v.toString().split(" ")
+                    for i in range(len(dStr2)):
+                        if len(TAB_STR+dStr2[i]+" ") > 79:
+                            dStr2[i] = "\n"+TAB_STR+dStr2[i]+" "
+                        else:
+                            dStr2[i] = TAB_STR+dStr2[i]+" "
+                        dStr += dStr2[i]
+                elif isinstance(v, list):
+                    dStr += TAB_STR+ofList(value=v).toString().strip()
+                elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                    dStr += v.toString().strip()+" "
+                else:
+                    dStr += str(v).strip()+" "
         if ofRep:
             dStr+= ");\n"
         else:
@@ -1249,29 +1255,30 @@ class ofSplitList(ofList):
             dStr = self.name+"\n(\n"
         else:
             dStr = "(\n"
-        for v in self.value:
-            logger.debug(f"list entry: {v}")
-            if isinstance(v, ofDict):
-                logger.debug("Found ofDict.")
-                dStr2 = v.toString(ofRep=ofRep).split("\n")
-                for i in range(len(dStr2)):
-                    dStr2[i] = TAB_STR+dStr2[i]+"\n"
-                    dStr += dStr2[i]
-            elif isinstance(v, list):
-                dStr += TAB_STR+ofList(value=v).toString()
-                # if any(isinstance(v_, t) for v_ in v for t in [list, dict]):
-                #     dStr += TAB_STR+ofSplitList(value=v).toString()
-                # else:
-                #     dStr += TAB_STR+ofList(value=v).toString()
+        if self.value is not None:
+            for v in self.value:
+                logger.debug(f"list entry: {v}")
+                if isinstance(v, ofDict):
+                    logger.debug("Found ofDict.")
+                    dStr2 = v.toString(ofRep=ofRep).split("\n")
+                    for i in range(len(dStr2)):
+                        dStr2[i] = TAB_STR+dStr2[i]+"\n"
+                        dStr += dStr2[i]
+                elif isinstance(v, list):
+                    dStr += TAB_STR+ofList(value=v).toString()
+                    # if any(isinstance(v_, t) for v_ in v for t in [list, dict]):
+                    #     dStr += TAB_STR+ofSplitList(value=v).toString()
+                    # else:
+                    #     dStr += TAB_STR+ofList(value=v).toString()
 
-            elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                # dStr += printNameStr(TAB_STR+k)+v.toString()
-                dStr += TAB_STR+v.toString(ofRep=ofRep)
-                logger.debug("Found 'toString()' method.")
-            else:
-                logger.debug("Could not find 'toString()' method.")
-                dStr += TAB_STR+str(v)+'\n'
-            logger.debug(f"dict string: {dStr}")
+                elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                    # dStr += printNameStr(TAB_STR+k)+v.toString()
+                    dStr += TAB_STR+v.toString(ofRep=ofRep)
+                    logger.debug("Found 'toString()' method.")
+                else:
+                    logger.debug("Could not find 'toString()' method.")
+                    dStr += TAB_STR+str(v)+'\n'
+                logger.debug(f"dict string: {dStr}")
         dStr+= ");\n\n"
         if not ofRep:
             dStr = dStr.replace(';', '')
@@ -1968,7 +1975,9 @@ class ofTensor(ofVector):
 
 @dataclass
 class ofUniformField(_ofNamedTypeBase):
-    name: str = None
+    #name: str = None
+    def __init__(self, *args, **kwargs):
+        super(ofUniformField, self).__init__(*args, **kwargs)
 
     @property
     def name(self):
@@ -3109,8 +3118,6 @@ class DictFileParser:
         valueStr = " ".join(lineList[1:])
 
 
-
-
         #- check if the line value terminates in an open list or dict
         nl = 0
         nd = 0
@@ -3156,12 +3163,15 @@ class DictFileParser:
         if ' (' in valueStr or ' {' in valueStr:
             #- Found list or dict
             # - find the entry type
+            logger.debug(f"valueStr: {valueStr}")
             for i, char in enumerate(valueStr):
+                logger.debug(f"i: {i}")
                 if char == '{' or char == '(':
                     # reevaluate entry name to be everything before opening list
                     line_ = entryName+" "+valueStr
-                    entryName = line[:len(entryName)+i+2].lstrip().rstrip()
-                    logger.debug(entryName)
+                    logger.debug(f"line_: {line_}")
+                    entryName = line_[:len(entryName)+i].lstrip().rstrip()
+
                     # valueList = line[i:].split(" ").rstrip(char+';')
                     break
 
