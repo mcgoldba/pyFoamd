@@ -1263,7 +1263,6 @@ class ofSplitList(ofList):
             dStr = "(\n"
         if self.value is not None:
             for v in self.value:
-                logger.debug(f"list entry: {v}")
                 if isinstance(v, ofDict):
                     logger.debug("Found ofDict.")
                     dStr2 = v.toString(ofRep=ofRep).split("\n")
@@ -1280,11 +1279,8 @@ class ofSplitList(ofList):
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
                     dStr += TAB_STR+v.toString(ofRep=ofRep)
-                    logger.debug("Found 'toString()' method.")
                 else:
-                    logger.debug("Could not find 'toString()' method.")
                     dStr += TAB_STR+str(v)+'\n'
-                logger.debug(f"dict string: {dStr}")
         dStr+= ");\n\n"
         if not ofRep:
             dStr = dStr.replace(';', '')
@@ -2124,7 +2120,7 @@ class ofInclude(_ofUnnamedTypeBase):
     def value(self, v):
         if v is not None:
             if isinstance(v, str):
-                self._value = v
+                self._value = v.strip('"')
             else:
                 raise ValueError(f"The 'include' value must be a string.  Got "\
                     f"'{v}'.")
@@ -2165,7 +2161,7 @@ class DictFileParser:
                             _location=Path(filepath).parent)
         self.i=0
         self.extraLine = []
-        self.comment = None
+        self.comment = []
         self.nComments = 0
 
 
@@ -2196,6 +2192,19 @@ class DictFileParser:
 
         """
         return line.strip().split('//')[0].split()
+
+    def _getComment(self):
+        """
+        Get the comment for the currently parsed line, and remove comment from
+        `self.comments` list.
+        """
+
+        if len(self.comment) > 0:
+            comment_ = self.comment.pop(-1)
+        else:
+            comment_ = None
+        
+        return comment_
 
     def readDictFile(self):
 
@@ -2374,13 +2383,13 @@ class DictFileParser:
         logger.debug(f"{type_} signature: {signature(type_)}")
 
         if hasattr(type_, 'name'):
-            return type_(key, value_, _comment=self.comment)
+            return type_(key, value_, _comment=self._getComment())
         elif hasattr(type_, '_name'):
-            return type_(key, value_, _comment=self.comment)
+            return type_(key, value_, _comment=self._getComment())
         else:
             userMsg(f"Could not set name for type {type_}.  Returning "\
                 "value only!", "WARNING")
-            return type_(value_, _comment=self.comment)
+            return type_(value_, _comment=self._getComment())
 
     def _parseListOrDict(self, name, line : str = None):
         """
@@ -2580,24 +2589,29 @@ class DictFileParser:
 
             logger.debug(f"line[{self.i+1}]: {line}")
 
-            #- Parse comment
-            comment = self._parseComments()
-            if comment is not None:
-                entryList.append(comment)
-                self.i += 1
-                continue
+            # #- Parse comment
+            # comment = self._parseComments()
+            # if comment is not None:
+            #     entryList.append(comment)
+            #     self.i += 1
+            #     continue
 
-            lineList = self._getLinesList(line)
-            # for entry in line.strip().split():
-            for i, entry in enumerate(lineList):
-                #- Store as ofType
-                # entry_ = self._parseListValues(entry)
-                type_, value_ = self._parseValue(entry)
-                # entry_._comment = comment
-                entry_ = type_(value=value_)
-                if i == len(lineList)-1:
-                    entry_._comment = comment
-                entryList.append(entry_)
+            #- Try to parse whole line as single value:
+            entry_ = self._parseListValues(line)
+            # entry_._comment = comment
+
+            for v in entry_:
+                entryList.append(v)
+
+            # #- Parse each value
+            # lineList = self._getLinesList(line)
+            # for i, entry in enumerate(lineList):
+            #     #- Store as ofType
+            #     type_, value_ = self._parseValue(entry)
+            #     entry_ = type_(value=value_)
+            #     if i == len(lineList)-1:
+            #         entry_._comment = comment
+            #     entryList.append(entry_)
 
             # logger.debug(f"self.i: {self.i}")
             self.i += 1
@@ -2620,7 +2634,7 @@ class DictFileParser:
 
         list_.value = entryList
 
-        list_._comment = self.comment        
+        list_._comment = self._getComment()
 
         return list_
 
@@ -2646,6 +2660,18 @@ class DictFileParser:
         #         if char = '('
         #     else:
         #         return None
+
+
+        foundComment = False
+
+        #- Parse comment 
+        comment = self._parseComments(values)
+        if comment is not None:
+            return [comment]
+
+        if '//' in values:
+            foundComment = True
+            values = values.split('//')[0]
 
         listValues = []
 
@@ -2676,8 +2702,12 @@ class DictFileParser:
                         listValues.append(value)
                 else:
                     #TODO: Store as ofList or list
-                    # listValues.append(ofList(value=self._parseListValues(subStr)))
-                    listValues.append(self._parseListValues(subStr))
+                    listValue_ = ofList(value=self._parseListValues(subStr))
+                    # listValues.append(self._parseListValues(subStr))
+                    if foundComment:
+                        listValue_._comment = self._getComment()
+                    listValues.append(listValue_)
+
                 i=j+i
                 logger.debug(f"i: {i}")
                 logger.debug(f"j: {j}")
@@ -2691,13 +2721,22 @@ class DictFileParser:
                     i+=1
                 if value_ != '':
                     type_, v = self._parseValue(value_)
-                    #listValues.append(type_(value=v)) # TODO: save as ofType?
-                    listValues.append(v)
+                    if type_ is not None:
+                        listValues.append(type_(value=v)) # TODO: save as ofType?
+                    # listValues.append(v)
             logger.debug("list values during parsing: "\
                 f"{listValues}")
             i+=1
             logger.debug(f"i: {i}")
-                    
+
+        logger.debug(f"listValues: {listValues}")
+
+        # #- add comment to last list value
+        # if len(listValues) != 0:
+        #     commentedValue = listValues[-1]
+        #     commentedValue._comment = self._getComment()                    
+        #     listValues[-1] = commentedValue
+
         return listValues
 
 
@@ -2989,7 +3028,8 @@ class DictFileParser:
         """
         # TODO: Should I assume list values of certain length are tensors?
         # TODO:  Add ofScalar?
-        
+
+
         if isinstance(value, int):
             return ofInt, value
         if isinstance(value, float):
@@ -3005,6 +3045,10 @@ class DictFileParser:
             raise TypeError(f"Invalid type '{type(value)}' found for 'value'")
 
         value = value.strip()
+
+        #- Ignore empty string        
+        if value == '':
+            return None, None
 
         #try to convert to numeric
         try:
@@ -3247,17 +3291,18 @@ class DictFileParser:
                                        value=' '.join(lineList[1:]))
 
 
-    def _parseComments(self):
+    def _parseComments(self, line=None):
         """
         Returns 'ofComment' if the current line is a C++ comment type.  If block 
         comment, self.i is incremented to end of comment block.  If line is not 
         a comment, stores any inline comments to self and returns line string 
         without an inline comment
         """
-        #TODO: Doesnt handle comments in middle of line (Maybe this should be 
+        #TODO: Doesnt handle comments in middle of list (Maybe this should be 
         # handled elsewhere)
 
-        line = self.lines[self.i]
+        if line is None:
+            line = self.lines[self.i]
 
         # logger.debug("Checking for comment.")
         # logger.debug(f"line: {line}")
@@ -3283,7 +3328,7 @@ class DictFileParser:
             return ofComment(comment_, block=True)
 
         if '//' in line:
-            self.comment = '//'.join(line.split('//')[1:])
+            self.comment.append('//'.join(line.split('//')[1:]))
             logger.debug(f"comment: {self.comment}")
 
         return None
@@ -3373,7 +3418,7 @@ class DictFileParser:
         if returnType:
             self.i = i_ 
             return returnType(value=value, name=lineList[0],
-                              dimensions=dims, _comment=self.comment)
+                              dimensions=dims, _comment=self._getComment())
 
         return None #- Could not find a suitable dimensioned type based on
                     # length of list 
