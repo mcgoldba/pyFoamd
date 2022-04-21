@@ -2617,6 +2617,8 @@ class DictFileParser:
             # logger.debug(f"self.i: {self.i}")
             self.i += 1
 
+        self.i -= 1 #Reset line after while loop; while increment in _parseLine 
+
         # strValue = " ".join(entryList)
 
         # logger.debug(f"*********************strValue: {strValue}")
