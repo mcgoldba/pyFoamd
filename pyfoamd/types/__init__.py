@@ -1265,7 +1265,7 @@ class ofSplitList(ofList):
             for v in self.value:
                 if isinstance(v, ofDict):
                     logger.debug("Found ofDict.")
-                    dStr2 = v.toString(ofRep=False).split("\n")
+                    dStr2 = v.toString(ofRep=ofRep).split("\n")
                     for i in range(len(dStr2)):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
                         dStr += dStr2[i]
@@ -1610,7 +1610,7 @@ class ofDict(dict, _ofTypeBase):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
                         dStr += dStr2[i]
                 elif isinstance(v, ofList):
-                    vList = v.toString(ofRep=False).split('\n')
+                    vList = v.toString(ofRep=ofRep).split('\n')
                     for v_ in vList:
                         dStr+= TAB_STR+v_+'\n'
                     dStr+=';'
@@ -1624,8 +1624,8 @@ class ofDict(dict, _ofTypeBase):
 
             logger.debug(f"dict string: {dStr}")
         dStr+= "}\n\n"
-        if not ofRep:
-            dStr = dStr.replace(';', '')
+        # if not ofRep:
+        #     dStr = dStr.replace(';', '')
         return dStr
 
     #TODO:  can this class be replaced with a dict() conversion?
@@ -1671,7 +1671,8 @@ class ofFoamFile(ofDict):
                     if (hasattr(v, 'toString') 
                         and callable(getattr(v, 'toString'))):
                         # dStr += printNameStr(TAB_STR+k)+v.toString()
-                        logger.debug(f"FoamFile entry string: {v.toString(ofRep=ofRep)}")
+                        logger.debug(f"FoamFile entry string: "\
+                            f"{v.toString(ofRep=ofRep)}")
                         dStr += TAB_STR+v.toString(ofRep=ofRep)
                         logger.debug("Found 'toString()' method.")
                     else:
@@ -1680,8 +1681,8 @@ class ofFoamFile(ofDict):
 
                 logger.debug(f"dict string: {dStr}")
             dStr+= "}\n"
-            if not ofRep:
-                dStr = dStr.replace(';', '')
+            # if not ofRep:
+            #     dStr = dStr.replace(';', '')
             return dStr
 
 
