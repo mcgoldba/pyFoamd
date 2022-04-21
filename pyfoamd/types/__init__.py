@@ -3150,7 +3150,7 @@ class DictFileParser:
         if any([value == b for b in OF_BOOL_VALUES.keys()]):
             return ofBool, value
 
-        return ofStr, value
+        return ofStr, value.strip(';')
 
     def _parseLineLenGreaterThanTwo(self):
         """
@@ -3232,7 +3232,8 @@ class DictFileParser:
 
         logger.debug(f"valueStr: {valueStr}")
 
-        if '(' in valueStr or '{' in valueStr:
+        # if '(' in valueStr or '{' in valueStr:
+        if valueStr.startswith('(') or valueStr.startswith('{'):
             #- Found list or dict
             # - find the entry type
             logger.debug(f"valueStr: {valueStr}")
