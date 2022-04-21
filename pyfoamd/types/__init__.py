@@ -1198,7 +1198,7 @@ class ofList(_ofNamedTypeBase):
                 elif isinstance(v, list):
                     dStr += TAB_STR+ofList(value=v).toString().strip()
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                    dStr += v.toString().strip()+" "
+                    dStr += v.toString(ofRep=False).strip()+" "
                 else:
                     dStr += str(v).strip()+" "
         if ofRep:
@@ -1265,7 +1265,7 @@ class ofSplitList(ofList):
             for v in self.value:
                 if isinstance(v, ofDict):
                     logger.debug("Found ofDict.")
-                    dStr2 = v.toString(ofRep=ofRep).split("\n")
+                    dStr2 = v.toString(ofRep=False).split("\n")
                     for i in range(len(dStr2)):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
                         dStr += dStr2[i]
@@ -1278,7 +1278,7 @@ class ofSplitList(ofList):
 
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
-                    dStr += TAB_STR+v.toString(ofRep=ofRep)
+                    dStr += TAB_STR+v.toString(ofRep=False)
                 else:
                     dStr += TAB_STR+str(v)+'\n'
         dStr+= ");\n\n"
@@ -3229,7 +3229,9 @@ class DictFileParser:
             logger.debug(f"line[{self.i+1}]: {line}") 
 
 
-        if ' (' in valueStr or ' {' in valueStr:
+        logger.debug(f"valueStr: {valueStr}")
+
+        if '(' in valueStr or '{' in valueStr:
             #- Found list or dict
             # - find the entry type
             logger.debug(f"valueStr: {valueStr}")
