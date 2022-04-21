@@ -2585,7 +2585,8 @@ class DictFileParser:
                 #- store extra characters as a new line to be parsed later
                 self._addExtraLine(''.join(line.split(';')[1:]))
                 #- ignore last );
-                line = line.split(';')[0].rsplit(')')[0] 
+                if line.endswith(');'):
+                    line = line[:-2] 
 
             logger.debug(f"line[{self.i+1}]: {line}")
 
