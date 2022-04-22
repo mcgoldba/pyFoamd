@@ -1185,9 +1185,6 @@ class ofList(_ofNamedTypeBase):
                 raise ValueError("ofList value must be a list.")
         else:
             self._value = []
-
-    def toString(self) -> str:
-        return printNameStr(self.name)+self.valueStr+";\n"
     
     def toString(self, ofRep=False) -> str:
         if self.name:
@@ -1221,38 +1218,6 @@ class ofList(_ofNamedTypeBase):
         return self.toString()
 
 TYPE_REGISTRY.append(ofList)
-
-# @dataclass
-# class ofList(_ofListBase):
-
-#     def toString(self) -> str:
-#         dStr = "( "
-#         for v in self.value:
-#             if isinstance(v, ofDict):
-#                 dStr2 = v.toString().split(" ")
-#                 for i in range(len(dStr2)):
-#                     dStr2[i] = TAB_STR+dStr2[i]+" "
-#                     dStr += dStr2[i]
-#             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-#                 dStr += v.toString()
-#             else:
-#                 dStr += str(v)+" "
-#         dStr+= ") "
-#         return dStr
-#     # def toString(self) -> str:
-#     #     return self.valueStr
-#     #def toString(self) -> str:
-#     #    valueStr = '('
-#     #    valueStr += str(self.value[0])
-#     #    for i in range(1,len(self.value)):
-#     #        valueStr += ' '+str(self.value[i])
-#     #    valueStr += ')'
-#     #    return printNameStr(self.name)+valueStr+";\n"
-
-#     def __str__(self):
-#         return self.toString().rstrip(';\n')
-
-# TYPE_REGISTRY.append(ofList)
 
 @dataclass
 class ofSplitList(ofList):
@@ -1387,6 +1352,46 @@ class ofTable(ofList):
 
 #     def __str__(self):
 #         return self.toString().rstrip(';\n')
+
+@dataclass
+class ofMultilineStatement(_ofNamedTypeBase):
+    def __init__(self, *args, **kwargs):
+        super(ofMultilineStatement, self).__init__(*args, **kwargs)
+    
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            if isinstance(v, list) and all([isinstance(v_,_ofTypeBase) 
+                                                for v_ in v]):
+                self._value = v
+            else:
+                raise ValueError("ofList value must be a list of ofTypes.")
+        else:
+            self._value = []
+    
+    def toString(self, ofRep=False) -> str:
+        if self.name:
+            dStr = printNameStr(self.name)
+        else:
+            dStr = ""
+        if self.value is not None:
+            for v in self.value:
+                if hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                    dStr += v.toString(ofRep=False).strip()+"\n"
+                else:
+                    logger.error("Could not find 'toString' method for type "/
+                    f"{type(v)}")
+            dStr = dStr.rstrip('\n')
+        if ofRep:
+            dStr+= ";\n"
+        else:
+            dStr+= "\n"
+        return dStr
+
 
 @dataclass
 class ofDict(dict, _ofTypeBase):
@@ -2173,6 +2178,7 @@ class DictFileParser:
         self.extraLine = []
         self.comment = []
         self.nComments = 0
+        self.needSemicolon = True
 
 
     def _addExtraLine(self, line):
@@ -2452,7 +2458,10 @@ class DictFileParser:
         logger.debug(f"Opening char: {openingChar}")
 
         if openingChar == '(':
-            return self._parseList(name, split=True)
+            self.needSemicolon = False
+            list_ = self._parseList(name, split=True)
+            self.needSemicolon = True
+            return list_
             # if len(lineList) > 1:
             #     #list is on a single line
             #     if lineList[-1][-1] != ';':
@@ -3193,7 +3202,7 @@ class DictFileParser:
         if dimValue is not None:
             return dimValue
 
-        # Extract key values, not that key may contain parenthises, 
+        # Extract key values, note that key may contain parenthises, 
         # e.g. as in the fvSchemes dictionary
         lineList = self._getLinesList(line)
         entryName = lineList[0]
@@ -3239,7 +3248,7 @@ class DictFileParser:
             self._addExtraLine(extraText)
             #line = line.split(';')[0][:-1] 
             line = line.split(';')[0]+';' # do not remove last ')' or '}'
-            logger.debug(f"line[{self.i+1}]: {line}") 
+            logger.debug(f"line[{self.i+1}]: {line}")
 
 
         logger.debug(f"valueStr: {valueStr}")
@@ -3300,12 +3309,48 @@ class DictFileParser:
                 return value
 
             #- Assume entry is a key value pair with a muliple word value.
-            #      (e.g. 'default       Gauss linear')
-            # lineList = line.split()
-            lineList = self._getLinesList(line)
-            return self._parseSingleLineEntry(key=lineList[0], 
+            #      (e.g. 'default       Gauss linear;')
+            if line[-1] != ';' and self.needSemicolon:
+                return self._parseMultilineStatement()
+            else:
+                lineList = self._getLinesList(line)
+                return self._parseSingleLineEntry(key=lineList[0], 
                                        value=' '.join(lineList[1:]))
 
+    def _parseMultilineStatement(self):
+        """
+        Parse a key value pair that has a multi-word value that spans multiple
+        lines.  Assumes the first word on first line is the keyword.  Special
+        cases (e.g. tables and uniform fields) should be handled prior to
+        calling this method
+        """
+
+        #- Parse first line
+        key = self.lines[self.i].split()[0]
+        type_, value_ = self._parseValue(" ".join(
+                                        self.lines[self.i].split()[1:]))
+        
+        if type_ is not None:
+            value = [type_(value_)]
+        else:
+            vlaue = []
+
+        i_start = self.i
+
+        while ';' not in self.lines[self.i]:
+            self.i += 1
+            if self.i >= len(self.lines):
+                userMsg("Invalid Syntax.  Could not find end of statement "\
+                    f"starting on line {i_start+1} in {self.filepath}.", "ERROR")
+            type_, value_ = self._parseValue(self.lines[self.i])
+
+            if type_ is not None:
+                value.append(type_(value_))
+
+        if self.i == i_start:
+            logger.warning("Parsing single line as 'ofMultilineStatement'.")
+
+        return ofMultilineStatement(name=key, value=value)
 
     def _parseComments(self, line=None):
         """
