@@ -746,8 +746,9 @@ class CaseParser:
                     #- rename time directories to t_<tiime>
                     name_ = TIME_PREFIX+name_
 
+                folderPath_ = self.path / obj.name
                 attrList.append((name_, _ofFolderBase, 
-                    field(default=FolderParser(obj.name).makeOFFolder())))
+                    field(default=FolderParser(folderPath_).makeOFFolder())))
 
         # dc_ =   make_dataclass('ofCase', attrList, 
         #                         bases=(_ofCaseBase, ))(
