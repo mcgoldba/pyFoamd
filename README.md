@@ -1,2 +1,2 @@
 # pyFoamd
-Pythonic modification OpenFOAM of dictionaries and case files.
+Pythonic modification of OpenFOAM dictionaries and case files.
