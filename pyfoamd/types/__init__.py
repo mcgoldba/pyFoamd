@@ -19,6 +19,7 @@ from inspect import signature #- just for debugging
 
 from pyfoamd import setLoggerLevel, userMsg
 from ._isOFDict import _isOFDict
+from ._isCase import _isCase
 
 from rich.console import Console
 console = Console()
@@ -473,7 +474,8 @@ class FolderParser:  # Class id required because 'default_factory' argument
 #
 #         self.__class__ = make_dataclass('ofCase', addDirs, bases=(self,))
 
-@dataclass(kw_only=True)
+# @dataclass(kw_only=True)
+@dataclass
 class _ofCaseBase(_ofTypeBase):
     _path : Path = field(default=Path.cwd())
     # _path : Path
@@ -481,8 +483,8 @@ class _ofCaseBase(_ofTypeBase):
     _name : str = field(init=False, default="None")
     _times : ofTimeReg = field(init=False, default=ofTimeReg())
     # _registry : list = _populateRegistry(path)
-    constant : _ofFolderBase = field( init=False)
-    system : _ofFolderBase = field( init=False)
+    constant : _ofFolderBase = field(init=False)
+    system : _ofFolderBase = field(init=False)
 
     def __post_init__(self):
         logger.debug(f"ofCase post init path: {self._path}")
@@ -490,8 +492,8 @@ class _ofCaseBase(_ofTypeBase):
             self._path = Path(self._path)
         self._location = str(self._path.parent)
         self._name = str(self._path.name)
-        self.constant = FolderParser('constant').makeOFFolder()
-        self.system = FolderParser('system').makeOFFolder()
+        self.constant = FolderParser(self._path / 'constant').makeOFFolder()
+        self.system = FolderParser(self._path / 'system').makeOFFolder()
 
     # def __init__(self, path=Path.cwd):
     #     self._location : str = str(path.parent)
@@ -511,19 +513,16 @@ class _ofCaseBase(_ofTypeBase):
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
 
-        location = copy.deepcopy(self._location) 
-        name = copy.deepcopy(self._name)
-        constant = copy.deepcopy(self.constant)
-        system = copy.deepcopy(self.system)
-        times = copy.deepcopy(self._times) 
+        # location = copy.deepcopy(self._location) 
+        # name = copy.deepcopy(self._name)
+        # constant = copy.deepcopy(self.constant)
+        # system = copy.deepcopy(self.system)
+        # times = copy.deepcopy(self._times) 
 
         # logger.debug(f"registry: {self._registry}")
         
         # registry = copy.deepcopy(self._registry)
 
-        # This actually re-initializes from file:
-        # return type(self)(location, name, times, constant, system)
-        #TODO:  Does this actually work?
         copy_ = CaseParser(self._path).initOFCase()
         copy_.__dict__ = copy.deepcopy(self.__dict__)
         logger.debug(self.__)
@@ -614,10 +613,19 @@ class _ofCaseBase(_ofTypeBase):
 
         return _toDict(obj)
 
-    def save(self, filepath=Path('.pyfoamd') / '_case.json'):
+    def save(self, path=Path('.pyfoamd') / '_case.json'):
         """
         Save the case to a JSON file.
+
+        Parameters:
+            path [Path or str]: The path of the case or file to save the JSON 
+                data
         """
+        if _isCase(path):
+            filepath = Path(path) / '.pyfoamd' / '_case.json'
+        else:
+            filepath = path
+         
         if str(filepath)[-5:] != '.json':
             filepath = Path(str(filepath)+'.json')
 
@@ -658,12 +666,12 @@ class _ofCaseBase(_ofTypeBase):
         caseFromFile = CaseParser(self._path).makeOFCase()
 
         #- Save the existing case to file as backup
-        self.save()
+        self.save(path=self._path)
         n=0
-        backupPath = Path('.pyfoamd') / f'_case.backup{n}'
+        backupPath = Path(self._path) / '.pyfoamd' / f'_case.backup{n}'
         while backupPath.is_file():
             n+=1
-            backupPath = Path('.pyfoamd') / f'_case.backup{n}'
+            backupPath = Path(self._path) / '.pyfoamd' / f'_case.backup{n}'
 
         # TODO: Write JSON data as binary to save disk space.
         #- Read in the file that was just saaved as binary:
@@ -2184,12 +2192,12 @@ class DictFileParser:
 
         Parameters:
             lines [list(str)]:  List of lines of the dictionary file as text
-            obtained from the `open()` command.
+                obtained from the `open()` command.
             i [int]: index of the line currently being parsed
 
         Returns:
             linesList [list(str)]:  List of individuals entries (space delimited)
-            for the current C++ statement.
+                for the current C++ statement.
             i [int]: index of the current line after parsing the statement 
 
         """
