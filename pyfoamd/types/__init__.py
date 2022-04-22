@@ -1251,11 +1251,11 @@ class ofSplitList(ofList):
                     #     dStr += TAB_STR+ofList(value=v).toString()
 
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                    # dStr += printNameStr(TAB_STR+k)+v.toString()
+                    # dStr :qa+= printNameStr(TAB_STR+k)+v.toString()
                     dStr += TAB_STR+v.toString(ofRep=False)
                 else:
                     dStr += TAB_STR+str(v)+'\n'
-        dStr+= ");\n\n"
+        dStr+= ");\n"
         if not ofRep:
             dStr = dStr.replace(';', '')
         return dStr
@@ -1381,6 +1381,7 @@ class ofMultilineStatement(_ofNamedTypeBase):
         if self.value is not None:
             for v in self.value:
                 if hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                    dStr += printNameStr('') 
                     dStr += v.toString(ofRep=False).strip()+"\n"
                 else:
                     logger.error("Could not find 'toString' method for type "/
@@ -1627,7 +1628,9 @@ class ofDict(dict, _ofTypeBase):
                     vList = v.toString(ofRep=ofRep).split('\n')
                     for v_ in vList:
                         dStr+= TAB_STR+v_+'\n'
-                    dStr+=';'
+                    # dStr = dStr.rstrip()
+                    # dStr+=';'
+                    dStr += '\n'
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
                     dStr += TAB_STR+v.toString(ofRep=ofRep)
@@ -1636,7 +1639,7 @@ class ofDict(dict, _ofTypeBase):
                     logger.debug("Could not find 'toString()' method.")
                     dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
 
-            logger.debug(f"dict string: {dStr}")
+            # logger.debug(f"dict string: {dStr}")
         dStr+= "}\n\n"
         # if not ofRep:
         #     dStr = dStr.replace(';', '')
@@ -3171,7 +3174,10 @@ class DictFileParser:
         if any([value == b for b in OF_BOOL_VALUES.keys()]):
             return ofBool, value
 
-        return ofStr, value.strip(';')
+        if value != ';' or value != '': 
+            return ofStr, value.strip(';')
+        else:
+            return None, None
 
     def _parseLineLenGreaterThanTwo(self):
         """
