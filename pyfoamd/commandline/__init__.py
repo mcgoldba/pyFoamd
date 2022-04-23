@@ -50,7 +50,10 @@ class CommandLine:
 
         #- store the case data as json file:
         if case is not None:
-            case.save()
+            if args.path is None:
+                case.save()
+            else:
+                case.save(path=args.path)
 
     def edit(self):
         """
@@ -164,8 +167,21 @@ class CommandLine:
         values in the `ofCase`.  Saves existing case structure in cache for 
         backup.
         """
-        case = pf.load()
+        self.prog+= ' write'
 
+        parser = argparse.ArgumentParser(prog=self.prog)
+
+        parser.add_argument('-path',type=str, nargs='?',
+                            help='The path of the OpenFOAM case to parse.')
+
+        args = parser.parse_args(self.addArgs)
+
+        if args.path is None: 
+            case = pf.load()
+        else:
+            logger.debug("Parsing with args.")
+            case = pf.load(path=args.path)
+        
         case.write()
 
 

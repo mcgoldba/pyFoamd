@@ -491,7 +491,7 @@ class _ofCaseBase(_ofTypeBase):
         if not isinstance(self._path, Path):
             self._path = Path(self._path).resolve()
         if not _isCase(self._path):
-            userMsg("Specified path is not an OpenFOAM case:/n{self._path}")
+            userMsg(f"Specified path is not an OpenFOAM case:\n{self._path}")
         self._location = str(self._path.parent.resolve())
         self._name = str(self._path.name)
         self.constant = FolderParser(self._path / 'constant').makeOFFolder()
@@ -1851,6 +1851,31 @@ class ofDimension(_ofTypeBase):
 @dataclass
 class ofNamedDimension(ofDimension):
     name : str = None
+    def __init__(self, name=None, dimensions=None):
+        self.name=name
+        super(ofNamedDimension, self).__init__(dimensions)
+
+    @property
+    def name(self):
+        return self._name
+    
+    @name.setter
+    def name(self, n):
+        logger.debug(f"name: {n}")
+        if n is not None:
+            logger.debug(f"n.split(): {n.split()}")
+            if len(n.split()) != 1:
+                raise ValueError("Name must be a single word.")
+            #TODO: Keywords can accept optional values.
+            #       e.g. "(U|p|epsilon|omega)" 
+            # try:
+            #     ofWord(n)
+            # except ValueError:
+            #     raise ValueError(f"The name '{n}' is not a valid key.")
+
+            self._name = n
+        else:
+            self._name = n
 
     def toString(self, ofRep=False) -> str:
         #- format the dimensions list properly
@@ -2272,10 +2297,17 @@ class DictFileParser:
 
             if value is not None:
             #     self.entryList.append(value)
-                if hasattr(value, '_name'):
-                    self.dictFile.update({value._name: value})
-                elif hasattr(value, 'name'):
-                    self.dictFile.update({value.name: value})
+                if (isinstance(value, _ofTypeBase) 
+                    and not isinstance(value, ofComment)):
+                    #- rename key if already in dict:
+                    if value._name in self.dictFile.keys():
+                        key = value._name+'_1'
+                    else:
+                        key = value._name
+                    if hasattr(value, '_name'):
+                        self.dictFile.update({key: value})
+                    elif hasattr(value, 'name'):
+                        self.dictFile.update({key: value})
                 elif isinstance(value, ofComment):
                     name_ = COMMENT_TAG+str(self.nComments)
                     self.dictFile.update({name_: value})

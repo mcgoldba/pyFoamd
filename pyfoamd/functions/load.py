@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 import sys
+from pyfoamd.functions import isCase
 
 import logging
 
@@ -17,17 +18,23 @@ logger = logging.getLogger('pf')
 def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
     """
     Read in an OpenFOAM case saved as a JSON object
+
+    Parameters:
+        path [str or Path]:  Either filepath or the OpenFOAM case path from
+            which data is to read.
     """
 
     if not isinstance(path, Path):
         path = Path(path)
 
     if not _backup:
-        if str(path)[-5:] != '.json':
+        if isCase(path):
+            logger.debug("Specified load path is an OpenFOAM case.")
+            path = path / '.pyfoamd' / '_case.json'
+        elif str(path)[-5:] != '.json':
             path = Path(str(path)+'.json')
-    # else:
-    #     if str(path)[-5:] == '.json':
-    #         path = Path(str(path)[:-5])
+        # if str(path)[-5:] == '.json':
+        #    path = Path(str(path)[:-5])
 
 
     # def toOfType(dict_):
@@ -130,7 +137,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     obj_ = FolderParser(path=obj['_path']).initOFFolder()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif obj['_type'] =='ofCase':
-                    obj_ = CaseParser().initOFCase()
+                    obj_ = CaseParser(path=obj['_path']).initOFCase()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif obj['_type'] == 'ofDictFile':
                     #TODO: simplify initialization
