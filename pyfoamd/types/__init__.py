@@ -1237,7 +1237,7 @@ class ofSplitList(ofList):
         Convert to a string representation.  If ofRep is `True` prints  a string
         conforming to an OpenFOAM dictionry. 
         """
-        logging.getLogger('pf').setLevel(logging.DEBUG)
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
 
         if self.name:
             dStr = self.name+"\n(\n"
@@ -1621,7 +1621,7 @@ class ofDict(dict, _ofTypeBase):
         Convert to a string representation.  If ofRep is `True` prints  a string
         conforming to an OpenFOAM dictionry. 
         """
-        logging.getLogger('pf').setLevel(logging.DEBUG)
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
 
         if self._name:
             dStr = self._name+"\n{\n"
@@ -1683,7 +1683,7 @@ class ofFoamFile(ofDict):
             Convert to a string representation.  If ofRep is `True` prints  a string
             conforming to an OpenFOAM dictionry. 
             """
-            logging.getLogger('pf').setLevel(logging.DEBUG)
+            # logging.getLogger('pf').setLevel(logging.DEBUG)
 
             if self._name:
                 dStr = self._name+"\n{\n"
