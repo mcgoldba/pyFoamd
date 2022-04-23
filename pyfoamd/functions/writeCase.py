@@ -51,7 +51,7 @@ def writeCase(case, filepath=Path('.pyfoamd') / '_case.json'):
     if str(filepath)[-5:] != '.json':
         filepath = Path(str(filepath)+'.json')
 
-    logger.setLevel(logging.DEBUG)
+    # logger.setLevel(logging.DEBUG)
 
     logger.debug(f"case: {case}")
 
