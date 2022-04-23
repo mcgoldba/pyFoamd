@@ -47,7 +47,7 @@ class JSONPyFoamdEncoder(json.JSONEncoder):
 
 def writeParams(params, filepath='inputParameters', sort=True):
 
-    logger.setLevel(logging.DEBUG)
+    # logger.setLevel(logging.DEBUG)
 
     logger.debug(f"params: {params}")
 
