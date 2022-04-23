@@ -489,8 +489,10 @@ class _ofCaseBase(_ofTypeBase):
     def __post_init__(self):
         logger.debug(f"ofCase post init path: {self._path}")
         if not isinstance(self._path, Path):
-            self._path = Path(self._path)
-        self._location = str(self._path.parent)
+            self._path = Path(self._path).resolve()
+        if not _isCase(self._path):
+            userMsg("Specified path is not an OpenFOAM case:/n{self._path}")
+        self._location = str(self._path.parent.resolve())
         self._name = str(self._path.name)
         self.constant = FolderParser(self._path / 'constant').makeOFFolder()
         self.system = FolderParser(self._path / 'system').makeOFFolder()
@@ -1384,8 +1386,9 @@ class ofMultilineStatement(_ofNamedTypeBase):
                     dStr += printNameStr('') 
                     dStr += v.toString(ofRep=False).strip()+"\n"
                 else:
-                    logger.error("Could not find 'toString' method for type "/
+                    logger.error("Could not find 'toString' method for type "\
                     f"{type(v)}")
+                    sys.exit()
             dStr = dStr.rstrip('\n')
         if ofRep:
             dStr+= ";\n"
