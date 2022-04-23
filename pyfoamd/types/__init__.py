@@ -59,7 +59,8 @@ TIME_PREFIX = "t_"
 SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute 
                  ')': '_',  # assignment of name.  Assume that key value 
                  ',': '_',  # doesnt start with '('
-                 '*': '_'}
+                 '*': '_',
+                 ':': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -1430,6 +1431,21 @@ class ofDict(dict, _ofTypeBase):
     def __setitem__(self, item, value=None):
         nameTag = None
 
+        def _parseNameTag(itemName):
+            name_ = ""
+            for c in itemName:
+                found=False
+                for special in SPECIAL_CHARS.keys():
+                    if c == special:
+                        name_+= SPECIAL_CHARS[special]
+                        found = True
+                        break
+                if not found:
+                    name_ += c
+            logger.debug("Revised name string from '{itemName}' to \
+                '{name_}'")
+            return name_
+
         logger.debug(f"ofDict.__setitem__: {item}, {value}")
         logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
 
@@ -1455,18 +1471,8 @@ class ofDict(dict, _ofTypeBase):
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
             elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
                 #- Replace special chars with attribute acceptable string
-                name_ = ""
-                for c in itemName:
-                    found=False
-                    for special in SPECIAL_CHARS.keys():
-                        if c == special:
-                            name_+= SPECIAL_CHARS[special]
-                            found = True
-                            break
-                    if not found:
-                        name_ += c
-                logger.debug("Revised name string from '{itemName}' to \
-                    '{name_}'")
+                name_ =_parseNameTag(itemName)
+
             else:
                 name_ = item.name
             self.__setattr__(name_, item)
@@ -1480,7 +1486,7 @@ class ofDict(dict, _ofTypeBase):
                 self._nUnnamed += 1
                 item_ = UNNAMED_TAG+str(self._nUnnamed)
             else:
-                item_ = item
+                item_ = _parseNameTag(item)
             self.__setattr__(item_, value)
 
 
