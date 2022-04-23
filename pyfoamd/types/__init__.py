@@ -1565,10 +1565,11 @@ class ofDict(dict, _ofTypeBase):
             self.__setitem__(iterable._name, iterable)
         elif isinstance(iterable, dict):
             for key, value in iterable.items():
-                if isinstance(value, _ofNamedTypeBase):
-                    self.__setitem__(value)
-                else:
-                    self.__setitem__(key, value)
+                # if isinstance(value, _ofNamedTypeBase):
+                #     self.__setitem__(value)
+                # else:
+                #     self.__setitem__(key, value)
+                self.__setitem__(key, value)
         else:
             self.__setitem__(iterable)
 
@@ -2301,6 +2302,7 @@ class DictFileParser:
                     and not isinstance(value, ofComment)):
                     #- rename key if already in dict:
                     if value._name in self.dictFile.keys():
+                        logger.debug("Renaming duplicate key.")
                         key = value._name+'_1'
                     else:
                         key = value._name
