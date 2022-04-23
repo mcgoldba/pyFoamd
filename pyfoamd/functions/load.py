@@ -144,7 +144,9 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     obj_ = ofDictFile(_name= obj['_name'], 
                                 _location=obj['_location'])
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
-                elif obj['_type'] == 'ofList' or obj['_type'] == 'ofSplitList':
+                elif (obj['_type'] == 'ofList' 
+                or obj['_type'] == 'ofSplitList'
+                or obj['_type'] == 'ofMultilineStatement'):
                     type_ = locate('pyfoamd.types.'+obj['_type'])
                     obj_ = type_(
                         value = [_parseCaseDict(v) for v in obj['_value']]

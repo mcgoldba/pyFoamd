@@ -3366,15 +3366,35 @@ class DictFileParser:
         calling this method
         """
 
+        def _parseVal(values):
+            """
+            Parse value storing comment in the ofType
+            """
+            foundComment = False
+
+            #- Parse comment 
+            comment = self._parseComments(values)
+            if comment is not None:
+                return comment
+
+            if '//' in values:
+                foundComment = True
+                values = values.split('//')[0]
+            type_, value_ = self._parseValue(values)
+
+            if type_ is not None:
+                return type_(value_, 
+                        _comment=self._getComment() if foundComment else None)
+            else:
+                return None
+
         #- Parse first line
         key = self.lines[self.i].split()[0]
-        type_, value_ = self._parseValue(" ".join(
-                                        self.lines[self.i].split()[1:]))
-        
-        if type_ is not None:
-            value = [type_(value_)]
+        value_ = _parseVal(' '.join(self.lines[self.i].split()[1:]))
+        if value_ is not None:
+            value = [value_]
         else:
-            vlaue = []
+            value = []
 
         i_start = self.i
 
@@ -3383,10 +3403,9 @@ class DictFileParser:
             if self.i >= len(self.lines):
                 userMsg("Invalid Syntax.  Could not find end of statement "\
                     f"starting on line {i_start+1} in {self.filepath}.", "ERROR")
-            type_, value_ = self._parseValue(self.lines[self.i])
-
-            if type_ is not None:
-                value.append(type_(value_))
+            value_ = _parseVal(' '.join(self.lines[self.i].split()[1:]))
+            if value_ is not None:
+                value.append(value_)
 
         if self.i == i_start:
             logger.warning("Parsing single line as 'ofMultilineStatement'.")
