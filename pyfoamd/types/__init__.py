@@ -197,6 +197,8 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
             self.name = kwargs.pop('name')
         if 'value' in kwargs.keys():
             self.value = kwargs.pop('value')
+        if '_comment' in kwargs.keys():
+            self._comment = kwargs.pop('_comment')
 
     @property
     def name(self):
@@ -230,6 +232,9 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
     #       from having to implement this.
     def toString(self, ofRep=False) -> str:
         str_ =  printNameStr(self.name)+str(self.value)
+
+        if self._comment is not None:
+            str_ += " //"+str(self._comment)
 
         if ofRep:
             str_ += ";\n"
@@ -3368,21 +3373,30 @@ class DictFileParser:
         calling this method
         """
 
+        logger.debug("Parsing multiline statement.")
+
         def _parseVal(values):
             """
             Parse value storing comment in the ofType
             """
             foundComment = False
 
+            logger.debug(f"values line: {values}")
+
             #- Parse comment 
             comment = self._parseComments(values)
             if comment is not None:
                 return comment
 
+
             if '//' in values:
                 foundComment = True
                 values = values.split('//')[0]
             type_, value_ = self._parseValue(values)
+
+            logger.debug(f"type values: {type_}: {value_}")
+            logger.debug(f"found comment: {foundComment}")
+            logger.debug(f"self.comment: {self.comment}")
 
             if type_ is not None:
                 return type_(value_, 
@@ -3405,7 +3419,7 @@ class DictFileParser:
             if self.i >= len(self.lines):
                 userMsg("Invalid Syntax.  Could not find end of statement "\
                     f"starting on line {i_start+1} in {self.filepath}.", "ERROR")
-            value_ = _parseVal(' '.join(self.lines[self.i].split()[1:]))
+            value_ = _parseVal(self.lines[self.i])
             if value_ is not None:
                 value.append(value_)
 
