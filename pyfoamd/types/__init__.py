@@ -281,7 +281,7 @@ class ofHeader(_ofTypeBase):
         for i, line in enumerate(
             [self.line1, self.line2, self.line3, self.line4]):
             logger.debug(f"line: {line}")
-            if len(line) > 50:
+            if len(line) > 51:
                 userMsg(f"Header line length is too long.  Value will be \
                     truncated:\n {line[:51]}")
                 self.__setattr__('line'+str(i), line[:51])
@@ -704,7 +704,7 @@ class _ofCaseBase(_ofTypeBase):
             elif isinstance(obj, ofDictFile):
                 logger.debug(f"ofDictFile obj: {obj}")
                 loc_ = Path(loc) / obj._name
-                logger.info(f"Writing dictionary {obj._name} to "\
+                userMsg(f"Writing dictionary {obj._name} to "\
                     f"{loc}.")
                 with open(loc_, 'w') as f:
                     f.write(obj.toString())
@@ -1789,13 +1789,15 @@ class ofDictFile(ofDict):
         """
         Prints as an OpenFOAM dictionary representation.
         """
-    
+   
+        logging.getLogger('pf').setLevel(logging.DEBUG)
+
         str_ = self._header.toString() if \
             hasattr(self._header, 'toString') else ''
         str_ += self._foamFile.toString(ofRep=True) if \
             hasattr(self._foamFile, 'toString') else ''
         # str_ += super(ofDictFile, self).toString(ofRep=ofRep)
-        for k, v in zip(self.keys(), self.values()):
+        for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             logger.debug(f"dict entry: {k}: {v}")
             if k is None:
                 k=''

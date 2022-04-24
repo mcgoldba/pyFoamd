@@ -53,11 +53,11 @@ def userMsg(msg, level = "INFO"):
         "ERROR": "bold red"
     }
 
-    if logger.level <= logging.DEBUG:
+    if logger.level == logging.DEBUG:
         logger.debug(f'User Msg:{level}: {msg}')
         #raise Exception
     else:
-        print(f'\n[{printStyle[level]}]{level}:[/{printStyle[level]}]'
+        print(f'\n[{printStyle[level]}]{level}:[/{printStyle[level]}]'\
             f' {msg}\n')
     
     if level == 'ERROR':
