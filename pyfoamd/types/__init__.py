@@ -87,7 +87,7 @@ def _populateRegistry(path):
 @dataclass
 class _ofTypeBase:
     """
-    Common derived class to group all ofTypes
+    Common base class to group all ofTypes
     """
     # _type: type = field(init=False, default=None)
 
@@ -107,6 +107,12 @@ class _ofTypeBase:
         """
         return dict(vars(self), _type=self._type)
 
+@dataclass
+class _ofFolderItemTypeBase:
+    """
+    Common base class to store all types allowed in an ofFolder
+    """
+    pass
 
 @dataclass 
 class _ofUnnamedTypeBase(_ofTypeBase):
@@ -339,6 +345,25 @@ def _checkReserved(name, reserved=[]):
     else:
         return name
 
+def _parseNameTag(itemName):
+    """
+    Replace any special characters not allowed in python attribute names with a 
+    suitable replacement, as specified in the `SPECIAL_CHARS` variable.
+    """
+    name_ = ""
+    for c in itemName:
+        found=False
+        for special in SPECIAL_CHARS.keys():
+            if c == special:
+                name_+= SPECIAL_CHARS[special]
+                found = True
+                break
+        if not found:
+            name_ += c
+    logger.debug("Revised name string from '{itemName}' to \
+        '{name_}'")
+    return name_
+
 # @dataclass(frozen=True)
 @dataclass
 class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
@@ -364,6 +389,17 @@ class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
                 yield (key, self.__getattribute__(key).value)
             else:
                 yield (key, self.__getattribute__(key))
+
+    def __setattr__(self, key, value):
+        if isinstance(value, _ofFolderItemTypeBase):
+            value._name = key
+            key_ = _parseNameTag(key)
+            super(_ofFolderBase, self).__setattr__(key_, value)
+        elif key.startswith('_'):
+            super(_ofFolderBase, self).__setattr__(key, value)
+        else:
+            userMsg(f"Ignoring invalid type for ofFolder attribute: "\
+                f"{type(value)}")
 
 #    def attrDict(self):
 #        """
@@ -1431,21 +1467,6 @@ class ofDict(dict, _ofTypeBase):
     def __setitem__(self, item, value=None):
         nameTag = None
 
-        def _parseNameTag(itemName):
-            name_ = ""
-            for c in itemName:
-                found=False
-                for special in SPECIAL_CHARS.keys():
-                    if c == special:
-                        name_+= SPECIAL_CHARS[special]
-                        found = True
-                        break
-                if not found:
-                    name_ += c
-            logger.debug("Revised name string from '{itemName}' to \
-                '{name_}'")
-            return name_
-
         logger.debug(f"ofDict.__setitem__: {item}, {value}")
         logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
 
@@ -1745,7 +1766,7 @@ class ofFoamFile(ofDict):
         
 
 @dataclass
-class ofDictFile(ofDict):
+class ofDictFile(ofDict, _ofFolderItemTypeBase):
     
     #TODO:  Define setters to extract name and location from path when defined
     #       Currently need to initialize as ofDictFile(_name=..., _location=...)
