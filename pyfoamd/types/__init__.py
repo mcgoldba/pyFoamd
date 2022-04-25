@@ -87,9 +87,7 @@ def _populateRegistry(path):
 @dataclass
 class _ofTypeBase:
     """
-    Common derived class to group all ofTypes 
-    (except ofFolder, because it is a frozen class that cannot inheret a
-    non-frozen class)
+    Common derived class to group all ofTypes
     """
     # _type: type = field(init=False, default=None)
 
@@ -234,13 +232,13 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
     def toString(self, ofRep=False) -> str:
         str_ =  printNameStr(self.name)+str(self.value)
 
+        if ofRep:
+            str_ += "; "
+        
         if self._comment is not None:
             str_ += " //"+str(self._comment)
 
-        if ofRep:
-            str_ += ";\n"
-        else:
-            str_ += "\n"
+        str_ += "\n"
 
         return str_
 
@@ -367,12 +365,12 @@ class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
             else:
                 yield (key, self.__getattribute__(key))
 
-    def attrDict(self):
-        """
-        Return the class __dict__ with the _type propeerty added.  Used for
-        writing class to JSON to be loaded later.
-        """
-        return dict(vars(self), _type=self._type)
+#    def attrDict(self):
+#        """
+#        Return the class __dict__ with the _type propeerty added.  Used for
+#        writing class to JSON to be loaded later.
+#        """
+#        return dict(vars(self), _type=self._type)
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
 def pickleOfFolder(f):
@@ -1406,6 +1404,8 @@ class ofMultilineStatement(_ofNamedTypeBase):
 @dataclass
 class ofDict(dict, _ofTypeBase):
 
+    #TODO: Add method or way to delete the entries (i.e. with `None``)
+
    #- ref: https://stackoverflow.com/a/27472354/10592330
     def __init__(self, *args, **kwargs):
         self._name = kwargs.pop('_name', None)
@@ -1790,8 +1790,6 @@ class ofDictFile(ofDict):
         Prints as an OpenFOAM dictionary representation.
         """
    
-        logging.getLogger('pf').setLevel(logging.DEBUG)
-
         str_ = self._header.toString() if \
             hasattr(self._header, 'toString') else ''
         str_ += self._foamFile.toString(ofRep=True) if \
@@ -2433,6 +2431,7 @@ class DictFileParser:
         else:
             logger.error(f"Cannot handle single line entry '{lineList}' on line "\
                 f"{self.i+1} of {self.filepath}.")
+            sys.exit()
 
 
     def _parseSingleLineEntry(self, key, value):

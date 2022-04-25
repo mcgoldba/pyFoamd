@@ -57,7 +57,7 @@ def userMsg(msg, level = "INFO"):
         logger.debug(f'User Msg:{level}: {msg}')
         #raise Exception
     else:
-        print(f'\n[{printStyle[level]}]{level}:[/{printStyle[level]}]'\
+        print(f'[{printStyle[level]}]{level}:[/{printStyle[level]}]'\
             f' {msg}\n')
     
     if level == 'ERROR':

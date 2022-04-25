@@ -62,11 +62,13 @@ Description
             return isOFDict
 
         #- Find start of first commented block
+        i_start=-1
         for i, line in enumerate(lines):
+            i_start += 1
             if line.startswith('/*'):
                 break
 
-        if i+7 < len(lines):
+        if i_start+7 < len(lines):
             commentedBlock = lines[i:i+7]
 
             if (commentedBlock[0].startswith(
