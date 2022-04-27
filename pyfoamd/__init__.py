@@ -58,7 +58,7 @@ def userMsg(msg, level = "INFO"):
         #raise Exception
     else:
         print(f'[{printStyle[level]}]{level}:[/{printStyle[level]}]'\
-            f' {msg}\n')
+            f' {msg}')
     
     if level == 'ERROR':
         sys.exit()

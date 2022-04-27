@@ -114,7 +114,7 @@ Description
         #         break
 
     if isOFDict:
-        logger.debug(f"'{file}' is a an OpenFOAM dictionary file.")
+        logger.debug(f"'{file}' is an OpenFOAM dictionary file.")
     else:
         logger.debug(f"'{file}' is not an OpenFOAM dictionary file.")
 

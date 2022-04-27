@@ -60,7 +60,8 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  ')': '_',  # assignment of name.  Assume that key value 
                  ',': '_',  # doesnt start with '('
                  '*': '_',
-                 ':': '_'}
+                 ':': '_',
+                 '.': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -108,7 +109,7 @@ class _ofTypeBase:
         return dict(vars(self), _type=self._type)
 
 @dataclass
-class _ofFolderItemTypeBase:
+class _ofFolderItemBase(_ofTypeBase):
     """
     Common base class to store all types allowed in an ofFolder
     """
@@ -340,10 +341,10 @@ def _checkReserved(name, reserved=[]):
     the Python console.
     Append an `_` to these keys and remove underscore when printing to string.
     """
-    if name in keyword.kwlist or name in reserved:
-        return name+"_"
-    else:
-        return name
+    while name in keyword.kwlist or name in reserved:
+        name += "_"
+    
+    return name
 
 def _parseNameTag(itemName):
     """
@@ -360,14 +361,15 @@ def _parseNameTag(itemName):
                 break
         if not found:
             name_ += c
-    logger.debug("Revised name string from '{itemName}' to \
-        '{name_}'")
+    if name_ != itemName:
+        logger.debug(f"Revised name string from '{itemName}' to "\
+            f"'{name_}'")
     return name_
 
 # @dataclass(frozen=True)
 @dataclass
-class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
-                      #         Type checking must be handled separately.
+class _ofFolderBase(_ofFolderItemBase):  
+    # TODO:  Cannot add files or folders to an existing ofFolder instance
     _path: str = None
     _type: type = 'ofFolder'
 
@@ -391,15 +393,22 @@ class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
                 yield (key, self.__getattribute__(key))
 
     def __setattr__(self, key, value):
-        if isinstance(value, _ofFolderItemTypeBase):
+        if isinstance(value, _ofFolderItemBase):
             value._name = key
             key_ = _parseNameTag(key)
+            logger.debug(f"ofFolder adding attribute {key_} as {value}")
+            # super(_ofFolderBase, self).__setitem__(key_, value)
             super(_ofFolderBase, self).__setattr__(key_, value)
+            super(_ofFolderBase, self).__dict__[key_] =  value
+
         elif key.startswith('_'):
+            logger.debug(f"ofFolder adding attribute {key} as {value}")
+            # super(_ofFolderBase, self).__setitem__(key, value)
             super(_ofFolderBase, self).__setattr__(key, value)
+            super(_ofFolderBase, self).__dict__[key] =  value
         else:
             userMsg(f"Ignoring invalid type for ofFolder attribute: "\
-                f"{type(value)}")
+                f"{type(value)}", "WARNING")
 
 #    def attrDict(self):
 #        """
@@ -424,9 +433,13 @@ class FolderParser:  # Class id required because 'default_factory' argument
         logger.debug(f"Parsing folder: {self.path}")
 
         attrList = [('_path', str, field(default=str(self.path)))]
+        internalNames = {}
         for obj in Path(self.path).iterdir():
             #- Prevent invalid ofFolder attribute names:
-            name_ = _checkReserved(obj.name.replace('.', '_'), ['_path'])
+            name_ = _checkReserved(obj.name, ['_path', '_type'])
+            name_ = _parseNameTag(name_)
+            if name_ != obj.name:
+                internalNames.update({name_:obj.name})
             if name_.split('_')[0].isdigit():
                 #- Add time prefix to time directories
                 name_ = TIME_PREFIX+name_
@@ -435,7 +448,7 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
-                attrList.append((name_, _ofFolderBase, 
+                attrList.append((name_, _ofFolderBase,
                     field(default_factory=FolderParser(obj).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
             if obj.is_file() and _isOFDict(obj):
@@ -445,13 +458,22 @@ class FolderParser:  # Class id required because 'default_factory' argument
                                     DictFileParser(obj).readDictFile) )
                 )
 
-        dc_ = make_dataclass('ofFolder', 
+
+        dc = make_dataclass('ofFolder', 
                             attrList, bases=(_ofFolderBase, )) #, frozen=True)
+
+        dc_ = dc()
+
+        #- Rest the ofFolder item _name attribute to be the true name with special characters.
+        # TODO: Not sure why the revised name is stored as the _name attribute here.
+        logger.debug(f"dc_ dict: {dc_.__dict__}")
+        for key, value in internalNames.items():
+                dc_.__dict__[key]._name = value
 
         # logger.debug(f"ofFolder dataclass: {dc_}")
         # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
 
-        return dc_()
+        return dc_
 
     # def loadOFFolder(self, attrList):
     #     """
@@ -663,9 +685,14 @@ class _ofCaseBase(_ofTypeBase):
             path [Path or str]: The path of the case or file to save the JSON 
                 data
         """
+
+        logger.debug(f"path: {path}")
+
         if _isCase(path):
+            logger.debug("save: Found case as path!")
             filepath = Path(path) / '.pyfoamd' / '_case.json'
         else:
+            logger.debug("save: Did not find case as path!")
             filepath = path
          
         if str(filepath)[-5:] != '.json':
@@ -705,7 +732,7 @@ class _ofCaseBase(_ofTypeBase):
 
         logger.debug(f'self._path: {self._path}')
 
-        caseFromFile = CaseParser(self._path).makeOFCase()
+        #caseFromFile = CaseParser(self._path).makeOFCase()
 
         #- Save the existing case to file as backup
         self.save(path=self._path)
@@ -831,7 +858,7 @@ class CaseParser:
     #     self.store[self._keytransform(key)] = value
     #
     # def __delitem__(self, key):
-    #     del self.store[self._keytransform(key)]
+        #     del self.store[self._keytransform(key)]
     #
     # def __iter__(self):
     #     return iter(self.store)
@@ -1512,8 +1539,8 @@ class ofDict(dict, _ofTypeBase):
 
 
     def __setattr__(self, key, value):
-        logger.debug(f"ofDict.__setattr__ key value: {key}, {value}")
         key_ = _checkReserved(key)
+        logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
         super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
         super(ofDict, self).__setattr__(key_, value)
@@ -1533,8 +1560,9 @@ class ofDict(dict, _ofTypeBase):
             super(ofDict, self).__dict__[key_] = ofType
         else:
             # self.__dict__[key] = value
+            # key_ = _parseNameTag(key_)
             super(ofDict, self).__dict__[key_] = value
-    
+
     def __delattr__(self, name):
         super(ofDict, self).__delitem__(self, name)
         super(ofDict, self).__delattr__(self, name)
@@ -1766,7 +1794,7 @@ class ofFoamFile(ofDict):
         
 
 @dataclass
-class ofDictFile(ofDict, _ofFolderItemTypeBase):
+class ofDictFile(ofDict, _ofFolderItemBase):
     
     #TODO:  Define setters to extract name and location from path when defined
     #       Currently need to initialize as ofDictFile(_name=..., _location=...)
@@ -2236,6 +2264,7 @@ class DictFileParser:
         with open(filepath, 'r') as f:
             self.lines = f.readlines()
         self.status = None
+        logger.debug(f"Setting dictFile name to {Path(filepath).name}...")
         self.dictFile = ofDictFile(_name=Path(filepath).name, 
                             _location=Path(filepath).parent)
         self.i=0
@@ -2316,17 +2345,20 @@ class DictFileParser:
         attempts = 0
         while True:
             attempts += 1
-            logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
             if attempts > 1000:
                 logger.error("Error reading dictionary file.  Maximum "\
                     "number of lines exceeded.")
                 sys.exit()
             if self.i >= len(self.lines):
                 break
-
+            
+            logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
+            
             value = self._parseLine()
 
             logger.debug(f"** FINAL VALUE: {value}")
+
+            logger.debug(f"dictFile name = {self.dictFile._name} ")
 
             if value is not None:
             #     self.entryList.append(value)
@@ -2339,6 +2371,7 @@ class DictFileParser:
                     else:
                         key = value._name
                     if hasattr(value, '_name'):
+                        logger.debug(f"_parseLine: setting {key}: {value}")
                         self.dictFile.update({key: value})
                     elif hasattr(value, 'name'):
                         self.dictFile.update({key: value})
@@ -2356,6 +2389,8 @@ class DictFileParser:
         #                 #location=Path(file).parent, 
         #                 #filename=Path(file).name
         #                 )
+        
+        logger.debug(f"dictFile name = {self.dictFile._name} ")
 
         return self.dictFile
 
