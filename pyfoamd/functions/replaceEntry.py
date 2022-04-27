@@ -3,14 +3,14 @@ from shutil import copyfile
 
 from .private.dictUtil import _replaceStringEntry, _replaceSingleLineEntry
 
-def replaceEntry(ofValue, rType='singleLine', silent=False):
+def replaceEntry(ofValue, location, filename, rType='singleLine', silent=False):
     #- Base function for ofDict replacements
     #- rType = Replacement type.  One of:  ['string', 'singleLine']
 
     file = os.path.join(
             os.getcwd(),
-            ofValue.location,
-            ofValue.filename
+            location,
+            filename
     )
 
     #- Check if the file exists
@@ -45,4 +45,4 @@ def replaceEntry(ofValue, rType='singleLine', silent=False):
         copyfile(file+"_old", file)
         raise ValueError("Key "+ str(ofValue.name)+ \
                      " not found in file:  "+ \
-                     os.path.join(ofValue.location,ofValue.filename)+'\n')
+                     os.path.join(location,filename)+'\n')
