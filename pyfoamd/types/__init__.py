@@ -185,7 +185,9 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         # else:
         #     logger.debug("Setting name to 'None'")
         #     self.name = kwargs.pop('name', None)
-    def __init__(self, arg1=None, arg2=None, **kwargs):
+    # def __init__(self, arg1=None, arg2=None, **kwargs):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
         logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
         if arg1 == None and arg2 == None:
             self.value : str = None
@@ -199,12 +201,25 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
             logger.debug("Setting ofNamedType .name")
             self.name : str = arg1
             self.value : str = arg2
-        if 'name' in kwargs.keys():
-            self.name = kwargs.pop('name')
-        if 'value' in kwargs.keys():
-            self.value = kwargs.pop('value')
-        if '_comment' in kwargs.keys():
-            self._comment = kwargs.pop('_comment')
+        # if 'name' in kwargs.keys():
+        #     self.name = kwargs.pop('name')
+        # if 'value' in kwargs.keys():
+        #     self.value = kwargs.pop('value')
+        # if '_comment' in kwargs.keys():
+        #     self._comment = kwargs.pop('_comment')
+        if name is not None:
+            self.name = name
+        super(_ofNamedTypeBase, self).__init__(value, _comment)
+
+    # def __init__(self, name=None, value=None, _comment=None):
+    #     self.name = name
+    #     super(_ofNamedTypeBase, self).__init__(value, _comment)
+
+    #- Alternative constructor
+    # ref: https://realpython.com/python-multiple-constructors/#providing-multiple-constructors-with-classmethod-in-python
+    @classmethod
+    def unnamed(cls, value):
+        return cls(value=value, name=None)
 
     @property
     def name(self):
@@ -438,8 +453,6 @@ class FolderParser:  # Class id required because 'default_factory' argument
             #- Prevent invalid ofFolder attribute names:
             name_ = _checkReserved(obj.name, ['_path', '_type'])
             name_ = _parseNameTag(name_)
-            if name_ != obj.name:
-                internalNames.update({name_:obj.name})
             if name_.split('_')[0].isdigit():
                 #- Add time prefix to time directories
                 name_ = TIME_PREFIX+name_
@@ -448,17 +461,23 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
+                logger.debug(f"Check that {name_} == {obj.name}")
+                if name_ != obj.name:
+                    internalNames.update({name_:obj.name})
+                
                 attrList.append((name_, _ofFolderBase,
                     field(default_factory=FolderParser(obj).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
             if obj.is_file() and _isOFDict(obj):
+                logger.debug(f"Check that {name_} == {obj.name}")
+                if name_ != obj.name:
+                    internalNames.update({name_:obj.name})
+               
                 attrList.append( (name_, ofDictFile,
                                 #field(default=DictFileParser(obj).readDictFile()) )
                                 field(default_factory=
                                     DictFileParser(obj).readDictFile) )
                 )
-
-
         dc = make_dataclass('ofFolder', 
                             attrList, bases=(_ofFolderBase, )) #, frozen=True)
 
@@ -468,7 +487,8 @@ class FolderParser:  # Class id required because 'default_factory' argument
         # TODO: Not sure why the revised name is stored as the _name attribute here.
         logger.debug(f"dc_ dict: {dc_.__dict__}")
         for key, value in internalNames.items():
-                dc_.__dict__[key]._name = value
+            logger.debug(f"Modifying key: {key}")
+            dc_.__dict__[key]._name = value
 
         # logger.debug(f"ofFolder dataclass: {dc_}")
         # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
@@ -1106,8 +1126,10 @@ TYPE_REGISTRY.append(ofInt)
 
 @dataclass
 class ofFloat(_ofNamedTypeBase):
-    def __init__(self, *args, **kwargs):
-        super(ofFloat, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofFloat, self).__init__(arg1, arg2, name=name, value=value, 
+            _comment=_comment)
     
     @property
     def value(self):
@@ -1914,7 +1936,7 @@ class ofNamedDimension(ofDimension):
     name : str = None
     def __init__(self, name=None, dimensions=None):
         self.name=name
-        super(ofNamedDimension, self).__init__(dimensions)
+        super(ofNamedDimension, self).__init__(dimensions=dimensions)
 
     @property
     def name(self):
@@ -1952,24 +1974,14 @@ class ofNamedDimension(ofDimension):
 
 @dataclass
 class ofDimensionedScalar(ofFloat, ofDimension):
-
-    #- Ensure dimensions are a list of length 7 per OpenFOAM convention
-    # @property
-    # def dimensions(self):
-    #     return self._dimensions
-
-    # @dimensions.setter
-    # def dimensions(self, d):
-    #     if (len(d) != 7 or any(isinstance(i, int) for i in d) is False):
-    #         raise Exception('Dimensions must be a list of 7 integer values, where each entry corresponds to a base unit type: \
-    # 1:  Mass - kilogram (kg) \
-    # 2:  Length - meter (m) \
-    # 3:  Time - second (s) \
-    # 4:  Temperature - Kelvin (K) \
-    # 5:  Quantity - mole (mol) \
-    # 6:  Current - ampere (A) \
-    # 7:  Luminous intensity - candela (cd)')
-    #     self._dimensions = d
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        dimensions=None, _comment=None):
+        # super(ofDimensionedScalar, self).__init__(arg1=arg1, arg2=arg2, name=name, 
+        #     value=value, dimensions=dimensions, _comment=_comment )
+        ofFloat.__init__(self, arg1=arg1, arg2=arg2, name=name, value=value, 
+            _comment=None)
+        ofDimension.__init__(self, dimensions=dimensions)
+     
 
     def toString(self, ofRep=False) -> str:
         # #- format the dimensions list properly
@@ -3144,7 +3156,7 @@ class DictFileParser:
         type_, value_ = self._parseValue(valueStr_)
         logger.debug(f"type: {type_}")
         # logger.debug(f"value: {type_(value=value_)}")
-        value__ = type_(value_)
+        value__ = type_(value=value_)
         return ofUniformField(name=name, value=value__) 
         # else: # parse lines
         #     line = self.lines[self.i]
