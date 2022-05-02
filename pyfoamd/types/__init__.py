@@ -2030,8 +2030,14 @@ class ofVector(_ofUnnamedTypeBase):
         else:
             self._value = [0.0, 0.0, 0.0]
 
-    def toString(self) -> str:
-        return self.valueStr
+    def toString(self, ofRep=False) -> str:
+        str_ =  self.valueStr
+
+        if ofRep:
+            str_ += ';\n'
+        
+        return str_
+
 #        return "("+str(self.value[0])+ \
 #                " "+str(self.value[1])+ \
 #                " "+str(self.value[2])+")"
@@ -2496,6 +2502,10 @@ class DictFileParser:
         elif lineList[1] == 'table':
             # Found a table entry
             return self._parseTable(lineList[0])
+        elif lineList[1] == '(' or lineList[1] == '{':
+            # Found list or dict
+            self.i += 1
+            return self._parseListOrDict(lineList[0], line=lineList[1])
         else:
             logger.error(f"Cannot handle single line entry '{lineList}' on line "\
                 f"{self.i+1} of {self.filepath}.")
