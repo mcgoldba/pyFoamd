@@ -2504,7 +2504,6 @@ class DictFileParser:
             return self._parseTable(lineList[0])
         elif lineList[1] == '(' or lineList[1] == '{':
             # Found list or dict
-            self.i += 1
             return self._parseListOrDict(lineList[0], line=lineList[1])
         else:
             logger.error(f"Cannot handle single line entry '{lineList}' on line "\
