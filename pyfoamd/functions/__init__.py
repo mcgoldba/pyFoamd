@@ -51,7 +51,7 @@ from .monitor import monitor
 from .writeConfig import writeConfig
 from .readConfig import readConfig
 from .extractLogData import extractLogData
-from .isOFDict import isOFDict
+from .isDictFile import isDictFile
 from .init import init
 from .readCaseFromCache import readCaseFromCache
 from .writeCase import writeCase

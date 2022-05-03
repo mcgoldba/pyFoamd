@@ -1,4 +1,4 @@
-from ..functions import isOFDict
+from ..functions import isDictFile
 import os
 import sys
 from pathlib import Path
@@ -25,7 +25,7 @@ def _readDictFile(file):
 
     #pyOFDict = ofDictFile(os.path.basename(file), [])
 
-    if not isOFDict(file):
+    if not isDictFile(file):
         raise Exception("File is not a valid OpenFOAM dictionary file:"
                         f"\n{file}")
 

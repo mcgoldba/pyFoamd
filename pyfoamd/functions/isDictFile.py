@@ -1,9 +1,10 @@
 import sys
+from pathlib import Path
 
 import logging
 logger = logging.getLogger('pf')
 
-def isOFDict(file):
+def isDictFile(file):
     """
     Checks if the argument file is an OpenFOAM dictionary file.  It is assumed
     that all OpenFOAM dictionary files start with a block comment header of the 
@@ -31,9 +32,12 @@ Description
     """
 
     # -Convert to string in case of Path object
-    file = str(file)
+    file = Path(file)
 
-    isOFDict = False
+    if file.is_dir():
+        return False
+
+    isDictFile = False
 
     with open(file) as f:
         lines = f.readlines
@@ -71,7 +75,7 @@ Description
     #             continue
     #         else:
     #             if line.startswith('FoamFile'):
-    #                 isOFDict = True
+    #                 isDictFile = True
     #             break
 
-    # return isOFDict
+    # return isDictFile

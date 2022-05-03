@@ -18,7 +18,7 @@ import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
 from inspect import signature #- just for debugging
 
 from pyfoamd import setLoggerLevel, userMsg
-from ._isOFDict import _isOFDict
+from ._isDictFile import _isDictFile
 from ._isCase import _isCase
 
 from rich.console import Console
@@ -468,7 +468,7 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 attrList.append((name_, _ofFolderBase,
                     field(default_factory=FolderParser(obj).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
-            if obj.is_file() and _isOFDict(obj):
+            if obj.is_file() and _isDictFile(obj):
                 logger.debug(f"Check that {name_} == {obj.name}")
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
