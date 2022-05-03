@@ -4,8 +4,7 @@ from shutil import copyfile
 import warnings
 
 from pyfoamd.types import ofDictFile, ofDict, ofList, ofInt, ofFloat, \
-    ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, \
-        ofDimensionedVector, TAB_STR
+    ofStr, ofBool, ofDimensionedScalar, ofVector, ofDimensionedVector, TAB_STR
 
 import logging
 

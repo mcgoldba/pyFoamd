@@ -1568,9 +1568,26 @@ class ofDict(dict, _ofTypeBase):
         super(ofDict, self).__setattr__(key_, value)
         # self.__setattr__(key, value)
         # if key not in self._CLASS_VARS:
+        def _parseList(obj):
+            if not isinstance(obj, list):
+                logger.error("Recived non list type as value.")
+                sys.exit()
+            else:
+                ofType_ = ofSplitList()
+                #TODO: Parse lists of lists
+                for v in value:
+                    if isinstance(v, list):
+                        ofType_.value.append(_parseList(v))
+                    else:
+                        type_, value_ = DictFileParser._parseValue(v)
+                        logger.debug(f"type, value: {type_}, {value_}")
+                        ofType_.value.append(type_(name=key_, value=value_))
+            return ofType_
         if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
         # if key not in self._CLASS_VARS:
-            if value is not None and not isinstance(value, _ofTypeBase):
+            if isinstance(value, list):
+                ofType = _parseList(value)    
+            elif value is not None and not isinstance(value, _ofTypeBase):
                 logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
                 logger.debug(f"type, value: {type_}, {value_}")
@@ -2002,7 +2019,13 @@ class ofDimensionedScalar(ofFloat, ofDimension):
         return self.toString().rstrip(';\n')
 
 @dataclass
-class ofVector(_ofUnnamedTypeBase):
+# class ofVector(_ofUnnamedTypeBase):
+class ofVector(_ofNamedTypeBase):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+                _comment=None):
+        super(ofVector, self).__init__(arg1=None, arg2=None, name=None, 
+                                        value=None, _comment=None)
+
 
     #- Ensure the value is numeric list of length 3
     @property
@@ -2031,7 +2054,13 @@ class ofVector(_ofUnnamedTypeBase):
             self._value = [0.0, 0.0, 0.0]
 
     def toString(self, ofRep=False) -> str:
-        str_ =  self.valueStr
+        
+        if self.name is not None:
+            str_ = printNameStr(self.name)
+        else:
+            str_ = ''
+        
+        str_ +=  self.valueStr
 
         if ofRep:
             str_ += ';\n'
@@ -2161,19 +2190,19 @@ class ofUniformField(_ofNamedTypeBase):
 
 
 
-@dataclass
-class _ofNamedVectorBase(_ofNamedTypeBase):
-    name: str = None
+# @dataclass
+# class _ofNamedVectorBase(_ofNamedTypeBase):
+#     name: str = None
 
-@dataclass
-class ofNamedVector(ofVector, _ofNamedVectorBase):
+# @dataclass
+# class ofNamedVector(ofVector, _ofNamedVectorBase):
 
 
-    def toString(self, ofRep = True) -> str:
-        str_ =  printNameStr(self.name)+self.valueStr
+#     def toString(self, ofRep = True) -> str:
+#         str_ =  printNameStr(self.name)+self.valueStr
         
-        if ofRep:
-            str_ += ";\n"
+#         if ofRep:
+#             str_ += ";\n"
 
 
 
