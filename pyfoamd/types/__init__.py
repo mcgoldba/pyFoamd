@@ -620,9 +620,6 @@ class _ofCaseBase(_ofTypeBase):
     #         setattr(result, k, copy.deepcopy(v, memo))
     #     return result
 
-
-
-
     def __iter__(self):
         logger.debug(f"vars(self).keys(): {vars(self).keys()}")
         for key in vars(self).keys(): 
@@ -640,6 +637,10 @@ class _ofCaseBase(_ofTypeBase):
                 yield (key, self.__getattribute__(key).value)
             else:
                 yield (key, self.__getattribute__(key))
+
+    #- make class substriptable (i.e. case['attr'] access)
+    def __getitem__(self, item):
+         return getattr(self, item)
 
     #- Recursively convert an ofCase object (or any type) to a dictionary.
     def toDict(self, obj=None):

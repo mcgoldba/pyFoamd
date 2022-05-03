@@ -40,7 +40,7 @@ Description
     isDictFile = False
 
     with open(file) as f:
-        lines = f.readlines
+        lines = f.readlines()
 
         #- Parse file to first block comment
         for i, line in enumerate(lines): 
