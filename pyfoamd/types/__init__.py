@@ -1,19 +1,17 @@
 from dataclasses import dataclass, field, make_dataclass
-from signal import valid_signals
-from typing import List, Dict, Sequence
+from typing import List, Callable
 import copy
 from pathlib import Path
 import os
-import warnings
 import sys
 import string #- to check for whitespace
 import re
 import pandas as pd
 import copyreg
 import json
-import pickle
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
+import subprocess
 
 from inspect import signature #- just for debugging
 
@@ -793,6 +791,10 @@ class _ofCaseBase(_ofTypeBase):
 
         _writeCaseObj(self)
 
+    def allRun(self):
+        script_ = str(Path(self._path)/ 'Allrun')
+        userMsg(f"Running Allrun script from {runDir}.")
+        subprocess.check_call('./'+script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
 def pickleOfCase(f):
@@ -2304,6 +2306,78 @@ class ofIncludeFunc(ofInclude):
     _name: str = field(init=False, default="#includeFunc")
 
 TYPE_REGISTRY.append(ofIncludeFunc)
+
+@dataclass
+class ofStudy:
+    _samples : np.ndarray
+    parameterNames : list
+    templatePath : Path
+    updateFunction : Callable
+    path: Path = Path.cwd()
+
+    def __post_init__(self):
+        self.templateCase = CaseParser(self.templatePath).makeOFCase()
+        self.templateCase._name = self.templateCase._name.rstrip('.template')
+        self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
+        self.nSamples = len(self.samples)
+
+    @property
+    def samples(self):
+        return self._property
+    
+    @samples.setter
+    def samples(self, s):
+        if not isinstance(s, np.ndarray):
+            try:
+                s = np.ndarray(s)
+            except ValueError:
+                userMsg("'samples' entry must be numpy array_like.  "\
+                    "Found {s}.", "ERROR")
+        if s.ndim != 2:
+            dimText = 'dimension' if s.ndim == 1 else 'dimensions'
+            userMsg("'samples' entry must be a 2D array_like.  "\
+                    f"Found {s.ndim} {dimText}.", "ERROR")
+        self._samples = s
+            
+    @property
+    def parameterNames(self):
+        return self._parameterNames
+
+    @parameterNames.setter
+    def parameterNames(self, n):
+        if not isinstance(n, list):
+            userMsg("'parameterNames' argument must be list type."\
+                f"  Found {type(n)}", "ERROR")
+        if len(n) != len(self.samples[:]):
+            userMsg("'parameterNames' argument must have length equal to"\
+                f" the length of columns in 'samples'.  {len(n)} != "\
+                    f"{len(self.samples[:])}", "ERROR")
+        self._parameterNames = n
+
+    @property
+    def updateFunction(self):
+        return self._updateFunction
+
+    @updateFunction.setter
+    def updateFunction(self, f):
+        if not callable(f):
+            userMsg("'updateFunction' argument must be callable.", "ERROR")
+        self._updateFunction = f
+
+    def run(self):
+        #- Save the sample points to file
+        self.samples.to_csv('studySamplePoints.txt', sep='\t')
+
+        nPad = len(str(self.nSamples))
+
+        for idx, row in self.samples.iterrows():
+            case_ = self.updateFunction(self.templateCase, 
+                                        row.values.flatten().tolist())
+            
+            case_.location = self.path / self.templateCase._name\
+                        +'.'+str(idx).zfill(nPad)
+            case_.write()
+            case_.allRun()            
 
 
 class DictFileParser:
