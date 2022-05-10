@@ -1639,10 +1639,10 @@ class ofDict(dict, _ofTypeBase):
 
     def __deepcopy__(self, memo=None):
         print("__deepcopy__ type(self):", type(self))
-        new = self.from_dict({})
+        new_ = ofDict()
         for key in self.keys():
-            new.set_attribute(key, copy.deepcopy(self[key], memo=memo))
-        return new
+            new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
+        return new_
 
     # _update = dict.update
 
