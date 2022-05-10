@@ -12,6 +12,7 @@ import json
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
 import subprocess
+import numpy as np
 
 from inspect import signature #- just for debugging
 
@@ -1876,6 +1877,10 @@ class ofDictFile(ofDict, _ofFolderItemBase):
     def __str__(self):
         return self.toString()
 
+    #- Iterate only over dict file entries
+    # def __iter__(self):
+
+
     def toString(self, ofRep=True):
         """
         Prints as an OpenFOAM dictionary representation.
@@ -2309,35 +2314,40 @@ TYPE_REGISTRY.append(ofIncludeFunc)
 
 @dataclass
 class ofStudy:
-    _samples : np.ndarray
-    parameterNames : list
     templatePath : Path
+    parameterNames : list   # Note: this argument must be parsed before 'samples' 
+                            # for DataFrame conversion
+    samples : np.ndarray
     updateFunction : Callable
     path: Path = Path.cwd()
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
         self.templateCase._name = self.templateCase._name.rstrip('.template')
-        self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
+        #self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
         self.nSamples = len(self.samples)
 
     @property
     def samples(self):
-        return self._property
+        return self._samples
     
     @samples.setter
     def samples(self, s):
         if not isinstance(s, np.ndarray):
             try:
-                s = np.ndarray(s)
+                s = np.asarray(s)
             except ValueError:
                 userMsg("'samples' entry must be numpy array_like.  "\
                     "Found {s}.", "ERROR")
+        if any([len(self.parameterNames) != len(s_) for s_ in s]):
+            userMsg("'parameterNames' argument must have length equal to"\
+                f" the length of columns in 'samples'.  {len(self.parameterNames)} != "\
+                    f"{len(s[0])}", "ERROR")
         if s.ndim != 2:
             dimText = 'dimension' if s.ndim == 1 else 'dimensions'
             userMsg("'samples' entry must be a 2D array_like.  "\
                     f"Found {s.ndim} {dimText}.", "ERROR")
-        self._samples = s
+        self._samples = pd.DataFrame(s, columns = self.parameterNames)
             
     @property
     def parameterNames(self):
@@ -2348,10 +2358,6 @@ class ofStudy:
         if not isinstance(n, list):
             userMsg("'parameterNames' argument must be list type."\
                 f"  Found {type(n)}", "ERROR")
-        if len(n) != len(self.samples[:]):
-            userMsg("'parameterNames' argument must have length equal to"\
-                f" the length of columns in 'samples'.  {len(n)} != "\
-                    f"{len(self.samples[:])}", "ERROR")
         self._parameterNames = n
 
     @property
@@ -2371,11 +2377,11 @@ class ofStudy:
         nPad = len(str(self.nSamples))
 
         for idx, row in self.samples.iterrows():
-            case_ = self.updateFunction(self.templateCase, 
-                                        row.values.flatten().tolist())
-            
-            case_.location = self.path / self.templateCase._name\
-                        +'.'+str(idx).zfill(nPad)
+            tCase_ = self.templateCase
+            tCase_._name = self.templateCase._name+'.'+str(idx).zfill(nPad)
+            tCase_._location = self.path / tCase_._name
+            case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
+
             case_.write()
             case_.allRun()            
 
