@@ -1,8 +1,12 @@
 import sys
 from pathlib import Path
 
+from pyfoamd.types import _isDictFile
+
 import logging
 logger = logging.getLogger('pf')
+
+
 
 def isDictFile(file):
     """
@@ -22,7 +26,7 @@ Description
 
 \*---------------------------------------------------------------------------*/
     
-    Previous impementation:
+    Previous implementation:
 
     It is assumed that all OpenFOAM dictionary files start with the first 
     uncommented line as 'FoamFile\n'
@@ -31,28 +35,30 @@ Description
         file (str or Path):  The path of the file to test.
     """
 
-    # -Convert to string in case of Path object
-    file = Path(file)
+    # # -Convert to string in case of Path object
+    # file = Path(file)
 
-    if file.is_dir():
-        return False
+    # if file.is_dir():
+    #     return False
 
-    isDictFile = False
+    # isDictFile = False
 
-    with open(file) as f:
-        lines = f.readlines()
+    # with open(file) as f:
+    #     lines = f.readlines()
 
-        #- Parse file to first block comment
-        for i, line in enumerate(lines): 
-            if line.startswith('*/'):
-                break
+    #     #- Parse file to first block comment
+    #     for i, line in enumerate(lines): 
+    #         if line.startswith('*/'):
+    #             break
 
-        blockComment = lines[i:i+7]
+    #     blockComment = lines[i:i+7]
 
             
-    logger.debug(f"blockComment: {blockComment}")
-    sys.exit()
+    # logger.debug(f"blockComment: {blockComment}")
+    # sys.exit()
 
+
+    return _isDictFile(file)
 
     #- Previous implementation
 

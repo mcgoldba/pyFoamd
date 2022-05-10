@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 from pyfoamd import getPyFoamdConfig
 
 #from pyfoamd.richLogger import logger
@@ -40,6 +41,9 @@ Description
 
     isDictFile = False
 
+    #- Skip directories
+    if Path(file).is_dir():
+        return False
 
     filesizeLimit = int(getPyFoamdConfig('dict_filesize_limit'))
 

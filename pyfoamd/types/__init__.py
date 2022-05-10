@@ -16,7 +16,7 @@ import numpy as np
 
 from inspect import signature #- just for debugging
 
-from pyfoamd import setLoggerLevel, userMsg
+from pyfoamd import setLoggerLevel, userMsg, getPyFoamdConfig
 from ._isDictFile import _isDictFile
 from ._isCase import _isCase
 
@@ -407,6 +407,7 @@ class _ofFolderBase(_ofFolderItemBase):
                 yield (key, self.__getattribute__(key))
 
     def __setattr__(self, key, value):
+        logger.debug(f"Setting ofFolder attribute: {key}: {value}")
         if isinstance(value, _ofFolderItemBase):
             value._name = key
             key_ = _parseNameTag(key)
@@ -421,8 +422,17 @@ class _ofFolderBase(_ofFolderItemBase):
             super(_ofFolderBase, self).__setattr__(key, value)
             super(_ofFolderBase, self).__dict__[key] =  value
         else:
-            userMsg(f"Ignoring invalid type for ofFolder attribute: "\
-                f"{type(value)}", "WARNING")
+            # userMsg(f"Ignoring invalid type for ofFolder attribute: "\
+            #     f"{type(value)}", "WARNING")
+            raise Exception(f"Ignoring invalid type for ofFolder attribute: "\
+                f"{type(value)}")
+
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
 
 #    def attrDict(self):
 #        """
@@ -812,6 +822,10 @@ class CaseParser:
             self.path = path
   
     def makeOFCase(self):
+
+        debug = True if getPyFoamdConfig('debug') == 'True' else False
+
+        setLoggerLevel("DEBUG" if debug else "INFO")
 
         attrList = []
         # attrList = [
@@ -2377,10 +2391,13 @@ class ofStudy:
         nPad = len(str(self.nSamples))
 
         for idx, row in self.samples.iterrows():
+            print(f"Running sample {idx}")
             tCase_ = self.templateCase
             tCase_._name = self.templateCase._name+'.'+str(idx).zfill(nPad)
             tCase_._location = self.path / tCase_._name
             case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
+
+            print(f" Case path: {case_._path}")
 
             case_.write()
             case_.allRun()            
