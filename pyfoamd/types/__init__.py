@@ -190,13 +190,13 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         _comment=None):
         logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
         if arg1 == None and arg2 == None:
-            self.value : str = None
+            self.value : str = value
             logger.debug("Setting ofNamedType .name")
-            self.name : str = None
+            self.name : str = name
         if arg2 == None:
             self.value : str = arg1
             logger.debug("Setting ofNamedType .name")
-            self.name : str = None
+            self.name : str = name
         else:
             logger.debug("Setting ofNamedType .name")
             self.name : str = arg1
@@ -209,7 +209,7 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         #     self._comment = kwargs.pop('_comment')
         if name is not None:
             self.name = name
-        super(_ofNamedTypeBase, self).__init__(value, _comment)
+        # super(_ofNamedTypeBase, self).__init__(value, _comment)
 
     # def __init__(self, name=None, value=None, _comment=None):
     #     self.name = name
@@ -433,12 +433,12 @@ class _ofFolderBase(_ofFolderItemBase):
                 f"{type(value)}")
 
 
-    def __getitem__(self, key):
-        k = _parseNameTag(key)
-        return self.__dict__[k]
+    # def __getitem__(self, key):
+    #     k = _parseNameTag(key)
+    #     return self.__dict__[k]
 
-    def __setitem__(self, key, value):
-        self.__setattr__(key, value)
+    # def __setitem__(self, key, value):
+    #     self.__setattr__(key, value)
 
 #    def attrDict(self):
 #        """
@@ -593,6 +593,7 @@ class _ofCaseBase(_ofTypeBase):
     system : _ofFolderBase = field(init=False)
 
     def __post_init__(self):
+        self._path = Path(self._location) / self._name
         logger.debug(f"ofCase post init path: {self._path}")
         # if not isinstance(self._path, Path):
         #     self._path = Path(self._path).resolve()
@@ -613,14 +614,14 @@ class _ofCaseBase(_ofTypeBase):
 
     @property
     def _path(self):
-        return Path(self._location) / self._name
-        # return self._path_
+        # return Path(self._location) / self._name
+        return self._path_
 
-    # @_path.setter
-    # def _path(self, p):
-    #     self._location = str(Path(p).parent)
-    #     self._name = str(Path(p).name)
-    #     self._path_ = Path(p)
+    @_path.setter
+    def _path(self, p):
+        self._location = str(Path(p).parent)
+        self._name = str(Path(p).name)
+        self._path_ = Path(p)
 
     # @property
     # def _name(self):
@@ -691,7 +692,7 @@ class _ofCaseBase(_ofTypeBase):
             else:
                 yield (key, self.__getattribute__(key))
 
-    #- make class substriptable (i.e. case['attr'] access)
+    #- make class subscriptable (i.e. case['attr'] access)
     def __getitem__(self, item):
          return getattr(self, item)
 
@@ -749,7 +750,9 @@ class _ofCaseBase(_ofTypeBase):
                 name in getattr(obj, '__slots__')))
             return obj
 
-        return _toDict(obj)
+        #- Return dictionary with _path property added 
+        # (properties are not stored in __dict__)
+        return dict(_toDict(obj), _path=str(self._path))
 
     def save(self, path=Path('.pyfoamd') / '_case.json'):
         """
