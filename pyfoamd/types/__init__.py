@@ -13,10 +13,11 @@ from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
 import subprocess
 import numpy as np
+import shutil
 
 from inspect import signature #- just for debugging
 
-from pyfoamd import setLoggerLevel, userMsg, getPyFoamdConfig
+from pyfoamd import setLoggerLevel, userMsg, getPyFoamdConfig, FOAM_VERSION
 from ._isDictFile import _isDictFile
 from ._isCase import _isCase
 
@@ -290,11 +291,15 @@ class ofHeader(_ofTypeBase):
         if rawLineList is None:
             rawLineList = OF_HEADER
 
-        self.line1 = rawLineList[1][29:]
-        self.line2 = rawLineList[2][29:]
-        self.line3 = rawLineList[3][29:]
-        self.line4 = rawLineList[4][29:]
-        self.line5 = rawLineList[5][29:]
+        self.line1 = rawLineList[1][29:] or '\n'
+        self.line2 = rawLineList[2][29:] or ' OpenFOAM: The Open Source CFD Toolbox'
+        self.line3 = rawLineList[3][29:] or \
+            (f' Version:  {FOAM_VERSION}\n' if FOAM_VERSION.startswith('v')
+            else ' Website:  https://openfoam.org\n') 
+        self.line4 = rawLineList[4][29:] or \
+            (' Web:      www.OpenFOAM.com\n' if FOAM_VERSION.startswith('v')
+            else f' Version:  {FOAM_VERSION}\n')
+        self.line5 = rawLineList[5][29:] or '\n'
 
 
         for i, line in enumerate(
@@ -429,7 +434,8 @@ class _ofFolderBase(_ofFolderItemBase):
 
 
     def __getitem__(self, key):
-        return self.__dict__[key]
+        k = _parseNameTag(key)
+        return self.__dict__[k]
 
     def __setitem__(self, key, value):
         self.__setattr__(key, value)
@@ -449,16 +455,22 @@ copyreg.pickle(_ofFolderBase, pickleOfFolder)
 
 class FolderParser:  # Class id required because 'default_factory' argument 
                      # 'makeOFFolder' must be zero argument
-    def __init__(self, path=Path.cwd()):
+    def __init__(self, case, path=Path.cwd()):
+        self.case = case
         self.path = path
 
     def makeOFFolder(self):
 
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
         logger.debug(f"Parsing folder: {self.path}")
+
+        # #- Path relative to the case directory
+        # caseRelDir = self.path.relative_to(*self.path.parts[:2])
 
         attrList = [('_path', str, field(default=str(self.path)))]
         internalNames = {}
-        for obj in Path(self.path).iterdir():
+        for obj in (Path(self.case) / self.path).iterdir():
             #- Prevent invalid ofFolder attribute names:
             name_ = _checkReserved(obj.name, ['_path', '_type'])
             name_ = _parseNameTag(name_)
@@ -474,8 +486,11 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
                 
+                objPath = obj.relative_to(self.case)
+
                 attrList.append((name_, _ofFolderBase,
-                    field(default_factory=FolderParser(obj).makeOFFolder)))
+                    field(default_factory=FolderParser(
+                        self.case, objPath).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
             if obj.is_file() and _isDictFile(obj):
                 logger.debug(f"Check that {name_} == {obj.name}")
@@ -568,10 +583,10 @@ class FolderParser:  # Class id required because 'default_factory' argument
 # @dataclass(kw_only=True)
 @dataclass
 class _ofCaseBase(_ofTypeBase):
-    _path : Path = field(default=Path.cwd())
+    # _path : Path = field(default=Path.cwd())
     # _path : Path
-    _location : str = field(init=False, default="None")
-    _name : str = field(init=False, default="None")
+    _location : str = field(default=Path.cwd().parent)
+    _name : str = field(default=Path.cwd().name)
     _times : ofTimeReg = field(init=False, default=ofTimeReg())
     # _registry : list = _populateRegistry(path)
     constant : _ofFolderBase = field(init=False)
@@ -579,14 +594,14 @@ class _ofCaseBase(_ofTypeBase):
 
     def __post_init__(self):
         logger.debug(f"ofCase post init path: {self._path}")
-        if not isinstance(self._path, Path):
-            self._path = Path(self._path).resolve()
+        # if not isinstance(self._path, Path):
+        #     self._path = Path(self._path).resolve()
         if not _isCase(self._path):
             userMsg(f"Specified path is not an OpenFOAM case:\n{self._path}")
         self._location = str(self._path.parent.resolve())
         self._name = str(self._path.name)
-        self.constant = FolderParser(self._path / 'constant').makeOFFolder()
-        self.system = FolderParser(self._path / 'system').makeOFFolder()
+        self.constant = FolderParser(self._path, 'constant').makeOFFolder()
+        self.system = FolderParser(self._path, 'system').makeOFFolder()
 
     # def __init__(self, path=Path.cwd):
     #     self._location : str = str(path.parent)
@@ -595,6 +610,35 @@ class _ofCaseBase(_ofTypeBase):
     #     # self._registry : list = _populateRegistry(path)
     #     self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
     #     self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
+
+    @property
+    def _path(self):
+        return Path(self._location) / self._name
+        # return self._path_
+
+    # @_path.setter
+    # def _path(self, p):
+    #     self._location = str(Path(p).parent)
+    #     self._name = str(Path(p).name)
+    #     self._path_ = Path(p)
+
+    # @property
+    # def _name(self):
+    #     return self._name
+    
+    # @_name.setter
+    # def _name(self, n):
+    #     # self._name_ = n
+    #     self._path = Path(self._location) / n
+
+    # @property
+    # def _location(self):
+    #     return self._location
+    
+    # @_location.setter
+    # def _location(self, l):
+    #     # self._location_ = l
+    #     self._path = Path(l) / self._name
 
     # TODO:  This... print out a tree representation of the case up to 
     #        any ofDictFiles
@@ -794,7 +838,7 @@ class _ofCaseBase(_ofTypeBase):
                         _writeCaseObj(item, loc_)
             elif isinstance(obj, ofDictFile):
                 logger.debug(f"ofDictFile obj: {obj}")
-                loc_ = Path(loc) / obj._name
+                loc_ = self._path / loc / obj._name
                 userMsg(f"Writing dictionary {obj._name} to "\
                     f"{loc}.")
                 with open(loc_, 'w') as f:
@@ -827,6 +871,8 @@ class CaseParser:
 
         setLoggerLevel("DEBUG" if debug else "INFO")
 
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
         attrList = []
         # attrList = [
         #     # ('_path', Path, field(default=path)),
@@ -845,6 +891,7 @@ class CaseParser:
                 # fields = [attr[0] for attr in attrList]
                 logger.debug(f"_ofCaseBase: \
                     {_ofCaseBase}")
+                logger.debug(f"obj: {obj}")
                 fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
                 # if any([obj.name == field for field in fields]):
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
@@ -861,9 +908,11 @@ class CaseParser:
                     #- rename time directories to t_<tiime>
                     name_ = TIME_PREFIX+name_
 
-                folderPath_ = self.path / obj.name
+                # folderPath_ = self.path / obj.name
+                folderPath_ = obj.name
                 attrList.append((name_, _ofFolderBase, 
-                    field(default=FolderParser(folderPath_).makeOFFolder())))
+                    field(default=FolderParser(
+                        self.path, folderPath_).makeOFFolder())))
 
         # dc_ =   make_dataclass('ofCase', attrList, 
         #                         bases=(_ofCaseBase, ))(
@@ -874,13 +923,17 @@ class CaseParser:
         # )
 
         dc_ =   make_dataclass('ofCase', attrList, 
-                                bases=(_ofCaseBase, ))(_path=self.path)
+                                bases=(_ofCaseBase, ))(
+                                    _location=self.path.parent, 
+                                    _name=self.path.name)
 
         return dc_
 
     def initOFCase(self):
         return make_dataclass('ofCase', [], 
-                                bases=(_ofCaseBase, ))(_path=self.path)
+                                bases=(_ofCaseBase, ))(
+                                    _location=self.path.parent,
+                                    _name = self.path.name)
 
 # @dataclass
 # class _ofDictFileBase:
@@ -1618,7 +1671,7 @@ class ofDict(dict, _ofTypeBase):
         else:
             # self.__dict__[key] = value
             # key_ = _parseNameTag(key_)
-            super(ofDict, self).__dict__[key_] = value
+            super(ofDict, self).__dict__[key_] = value 
 
     def __delattr__(self, name):
         super(ofDict, self).__delitem__(self, name)
@@ -2337,7 +2390,7 @@ class ofStudy:
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
-        self.templateCase._name = self.templateCase._name.rstrip('.template')
+        #self.templateCase._name = self.templateCase._name.rstrip('.template')
         #self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
         self.nSamples = len(self.samples)
 
@@ -2354,9 +2407,9 @@ class ofStudy:
                 userMsg("'samples' entry must be numpy array_like.  "\
                     "Found {s}.", "ERROR")
         if any([len(self.parameterNames) != len(s_) for s_ in s]):
-            userMsg("'parameterNames' argument must have length equal to"\
-                f" the length of columns in 'samples'.  {len(self.parameterNames)} != "\
-                    f"{len(s[0])}", "ERROR")
+            userMsg("'parameterNames' argument must have length equal to"
+                f" the length of columns in 'samples'.  "
+                f"{len(self.parameterNames)} != {len(s[0])}", "ERROR")
         if s.ndim != 2:
             dimText = 'dimension' if s.ndim == 1 else 'dimensions'
             userMsg("'samples' entry must be a 2D array_like.  "\
@@ -2392,12 +2445,17 @@ class ofStudy:
 
         for idx, row in self.samples.iterrows():
             print(f"Running sample {idx}")
+            name = ".".join(self.templateCase._name.split('.')[:-1])+\
+                '.'+str(idx).zfill(nPad)
+            newPath = Path(self.templateCase._location) / name
+                
+            #- Copy the template case path to ensure all files are copied:
+            shutil.copytree(self.templateCase._path, newPath)
             tCase_ = self.templateCase
-            tCase_._name = self.templateCase._name+'.'+str(idx).zfill(nPad)
-            tCase_._location = self.path / tCase_._name
+            tCase_._name = name
             case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
 
-            print(f" Case path: {case_._path}")
+            print(f"Case path: {case_._path}")
 
             case_.write()
             case_.allRun()            
