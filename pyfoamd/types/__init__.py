@@ -849,7 +849,7 @@ class _ofCaseBase(_ofTypeBase):
                 logger.debug(f"ofDictFile obj: {obj}")
                 loc_ = self._path / loc / obj._name
                 userMsg(f"Writing dictionary {obj._name} to "\
-                    f"{loc}.")
+                    f"{str(Path(self.name()) / loc)}.")
                 with open(loc_, 'w') as f:
                     f.write(obj.toString())
 
@@ -1670,6 +1670,8 @@ class ofDict(dict, _ofTypeBase):
                 ofType = type_(name=key_, value=value_)
             else:
                 ofType = value
+                if hasattr(ofType, '_name') and ofType._name is None:
+                    ofType._name = key
             logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
             # self.__dict__[key] = ofType
             super(ofDict, self).__dict__[key_] = ofType
