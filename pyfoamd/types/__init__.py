@@ -433,12 +433,12 @@ class _ofFolderBase(_ofFolderItemBase):
                 f"{type(value)}")
 
 
-    # def __getitem__(self, key):
-    #     k = _parseNameTag(key)
-    #     return self.__dict__[k]
+    def __getitem__(self, key):
+        k = _parseNameTag(key)
+        return self.__dict__[k]
 
-    # def __setitem__(self, key, value):
-    #     self.__setattr__(key, value)
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
 
 #    def attrDict(self):
 #        """
@@ -583,23 +583,23 @@ class FolderParser:  # Class id required because 'default_factory' argument
 # @dataclass(kw_only=True)
 @dataclass
 class _ofCaseBase(_ofTypeBase):
-    # _path : Path = field(default=Path.cwd())
+    _path : Path = field(default=Path.cwd())
     # _path : Path
-    _location : str = field(default=Path.cwd().parent)
-    _name : str = field(default=Path.cwd().name)
+    # _location : str = field(default=Path.cwd().parent)
+    # _name : str = field(default=Path.cwd().name)
     _times : ofTimeReg = field(init=False, default=ofTimeReg())
     # _registry : list = _populateRegistry(path)
     constant : _ofFolderBase = field(init=False)
     system : _ofFolderBase = field(init=False)
 
     def __post_init__(self):
-        self._path = Path(self._location) / self._name
+        #self._path = Path(self._location) / self._name
         logger.debug(f"ofCase post init path: {self._path}")
-        # if not isinstance(self._path, Path):
-        #     self._path = Path(self._path).resolve()
+        if not isinstance(self._path, Path):
+            self._path = Path(self._path).resolve()
         if not _isCase(self._path):
             userMsg(f"Specified path is not an OpenFOAM case:\n{self._path}")
-        self._location = str(self._path.parent.resolve())
+        #self._location = str(self._path.parent.resolve())
         self._name = str(self._path.name)
         self.constant = FolderParser(self._path, 'constant').makeOFFolder()
         self.system = FolderParser(self._path, 'system').makeOFFolder()
@@ -612,39 +612,39 @@ class _ofCaseBase(_ofTypeBase):
     #     self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
     #     self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
 
-    @property
-    def _path(self):
-        # return Path(self._location) / self._name
-        return self._path_
+    # @property
+    # def path(self):
+    #     # return Path(self._location) / self._name
+    #     return self._path_
 
-    @_path.setter
-    def _path(self, p):
-        self._location = str(Path(p).parent)
-        self._name = str(Path(p).name)
-        self._path_ = Path(p)
+    # @_path.setter
+    # def _path(self, p):
+    #     self._location = str(Path(p).parent)
+    #     self._name = str(Path(p).name)
+    #     self._path_ = Path(p)
 
     # @property
     # def _name(self):
-    #     return self._name
+    #     return self._name_
     
     # @_name.setter
     # def _name(self, n):
-    #     # self._name_ = n
+    #     self._name_ = n
     #     self._path = Path(self._location) / n
 
     # @property
     # def _location(self):
-    #     return self._location
+    #     return self._location_
     
     # @_location.setter
     # def _location(self, l):
-    #     # self._location_ = l
+    #     self._location_ = l
     #     self._path = Path(l) / self._name
 
     # TODO:  This... print out a tree representation of the case up to 
     #        any ofDictFiles
     def __str__(self):
-        return str(self._location)
+        return str(self._path)
 
     def __deepcopy__(self, memo=None):
         logger.debug(f"self: {self}")
@@ -695,6 +695,12 @@ class _ofCaseBase(_ofTypeBase):
     #- make class subscriptable (i.e. case['attr'] access)
     def __getitem__(self, item):
          return getattr(self, item)
+
+    def name(self):
+        return Path(self._path).name
+
+    def setName(self, name):
+        self._path = Path(self._path).parent / name
 
     #- Recursively convert an ofCase object (or any type) to a dictionary.
     def toDict(self, obj=None):
@@ -828,7 +834,7 @@ class _ofCaseBase(_ofTypeBase):
 
         def _writeCaseObj(obj, loc=None):
             if loc is None:
-                loc = self._location
+                loc = Path(self._path).parent
             logger.debug(f"_writeCaseObj: parsing obj: {obj}")
             if any([isinstance(obj, t) for t in [_ofCaseBase, _ofFolderBase]]):
                 if isinstance(obj, _ofCaseBase):
@@ -926,17 +932,13 @@ class CaseParser:
         # )
 
         dc_ =   make_dataclass('ofCase', attrList, 
-                                bases=(_ofCaseBase, ))(
-                                    _location=self.path.parent, 
-                                    _name=self.path.name)
+                                bases=(_ofCaseBase, ))(_path=self.path)
 
         return dc_
 
     def initOFCase(self):
         return make_dataclass('ofCase', [], 
-                                bases=(_ofCaseBase, ))(
-                                    _location=self.path.parent,
-                                    _name = self.path.name)
+                                bases=(_ofCaseBase, ))(_path=self.path)
 
 # @dataclass
 # class _ofDictFileBase:
@@ -1735,6 +1737,12 @@ class ofDict(dict, _ofTypeBase):
         elif isinstance(iterable, ofDict):
             # super(ofDict, self).update({iterable._name: iterable.__dict__})
             # self._entryTypes[iterable.name] = type(iterable)
+            # #- Append to current ofDict if it exists
+            # if (hasattr(self, iterable._name) 
+            # and isinstance(getattr(self, iterable._name), ofDict)):
+            #     iterable_ = getattr()
+            # else:
+            #     iterable_ = iterable
             self.__setitem__(iterable._name, iterable)
         elif isinstance(iterable, dict):
             for key, value in iterable.items():
@@ -2210,8 +2218,9 @@ class ofTensor(ofVector):
 @dataclass
 class ofUniformField(_ofNamedTypeBase):
     #name: str = None
-    def __init__(self, *args, **kwargs):
-        super(ofUniformField, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofUniformField, self).__init__(arg1, arg2, name, value, _comment)
 
     @property
     def name(self):
@@ -2361,7 +2370,7 @@ class ofInclude(_ofUnnamedTypeBase):
 
 
     def toString(self, ofRep=False) -> str:
-        return printNameStr(self._name)+'"'+str(self.value)+'"\n'
+        return printNameStr(self._name)+'"'+str(self.value)+'"\n\n'
 
     def __str__(self):
         return self.toString().rstrip('\n')
@@ -2448,14 +2457,14 @@ class ofStudy:
 
         for idx, row in self.samples.iterrows():
             print(f"Running sample {idx}")
-            name = ".".join(self.templateCase._name.split('.')[:-1])+\
+            name = ".".join(self.templateCase.name().split('.')[:-1])+\
                 '.'+str(idx).zfill(nPad)
-            newPath = Path(self.templateCase._location) / name
+            newPath = Path(self.templateCase._path.parent) / name
                 
             #- Copy the template case path to ensure all files are copied:
             shutil.copytree(self.templateCase._path, newPath)
             tCase_ = self.templateCase
-            tCase_._name = name
+            tCase_.setName(name)
             case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
 
             print(f"Case path: {case_._path}")
