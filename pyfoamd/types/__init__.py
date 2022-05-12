@@ -193,7 +193,7 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
             self.value : str = value
             logger.debug("Setting ofNamedType .name")
             self.name : str = name
-        if arg2 == None:
+        elif arg2 == None:
             self.value : str = arg1
             logger.debug("Setting ofNamedType .name")
             self.name : str = name
