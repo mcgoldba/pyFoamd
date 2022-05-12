@@ -850,8 +850,8 @@ class _ofCaseBase(_ofTypeBase):
                 loc_ = self._path / loc / obj._name
                 userMsg(f"Writing dictionary {obj._name} to "\
                     f"{str(Path(self.name()) / loc)}.")
-                with open(loc_, 'w') as f:
-                    f.write(obj.toString())
+                loc_.parent.mkdir(exist_ok=True, parents=True)
+                loc_.write_text(obj.toString())
 
         _writeCaseObj(self)
 
