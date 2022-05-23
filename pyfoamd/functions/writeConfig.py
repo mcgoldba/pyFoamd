@@ -48,4 +48,4 @@ def writeConfig(entry, file="config.json"):
         config.update(entry)
 
     with open(filepath, 'w') as configfile:
-        json.dump(config, configfile)
+        json.dump(config, configfile, indent=4)

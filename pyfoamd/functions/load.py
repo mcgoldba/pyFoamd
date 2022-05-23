@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from types import NoneType
+#from types import NoneType
 from pyfoamd import getPyFoamdConfig, setLoggerLevel, userMsg
 from pyfoamd.types import CaseParser, FolderParser, _ofCaseBase, ofDictFile
 from dataclasses import field

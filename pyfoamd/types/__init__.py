@@ -857,7 +857,7 @@ class _ofCaseBase(_ofTypeBase):
 
     def allRun(self):
         script_ = str(Path(self._path)/ 'Allrun')
-        userMsg(f"Running Allrun script from {runDir}.")
+        userMsg(f"Running Allrun script from {self._path}.")
         subprocess.check_call('./'+script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
