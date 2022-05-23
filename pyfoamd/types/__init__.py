@@ -1264,6 +1264,7 @@ class ofBool(_ofNamedTypeBase):
 
 
     def toString(self, ofRep=False) -> str:
+        # print(f"bool value for {self.name}: {self._valueStr}")       
         str_ = printNameStr(self.name)+self._valueStr
         if ofRep:
             str_ += ';\n'
@@ -1682,7 +1683,7 @@ class ofDict(dict, _ofTypeBase):
         else:
             # self.__dict__[key] = value
             # key_ = _parseNameTag(key_)
-            super(ofDict, self).__dict__[key_] = value 
+            super(ofDict, self).__dict__[key_] = value
 
     def __delattr__(self, name):
         super(ofDict, self).__delitem__(self, name)
@@ -1803,7 +1804,8 @@ class ofDict(dict, _ofTypeBase):
             dStr = self._name+"\n{\n"
         else:
             dStr = "{\n"
-        for k, v in zip(self.keys(), self.values()):
+        # for k, v in zip(self.keys(), self.values()):
+        for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             k = k.rstrip('_') # remove possible "_" added in _checkReserved
             logger.debug(f"dict entry: {k}: {v}")
             if k is None:
@@ -3383,7 +3385,8 @@ class DictFileParser:
         # TODO: Should I assume list values of certain length are tensors?
         # TODO:  Add ofScalar?
 
-
+        if value is True or value is False:
+            return ofBool, value
         if isinstance(value, int):
             return ofInt, value
         if isinstance(value, float):
