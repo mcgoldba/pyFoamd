@@ -855,8 +855,15 @@ class _ofCaseBase(_ofTypeBase):
 
         _writeCaseObj(self)
 
-    def allRun(self):
-        script_ = str(Path(self._path)/ 'Allrun')
+    def allRun(self, cmd='Allrun'):
+        """
+        Run the specified run script.
+        
+        Parameters:
+            cmd [str]:  THe script to run.  Default value is 'Allrun'.
+
+        """
+        script_ = str(Path(self._path)/ cmd)
         userMsg(f"Running Allrun script from {self._path}.")
         subprocess.check_call('./'+script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
 
@@ -2407,6 +2414,7 @@ class ofStudy:
     samples : np.ndarray
     updateFunction : Callable
     path: Path = Path.cwd()
+    runCommand : str = './Allrun'
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
@@ -2478,7 +2486,7 @@ class ofStudy:
             print(f"Case path: {case_._path}")
 
             case_.write()
-            case_.allRun()            
+            case_.allRun(cmd=self.runCommand)            
 
 
 class DictFileParser:
