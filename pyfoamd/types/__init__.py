@@ -1234,8 +1234,9 @@ TYPE_REGISTRY.append(ofStr)
 
 @dataclass
 class ofBool(_ofNamedTypeBase):
-    def __init__(self, *args, **kwargs):
-        super(ofBool, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+    _comment=None):
+        super(ofBool, self).__init__(arg1, arg2, name, value, _comment )
     # name: str = None
     # value: bool =  None
     # _valueStr: str = field(init=False, default="None")  #User cant pass a value
@@ -1251,7 +1252,10 @@ class ofBool(_ofNamedTypeBase):
     
     @value.setter
     def value(self, v):
-        if v is not None:
+        if v is True or v is False:
+            self._valueStr=str(v).lower()
+            self._value=v
+        elif v is not None:
             self._valueStr = v
             self._value = OF_BOOL_VALUES[v]
         else:
