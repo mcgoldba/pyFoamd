@@ -217,9 +217,9 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
 
     #- Alternative constructor
     # ref: https://realpython.com/python-multiple-constructors/#providing-multiple-constructors-with-classmethod-in-python
-    @classmethod
-    def unnamed(cls, value):
-        return cls(value=value, name=None)
+    # @classmethod
+    # def unnamed(cls, value):
+    #     return cls(value=value, name=None)
 
     @property
     def name(self):
@@ -2124,8 +2124,7 @@ class ofDimensionedScalar(ofFloat, ofDimension):
 class ofVector(_ofNamedTypeBase):
     def __init__(self, arg1=None, arg2=None, name=None, value=None, 
                 _comment=None):
-        super(ofVector, self).__init__(arg1=None, arg2=None, name=None, 
-                                        value=None, _comment=None)
+        super(ofVector, self).__init__(arg1, arg2, name, value, _comment)
 
 
     #- Ensure the value is numeric list of length 3
