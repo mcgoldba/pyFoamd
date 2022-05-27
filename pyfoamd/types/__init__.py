@@ -663,7 +663,6 @@ class _ofCaseBase(_ofTypeBase):
 
         copy_ = CaseParser(self._path).initOFCase()
         copy_.__dict__ = copy.deepcopy(self.__dict__)
-        logger.debug(self.__)
         return copy_
 
     # def __deepcopy__(self, memo=None):
@@ -2091,14 +2090,14 @@ class ofNamedDimension(ofDimension):
         return str(dimStr)
 
 @dataclass
-class ofDimensionedScalar(ofFloat, ofDimension):
+class ofDimensionedScalar(ofFloat):
     def __init__(self, arg1=None, arg2=None, name=None, value=None, 
         dimensions=None, _comment=None):
         # super(ofDimensionedScalar, self).__init__(arg1=arg1, arg2=arg2, name=name, 
         #     value=value, dimensions=dimensions, _comment=_comment )
         ofFloat.__init__(self, arg1=arg1, arg2=arg2, name=name, value=value, 
             _comment=None)
-        ofDimension.__init__(self, dimensions=dimensions)
+        self.dimension = ofDimension(dimensions)
      
 
     def toString(self, ofRep=False) -> str:
@@ -2108,7 +2107,7 @@ class ofDimensionedScalar(ofFloat, ofDimension):
         #     dimStr+= str(self.dimensions[i])+' '
         # dimStr+= str(self.dimensions[6])+']'
 
-        str_ = printNameStr(self.name)+str(self.dimensions)+" "\
+        str_ = printNameStr(self.name)+str(self.dimension)+" "\
             +str(self.value)
             
         if ofRep:
@@ -2414,6 +2413,7 @@ class ofStudy:
     updateFunction : Callable
     path: Path = Path.cwd()
     runCommand : str = './Allrun'
+    ignoreIndices : List = field(default_factory=[])
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
@@ -2471,21 +2471,22 @@ class ofStudy:
         nPad = len(str(self.nSamples))
 
         for idx, row in self.samples.iterrows():
-            print(f"Running sample {idx}")
-            name = ".".join(self.templateCase.name().split('.')[:-1])+\
-                '.'+str(idx).zfill(nPad)
-            newPath = Path(self.templateCase._path.parent) / name
-                
-            #- Copy the template case path to ensure all files are copied:
-            shutil.copytree(self.templateCase._path, newPath)
-            tCase_ = self.templateCase
-            tCase_.setName(name)
-            case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
+            if idx not in self.ignoreIndices:
+                print(f"Running sample {idx}")
+                name = ".".join(self.templateCase.name().split('.')[:-1])+\
+                    '.'+str(idx).zfill(nPad)
+                newPath = Path(self.templateCase._path.parent) / name
+                    
+                #- Copy the template case path to ensure all files are copied:
+                shutil.copytree(self.templateCase._path, newPath)
+                tCase_ = copy.deepcopy(self.templateCase)
+                tCase_.setName(name)
+                case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
 
-            print(f"Case path: {case_._path}")
+                print(f"Case path: {case_._path}")
 
-            case_.write()
-            case_.allRun(cmd=self.runCommand)            
+                case_.write()
+                case_.allRun(cmd=self.runCommand)            
 
 
 class DictFileParser:
