@@ -1,13 +1,14 @@
 import json
 import os
 import sys
+from pathlib import Path
 
 import logging
 
 log = logging.getLogger("pf")
 
 #TODO:  Should this replace the inputParameters file?
-def readConfig(key=None, file="xcfd.json"):
+def readConfig(key=None, file="xcfd.json", caseDir=Path.cwd()):
     """
     Reads a value to the specified configuration file.
 
@@ -25,7 +26,8 @@ def readConfig(key=None, file="xcfd.json"):
     if file[-5:] != ".json":
         file = file+".json"
 
-    filepath = os.path.join(".pyfoamd", file)
+    # filepath = os.path.join(".pyfoamd", file)
+    filepath = str(Path(caseDir) / ".pyfoamd" /file)
 
     config = {}
 

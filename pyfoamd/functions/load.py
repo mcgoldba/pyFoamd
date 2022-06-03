@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from types import NoneType
+#from types import NoneType
 from pyfoamd import getPyFoamdConfig, setLoggerLevel, userMsg
 from pyfoamd.types import CaseParser, FolderParser, _ofCaseBase, ofDictFile
 from dataclasses import field
@@ -77,7 +77,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
 
 
 
-    def _parseCaseDict(obj, tabStr=None):
+    def _parseCaseDict(obj, case=None, tabStr=None):
         """
         Recursrively parse a JSON dictionary representation of an ofCase
 
@@ -134,10 +134,15 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                 parseValue = True
 
                 if obj['_type'] == 'ofFolder':
-                    obj_ = FolderParser(path=obj['_path']).initOFFolder()
+                    if case is None:
+                        userMsg("Top level object is not ofCase in JSON cache.",
+                         "ERROR")
+                        sys.exit()
+                    obj_ = FolderParser(case, path=obj['_path']).initOFFolder()
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif obj['_type'] =='ofCase':
                     obj_ = CaseParser(path=obj['_path']).initOFCase()
+                    case = obj['_name']
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif obj['_type'] == 'ofDictFile':
                     #TODO: simplify initialization
@@ -149,7 +154,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                 or obj['_type'] == 'ofMultilineStatement'):
                     type_ = locate('pyfoamd.types.'+obj['_type'])
                     obj_ = type_(
-                        value = [_parseCaseDict(v) for v in obj['_value']]
+                        value = [_parseCaseDict(v, case) for v in obj['_value']]
                         )
                     parseValue = False
                 else:
@@ -164,7 +169,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     if (key != '_type' 
                         and not (not parseValue and key == '_value')):
                         logger.debug(f"{tabStr}Setting key {key}.")
-                        value_ = _parseCaseDict(value, tabStr)
+                        value_ = _parseCaseDict(value, case, tabStr)
                         logger.debug(f"{tabStr}value_: {value_}")
                         logger.debug(f"{tabStr}obj_: {obj_}")
                         try:

@@ -1,24 +1,24 @@
 from dataclasses import dataclass, field, make_dataclass
-from signal import valid_signals
-from typing import List, Dict, Sequence
+from typing import List, Callable
 import copy
 from pathlib import Path
 import os
-import warnings
 import sys
 import string #- to check for whitespace
 import re
 import pandas as pd
 import copyreg
 import json
-import pickle
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
+import subprocess
+import numpy as np
+import shutil
 
 from inspect import signature #- just for debugging
 
-from pyfoamd import setLoggerLevel, userMsg
-from ._isOFDict import _isOFDict
+from pyfoamd import setLoggerLevel, userMsg, getPyFoamdConfig, FOAM_VERSION
+from ._isDictFile import _isDictFile
 from ._isCase import _isCase
 
 from rich.console import Console
@@ -60,7 +60,8 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  ')': '_',  # assignment of name.  Assume that key value 
                  ',': '_',  # doesnt start with '('
                  '*': '_',
-                 ':': '_'}
+                 ':': '_',
+                 '.': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -108,7 +109,7 @@ class _ofTypeBase:
         return dict(vars(self), _type=self._type)
 
 @dataclass
-class _ofFolderItemTypeBase:
+class _ofFolderItemBase(_ofTypeBase):
     """
     Common base class to store all types allowed in an ofFolder
     """
@@ -184,26 +185,41 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
         # else:
         #     logger.debug("Setting name to 'None'")
         #     self.name = kwargs.pop('name', None)
-    def __init__(self, arg1=None, arg2=None, **kwargs):
+    # def __init__(self, arg1=None, arg2=None, **kwargs):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
         logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
         if arg1 == None and arg2 == None:
-            self.value : str = None
+            self.value : str = value
             logger.debug("Setting ofNamedType .name")
-            self.name : str = None
-        if arg2 == None:
+            self.name : str = name
+        elif arg2 == None:
             self.value : str = arg1
             logger.debug("Setting ofNamedType .name")
-            self.name : str = None
+            self.name : str = name
         else:
             logger.debug("Setting ofNamedType .name")
             self.name : str = arg1
             self.value : str = arg2
-        if 'name' in kwargs.keys():
-            self.name = kwargs.pop('name')
-        if 'value' in kwargs.keys():
-            self.value = kwargs.pop('value')
-        if '_comment' in kwargs.keys():
-            self._comment = kwargs.pop('_comment')
+        # if 'name' in kwargs.keys():
+        #     self.name = kwargs.pop('name')
+        # if 'value' in kwargs.keys():
+        #     self.value = kwargs.pop('value')
+        # if '_comment' in kwargs.keys():
+        #     self._comment = kwargs.pop('_comment')
+        if name is not None:
+            self.name = name
+        # super(_ofNamedTypeBase, self).__init__(value, _comment)
+
+    # def __init__(self, name=None, value=None, _comment=None):
+    #     self.name = name
+    #     super(_ofNamedTypeBase, self).__init__(value, _comment)
+
+    #- Alternative constructor
+    # ref: https://realpython.com/python-multiple-constructors/#providing-multiple-constructors-with-classmethod-in-python
+    # @classmethod
+    # def unnamed(cls, value):
+    #     return cls(value=value, name=None)
 
     @property
     def name(self):
@@ -275,11 +291,15 @@ class ofHeader(_ofTypeBase):
         if rawLineList is None:
             rawLineList = OF_HEADER
 
-        self.line1 = rawLineList[1][29:]
-        self.line2 = rawLineList[2][29:]
-        self.line3 = rawLineList[3][29:]
-        self.line4 = rawLineList[4][29:]
-        self.line5 = rawLineList[5][29:]
+        self.line1 = rawLineList[1][29:] or '\n'
+        self.line2 = rawLineList[2][29:] or ' OpenFOAM: The Open Source CFD Toolbox'
+        self.line3 = rawLineList[3][29:] or \
+            (f' Version:  {FOAM_VERSION}\n' if FOAM_VERSION.startswith('v')
+            else ' Website:  https://openfoam.org\n') 
+        self.line4 = rawLineList[4][29:] or \
+            (' Web:      www.OpenFOAM.com\n' if FOAM_VERSION.startswith('v')
+            else f' Version:  {FOAM_VERSION}\n')
+        self.line5 = rawLineList[5][29:] or '\n'
 
 
         for i, line in enumerate(
@@ -340,10 +360,10 @@ def _checkReserved(name, reserved=[]):
     the Python console.
     Append an `_` to these keys and remove underscore when printing to string.
     """
-    if name in keyword.kwlist or name in reserved:
-        return name+"_"
-    else:
-        return name
+    while name in keyword.kwlist or name in reserved:
+        name += "_"
+    
+    return name
 
 def _parseNameTag(itemName):
     """
@@ -360,14 +380,15 @@ def _parseNameTag(itemName):
                 break
         if not found:
             name_ += c
-    logger.debug("Revised name string from '{itemName}' to \
-        '{name_}'")
+    if name_ != itemName:
+        logger.debug(f"Revised name string from '{itemName}' to "\
+            f"'{name_}'")
     return name_
 
 # @dataclass(frozen=True)
 @dataclass
-class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
-                      #         Type checking must be handled separately.
+class _ofFolderBase(_ofFolderItemBase):  
+    # TODO:  Cannot add files or folders to an existing ofFolder instance
     _path: str = None
     _type: type = 'ofFolder'
 
@@ -391,15 +412,33 @@ class _ofFolderBase(_ofTypeBase):  # Note: not an '_ofTypeBase' because frozen
                 yield (key, self.__getattribute__(key))
 
     def __setattr__(self, key, value):
-        if isinstance(value, _ofFolderItemTypeBase):
+        logger.debug(f"Setting ofFolder attribute: {key}: {value}")
+        if isinstance(value, _ofFolderItemBase):
             value._name = key
             key_ = _parseNameTag(key)
+            logger.debug(f"ofFolder adding attribute {key_} as {value}")
+            # super(_ofFolderBase, self).__setitem__(key_, value)
             super(_ofFolderBase, self).__setattr__(key_, value)
+            super(_ofFolderBase, self).__dict__[key_] =  value
+
         elif key.startswith('_'):
+            logger.debug(f"ofFolder adding attribute {key} as {value}")
+            # super(_ofFolderBase, self).__setitem__(key, value)
             super(_ofFolderBase, self).__setattr__(key, value)
+            super(_ofFolderBase, self).__dict__[key] =  value
         else:
-            userMsg(f"Ignoring invalid type for ofFolder attribute: "\
+            # userMsg(f"Ignoring invalid type for ofFolder attribute: "\
+            #     f"{type(value)}", "WARNING")
+            raise Exception(f"Ignoring invalid type for ofFolder attribute: "\
                 f"{type(value)}")
+
+
+    def __getitem__(self, key):
+        k = _parseNameTag(key)
+        return self.__dict__[k]
+
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
 
 #    def attrDict(self):
 #        """
@@ -416,17 +455,25 @@ copyreg.pickle(_ofFolderBase, pickleOfFolder)
 
 class FolderParser:  # Class id required because 'default_factory' argument 
                      # 'makeOFFolder' must be zero argument
-    def __init__(self, path=Path.cwd()):
+    def __init__(self, case, path=Path.cwd()):
+        self.case = case
         self.path = path
 
     def makeOFFolder(self):
 
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
         logger.debug(f"Parsing folder: {self.path}")
 
+        # #- Path relative to the case directory
+        # caseRelDir = self.path.relative_to(*self.path.parts[:2])
+
         attrList = [('_path', str, field(default=str(self.path)))]
-        for obj in Path(self.path).iterdir():
+        internalNames = {}
+        for obj in (Path(self.case) / self.path).iterdir():
             #- Prevent invalid ofFolder attribute names:
-            name_ = _checkReserved(obj.name.replace('.', '_'), ['_path'])
+            name_ = _checkReserved(obj.name, ['_path', '_type'])
+            name_ = _parseNameTag(name_)
             if name_.split('_')[0].isdigit():
                 #- Add time prefix to time directories
                 name_ = TIME_PREFIX+name_
@@ -435,23 +482,42 @@ class FolderParser:  # Class id required because 'default_factory' argument
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
-                attrList.append((name_, _ofFolderBase, 
-                    field(default_factory=FolderParser(obj).makeOFFolder)))
+                logger.debug(f"Check that {name_} == {obj.name}")
+                if name_ != obj.name:
+                    internalNames.update({name_:obj.name})
+                
+                objPath = obj.relative_to(self.case)
+
+                attrList.append((name_, _ofFolderBase,
+                    field(default_factory=FolderParser(
+                        self.case, objPath).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
-            if obj.is_file() and _isOFDict(obj):
+            if obj.is_file() and _isDictFile(obj):
+                logger.debug(f"Check that {name_} == {obj.name}")
+                if name_ != obj.name:
+                    internalNames.update({name_:obj.name})
+               
                 attrList.append( (name_, ofDictFile,
                                 #field(default=DictFileParser(obj).readDictFile()) )
                                 field(default_factory=
                                     DictFileParser(obj).readDictFile) )
                 )
-
-        dc_ = make_dataclass('ofFolder', 
+        dc = make_dataclass('ofFolder', 
                             attrList, bases=(_ofFolderBase, )) #, frozen=True)
+
+        dc_ = dc()
+
+        #- Rest the ofFolder item _name attribute to be the true name with special characters.
+        # TODO: Not sure why the revised name is stored as the _name attribute here.
+        logger.debug(f"dc_ dict: {dc_.__dict__}")
+        for key, value in internalNames.items():
+            logger.debug(f"Modifying key: {key}")
+            dc_.__dict__[key]._name = value
 
         # logger.debug(f"ofFolder dataclass: {dc_}")
         # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
 
-        return dc_()
+        return dc_
 
     # def loadOFFolder(self, attrList):
     #     """
@@ -519,23 +585,24 @@ class FolderParser:  # Class id required because 'default_factory' argument
 class _ofCaseBase(_ofTypeBase):
     _path : Path = field(default=Path.cwd())
     # _path : Path
-    _location : str = field(init=False, default="None")
-    _name : str = field(init=False, default="None")
+    # _location : str = field(default=Path.cwd().parent)
+    # _name : str = field(default=Path.cwd().name)
     _times : ofTimeReg = field(init=False, default=ofTimeReg())
     # _registry : list = _populateRegistry(path)
     constant : _ofFolderBase = field(init=False)
     system : _ofFolderBase = field(init=False)
 
     def __post_init__(self):
+        #self._path = Path(self._location) / self._name
         logger.debug(f"ofCase post init path: {self._path}")
         if not isinstance(self._path, Path):
             self._path = Path(self._path).resolve()
         if not _isCase(self._path):
             userMsg(f"Specified path is not an OpenFOAM case:\n{self._path}")
-        self._location = str(self._path.parent.resolve())
+        #self._location = str(self._path.parent.resolve())
         self._name = str(self._path.name)
-        self.constant = FolderParser(self._path / 'constant').makeOFFolder()
-        self.system = FolderParser(self._path / 'system').makeOFFolder()
+        self.constant = FolderParser(self._path, 'constant').makeOFFolder()
+        self.system = FolderParser(self._path, 'system').makeOFFolder()
 
     # def __init__(self, path=Path.cwd):
     #     self._location : str = str(path.parent)
@@ -545,10 +612,39 @@ class _ofCaseBase(_ofTypeBase):
     #     self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
     #     self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
 
+    # @property
+    # def path(self):
+    #     # return Path(self._location) / self._name
+    #     return self._path_
+
+    # @_path.setter
+    # def _path(self, p):
+    #     self._location = str(Path(p).parent)
+    #     self._name = str(Path(p).name)
+    #     self._path_ = Path(p)
+
+    # @property
+    # def _name(self):
+    #     return self._name_
+    
+    # @_name.setter
+    # def _name(self, n):
+    #     self._name_ = n
+    #     self._path = Path(self._location) / n
+
+    # @property
+    # def _location(self):
+    #     return self._location_
+    
+    # @_location.setter
+    # def _location(self, l):
+    #     self._location_ = l
+    #     self._path = Path(l) / self._name
+
     # TODO:  This... print out a tree representation of the case up to 
     #        any ofDictFiles
     def __str__(self):
-        return str(self._location)
+        return str(self._path)
 
     def __deepcopy__(self, memo=None):
         logger.debug(f"self: {self}")
@@ -567,7 +663,6 @@ class _ofCaseBase(_ofTypeBase):
 
         copy_ = CaseParser(self._path).initOFCase()
         copy_.__dict__ = copy.deepcopy(self.__dict__)
-        logger.debug(self.__)
         return copy_
 
     # def __deepcopy__(self, memo=None):
@@ -577,9 +672,6 @@ class _ofCaseBase(_ofTypeBase):
     #     for k, v in self.__dict__.items():
     #         setattr(result, k, copy.deepcopy(v, memo))
     #     return result
-
-
-
 
     def __iter__(self):
         logger.debug(f"vars(self).keys(): {vars(self).keys()}")
@@ -598,6 +690,16 @@ class _ofCaseBase(_ofTypeBase):
                 yield (key, self.__getattribute__(key).value)
             else:
                 yield (key, self.__getattribute__(key))
+
+    #- make class subscriptable (i.e. case['attr'] access)
+    def __getitem__(self, item):
+         return getattr(self, item)
+
+    def name(self):
+        return Path(self._path).name
+
+    def setName(self, name):
+        self._path = Path(self._path).parent / name
 
     #- Recursively convert an ofCase object (or any type) to a dictionary.
     def toDict(self, obj=None):
@@ -653,7 +755,9 @@ class _ofCaseBase(_ofTypeBase):
                 name in getattr(obj, '__slots__')))
             return obj
 
-        return _toDict(obj)
+        #- Return dictionary with _path property added 
+        # (properties are not stored in __dict__)
+        return dict(_toDict(obj), _path=str(self._path))
 
     def save(self, path=Path('.pyfoamd') / '_case.json'):
         """
@@ -663,9 +767,14 @@ class _ofCaseBase(_ofTypeBase):
             path [Path or str]: The path of the case or file to save the JSON 
                 data
         """
+
+        logger.debug(f"path: {path}")
+
         if _isCase(path):
+            logger.debug("save: Found case as path!")
             filepath = Path(path) / '.pyfoamd' / '_case.json'
         else:
+            logger.debug("save: Did not find case as path!")
             filepath = path
          
         if str(filepath)[-5:] != '.json':
@@ -705,7 +814,7 @@ class _ofCaseBase(_ofTypeBase):
 
         logger.debug(f'self._path: {self._path}')
 
-        caseFromFile = CaseParser(self._path).makeOFCase()
+        #caseFromFile = CaseParser(self._path).makeOFCase()
 
         #- Save the existing case to file as backup
         self.save(path=self._path)
@@ -724,7 +833,7 @@ class _ofCaseBase(_ofTypeBase):
 
         def _writeCaseObj(obj, loc=None):
             if loc is None:
-                loc = self._location
+                loc = Path(self._path).parent
             logger.debug(f"_writeCaseObj: parsing obj: {obj}")
             if any([isinstance(obj, t) for t in [_ofCaseBase, _ofFolderBase]]):
                 if isinstance(obj, _ofCaseBase):
@@ -737,14 +846,25 @@ class _ofCaseBase(_ofTypeBase):
                         _writeCaseObj(item, loc_)
             elif isinstance(obj, ofDictFile):
                 logger.debug(f"ofDictFile obj: {obj}")
-                loc_ = Path(loc) / obj._name
+                loc_ = self._path / loc / obj._name
                 userMsg(f"Writing dictionary {obj._name} to "\
-                    f"{loc}.")
-                with open(loc_, 'w') as f:
-                    f.write(obj.toString())
+                    f"{str(Path(self.name()) / loc)}.")
+                loc_.parent.mkdir(exist_ok=True, parents=True)
+                loc_.write_text(obj.toString())
 
         _writeCaseObj(self)
 
+    def allRun(self, cmd='Allrun'):
+        """
+        Run the specified run script.
+        
+        Parameters:
+            cmd [str]:  THe script to run.  Default value is 'Allrun'.
+
+        """
+        script_ = str(Path(self._path)/ cmd)
+        userMsg(f"Running Allrun script from {self._path}.")
+        subprocess.check_call('./'+script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
 def pickleOfCase(f):
@@ -761,6 +881,12 @@ class CaseParser:
             self.path = path
   
     def makeOFCase(self):
+
+        debug = True if getPyFoamdConfig('debug') == 'True' else False
+
+        setLoggerLevel("DEBUG" if debug else "INFO")
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
 
         attrList = []
         # attrList = [
@@ -780,6 +906,7 @@ class CaseParser:
                 # fields = [attr[0] for attr in attrList]
                 logger.debug(f"_ofCaseBase: \
                     {_ofCaseBase}")
+                logger.debug(f"obj: {obj}")
                 fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
                 # if any([obj.name == field for field in fields]):
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
@@ -796,9 +923,11 @@ class CaseParser:
                     #- rename time directories to t_<tiime>
                     name_ = TIME_PREFIX+name_
 
-                folderPath_ = self.path / obj.name
+                # folderPath_ = self.path / obj.name
+                folderPath_ = obj.name
                 attrList.append((name_, _ofFolderBase, 
-                    field(default=FolderParser(folderPath_).makeOFFolder())))
+                    field(default=FolderParser(
+                        self.path, folderPath_).makeOFFolder())))
 
         # dc_ =   make_dataclass('ofCase', attrList, 
         #                         bases=(_ofCaseBase, ))(
@@ -831,7 +960,7 @@ class CaseParser:
     #     self.store[self._keytransform(key)] = value
     #
     # def __delitem__(self, key):
-    #     del self.store[self._keytransform(key)]
+        #     del self.store[self._keytransform(key)]
     #
     # def __iter__(self):
     #     return iter(self.store)
@@ -1079,8 +1208,10 @@ TYPE_REGISTRY.append(ofInt)
 
 @dataclass
 class ofFloat(_ofNamedTypeBase):
-    def __init__(self, *args, **kwargs):
-        super(ofFloat, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofFloat, self).__init__(arg1, arg2, name=name, value=value, 
+            _comment=_comment)
     
     @property
     def value(self):
@@ -1109,8 +1240,9 @@ TYPE_REGISTRY.append(ofStr)
 
 @dataclass
 class ofBool(_ofNamedTypeBase):
-    def __init__(self, *args, **kwargs):
-        super(ofBool, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+    _comment=None):
+        super(ofBool, self).__init__(arg1, arg2, name, value, _comment )
     # name: str = None
     # value: bool =  None
     # _valueStr: str = field(init=False, default="None")  #User cant pass a value
@@ -1126,7 +1258,10 @@ class ofBool(_ofNamedTypeBase):
     
     @value.setter
     def value(self, v):
-        if v is not None:
+        if v is True or v is False:
+            self._valueStr=str(v).lower()
+            self._value=v
+        elif v is not None:
             self._valueStr = v
             self._value = OF_BOOL_VALUES[v]
         else:
@@ -1135,6 +1270,7 @@ class ofBool(_ofNamedTypeBase):
 
 
     def toString(self, ofRep=False) -> str:
+        # print(f"bool value for {self.name}: {self._valueStr}")       
         str_ = printNameStr(self.name)+self._valueStr
         if ofRep:
             str_ += ';\n'
@@ -1512,29 +1648,49 @@ class ofDict(dict, _ofTypeBase):
 
 
     def __setattr__(self, key, value):
-        logger.debug(f"ofDict.__setattr__ key value: {key}, {value}")
         key_ = _checkReserved(key)
+        logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
         super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
         super(ofDict, self).__setattr__(key_, value)
         # self.__setattr__(key, value)
         # if key not in self._CLASS_VARS:
+        def _parseList(obj):
+            if not isinstance(obj, list):
+                logger.error("Recived non list type as value.")
+                sys.exit()
+            else:
+                ofType_ = ofSplitList()
+                #TODO: Parse lists of lists
+                for v in value:
+                    if isinstance(v, list):
+                        ofType_.value.append(_parseList(v))
+                    else:
+                        type_, value_ = DictFileParser._parseValue(v)
+                        logger.debug(f"type, value: {type_}, {value_}")
+                        ofType_.value.append(type_(name=key_, value=value_))
+            return ofType_
         if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
         # if key not in self._CLASS_VARS:
-            if value is not None and not isinstance(value, _ofTypeBase):
+            if isinstance(value, list):
+                ofType = _parseList(value)    
+            elif value is not None and not isinstance(value, _ofTypeBase):
                 logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
                 logger.debug(f"type, value: {type_}, {value_}")
                 ofType = type_(name=key_, value=value_)
             else:
                 ofType = value
+                if hasattr(ofType, '_name') and ofType._name is None:
+                    ofType._name = key
             logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
             # self.__dict__[key] = ofType
             super(ofDict, self).__dict__[key_] = ofType
         else:
             # self.__dict__[key] = value
+            # key_ = _parseNameTag(key_)
             super(ofDict, self).__dict__[key_] = value
-    
+
     def __delattr__(self, name):
         super(ofDict, self).__delitem__(self, name)
         super(ofDict, self).__delattr__(self, name)
@@ -1554,10 +1710,10 @@ class ofDict(dict, _ofTypeBase):
 
     def __deepcopy__(self, memo=None):
         print("__deepcopy__ type(self):", type(self))
-        new = self.from_dict({})
+        new_ = ofDict()
         for key in self.keys():
-            new.set_attribute(key, copy.deepcopy(self[key], memo=memo))
-        return new
+            new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
+        return new_
 
     # _update = dict.update
 
@@ -1594,6 +1750,12 @@ class ofDict(dict, _ofTypeBase):
         elif isinstance(iterable, ofDict):
             # super(ofDict, self).update({iterable._name: iterable.__dict__})
             # self._entryTypes[iterable.name] = type(iterable)
+            # #- Append to current ofDict if it exists
+            # if (hasattr(self, iterable._name) 
+            # and isinstance(getattr(self, iterable._name), ofDict)):
+            #     iterable_ = getattr()
+            # else:
+            #     iterable_ = iterable
             self.__setitem__(iterable._name, iterable)
         elif isinstance(iterable, dict):
             for key, value in iterable.items():
@@ -1648,7 +1810,8 @@ class ofDict(dict, _ofTypeBase):
             dStr = self._name+"\n{\n"
         else:
             dStr = "{\n"
-        for k, v in zip(self.keys(), self.values()):
+        # for k, v in zip(self.keys(), self.values()):
+        for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             k = k.rstrip('_') # remove possible "_" added in _checkReserved
             logger.debug(f"dict entry: {k}: {v}")
             if k is None:
@@ -1766,7 +1929,7 @@ class ofFoamFile(ofDict):
         
 
 @dataclass
-class ofDictFile(ofDict, _ofFolderItemTypeBase):
+class ofDictFile(ofDict, _ofFolderItemBase):
     
     #TODO:  Define setters to extract name and location from path when defined
     #       Currently need to initialize as ofDictFile(_name=..., _location=...)
@@ -1805,6 +1968,10 @@ class ofDictFile(ofDict, _ofFolderItemTypeBase):
     #       class
     def __str__(self):
         return self.toString()
+
+    #- Iterate only over dict file entries
+    # def __iter__(self):
+
 
     def toString(self, ofRep=True):
         """
@@ -1886,7 +2053,7 @@ class ofNamedDimension(ofDimension):
     name : str = None
     def __init__(self, name=None, dimensions=None):
         self.name=name
-        super(ofNamedDimension, self).__init__(dimensions)
+        super(ofNamedDimension, self).__init__(dimensions=dimensions)
 
     @property
     def name(self):
@@ -1923,25 +2090,15 @@ class ofNamedDimension(ofDimension):
         return str(dimStr)
 
 @dataclass
-class ofDimensionedScalar(ofFloat, ofDimension):
-
-    #- Ensure dimensions are a list of length 7 per OpenFOAM convention
-    # @property
-    # def dimensions(self):
-    #     return self._dimensions
-
-    # @dimensions.setter
-    # def dimensions(self, d):
-    #     if (len(d) != 7 or any(isinstance(i, int) for i in d) is False):
-    #         raise Exception('Dimensions must be a list of 7 integer values, where each entry corresponds to a base unit type: \
-    # 1:  Mass - kilogram (kg) \
-    # 2:  Length - meter (m) \
-    # 3:  Time - second (s) \
-    # 4:  Temperature - Kelvin (K) \
-    # 5:  Quantity - mole (mol) \
-    # 6:  Current - ampere (A) \
-    # 7:  Luminous intensity - candela (cd)')
-    #     self._dimensions = d
+class ofDimensionedScalar(ofFloat):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        dimensions=None, _comment=None):
+        # super(ofDimensionedScalar, self).__init__(arg1=arg1, arg2=arg2, name=name, 
+        #     value=value, dimensions=dimensions, _comment=_comment )
+        ofFloat.__init__(self, arg1=arg1, arg2=arg2, name=name, value=value, 
+            _comment=None)
+        self.dimension = ofDimension(dimensions)
+     
 
     def toString(self, ofRep=False) -> str:
         # #- format the dimensions list properly
@@ -1950,7 +2107,7 @@ class ofDimensionedScalar(ofFloat, ofDimension):
         #     dimStr+= str(self.dimensions[i])+' '
         # dimStr+= str(self.dimensions[6])+']'
 
-        str_ = printNameStr(self.name)+str(self.dimensions)+" "\
+        str_ = printNameStr(self.name)+str(self.dimension)+" "\
             +str(self.value)
             
         if ofRep:
@@ -1962,7 +2119,12 @@ class ofDimensionedScalar(ofFloat, ofDimension):
         return self.toString().rstrip(';\n')
 
 @dataclass
-class ofVector(_ofUnnamedTypeBase):
+# class ofVector(_ofUnnamedTypeBase):
+class ofVector(_ofNamedTypeBase):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+                _comment=None):
+        super(ofVector, self).__init__(arg1, arg2, name, value, _comment)
+
 
     #- Ensure the value is numeric list of length 3
     @property
@@ -1990,8 +2152,20 @@ class ofVector(_ofUnnamedTypeBase):
         else:
             self._value = [0.0, 0.0, 0.0]
 
-    def toString(self) -> str:
-        return self.valueStr
+    def toString(self, ofRep=False) -> str:
+        
+        if self.name is not None:
+            str_ = printNameStr(self.name)
+        else:
+            str_ = ''
+        
+        str_ +=  self.valueStr
+
+        if ofRep:
+            str_ += ';\n'
+        
+        return str_
+
 #        return "("+str(self.value[0])+ \
 #                " "+str(self.value[1])+ \
 #                " "+str(self.value[2])+")"
@@ -2057,8 +2231,9 @@ class ofTensor(ofVector):
 @dataclass
 class ofUniformField(_ofNamedTypeBase):
     #name: str = None
-    def __init__(self, *args, **kwargs):
-        super(ofUniformField, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofUniformField, self).__init__(arg1, arg2, name, value, _comment)
 
     @property
     def name(self):
@@ -2115,19 +2290,19 @@ class ofUniformField(_ofNamedTypeBase):
 
 
 
-@dataclass
-class _ofNamedVectorBase(_ofNamedTypeBase):
-    name: str = None
+# @dataclass
+# class _ofNamedVectorBase(_ofNamedTypeBase):
+#     name: str = None
 
-@dataclass
-class ofNamedVector(ofVector, _ofNamedVectorBase):
+# @dataclass
+# class ofNamedVector(ofVector, _ofNamedVectorBase):
 
 
-    def toString(self, ofRep = True) -> str:
-        str_ =  printNameStr(self.name)+self.valueStr
+#     def toString(self, ofRep = True) -> str:
+#         str_ =  printNameStr(self.name)+self.valueStr
         
-        if ofRep:
-            str_ += ";\n"
+#         if ofRep:
+#             str_ += ";\n"
 
 
 
@@ -2208,7 +2383,7 @@ class ofInclude(_ofUnnamedTypeBase):
 
 
     def toString(self, ofRep=False) -> str:
-        return printNameStr(self._name)+'"'+str(self.value)+'"\n'
+        return printNameStr(self._name)+'"'+str(self.value)+'"\n\n'
 
     def __str__(self):
         return self.toString().rstrip('\n')
@@ -2229,6 +2404,90 @@ class ofIncludeFunc(ofInclude):
 
 TYPE_REGISTRY.append(ofIncludeFunc)
 
+@dataclass
+class ofStudy:
+    templatePath : Path
+    parameterNames : list   # Note: this argument must be parsed before 'samples' 
+                            # for DataFrame conversion
+    samples : np.ndarray
+    updateFunction : Callable
+    path: Path = Path.cwd()
+    runCommand : str = './Allrun'
+    ignoreIndices : List = field(default_factory=[])
+
+    def __post_init__(self):
+        self.templateCase = CaseParser(self.templatePath).makeOFCase()
+        #self.templateCase._name = self.templateCase._name.rstrip('.template')
+        #self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
+        self.nSamples = len(self.samples)
+
+    @property
+    def samples(self):
+        return self._samples
+    
+    @samples.setter
+    def samples(self, s):
+        if not isinstance(s, np.ndarray):
+            try:
+                s = np.asarray(s)
+            except ValueError:
+                userMsg("'samples' entry must be numpy array_like.  "\
+                    "Found {s}.", "ERROR")
+        if any([len(self.parameterNames) != len(s_) for s_ in s]):
+            userMsg("'parameterNames' argument must have length equal to"
+                f" the length of columns in 'samples'.  "
+                f"{len(self.parameterNames)} != {len(s[0])}", "ERROR")
+        if s.ndim != 2:
+            dimText = 'dimension' if s.ndim == 1 else 'dimensions'
+            userMsg("'samples' entry must be a 2D array_like.  "\
+                    f"Found {s.ndim} {dimText}.", "ERROR")
+        self._samples = pd.DataFrame(s, columns = self.parameterNames)
+            
+    @property
+    def parameterNames(self):
+        return self._parameterNames
+
+    @parameterNames.setter
+    def parameterNames(self, n):
+        if not isinstance(n, list):
+            userMsg("'parameterNames' argument must be list type."\
+                f"  Found {type(n)}", "ERROR")
+        self._parameterNames = n
+
+    @property
+    def updateFunction(self):
+        return self._updateFunction
+
+    @updateFunction.setter
+    def updateFunction(self, f):
+        if not callable(f):
+            userMsg("'updateFunction' argument must be callable.", "ERROR")
+        self._updateFunction = f
+
+    def run(self):
+        #- Save the sample points to file
+        self.samples.to_csv('studySamplePoints.txt', sep='\t')
+
+        nPad = len(str(self.nSamples))
+
+        for idx, row in self.samples.iterrows():
+            if idx not in self.ignoreIndices:
+                print(f"Running sample {idx}")
+                name = ".".join(self.templateCase.name().split('.')[:-1])+\
+                    '.'+str(idx).zfill(nPad)
+                newPath = Path(self.templateCase._path.parent) / name
+                    
+                #- Copy the template case path to ensure all files are copied:
+                shutil.copytree(self.templateCase._path, newPath)
+                tCase_ = copy.deepcopy(self.templateCase)
+                tCase_.setName(name)
+                case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
+
+                print(f"Case path: {case_._path}")
+
+                case_.write()
+                case_.allRun(cmd=self.runCommand)            
+
 
 class DictFileParser:
     def __init__(self, filepath):
@@ -2236,6 +2495,7 @@ class DictFileParser:
         with open(filepath, 'r') as f:
             self.lines = f.readlines()
         self.status = None
+        logger.debug(f"Setting dictFile name to {Path(filepath).name}...")
         self.dictFile = ofDictFile(_name=Path(filepath).name, 
                             _location=Path(filepath).parent)
         self.i=0
@@ -2316,17 +2576,20 @@ class DictFileParser:
         attempts = 0
         while True:
             attempts += 1
-            logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
             if attempts > 1000:
                 logger.error("Error reading dictionary file.  Maximum "\
                     "number of lines exceeded.")
                 sys.exit()
             if self.i >= len(self.lines):
                 break
-
+            
+            logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
+            
             value = self._parseLine()
 
             logger.debug(f"** FINAL VALUE: {value}")
+
+            logger.debug(f"dictFile name = {self.dictFile._name} ")
 
             if value is not None:
             #     self.entryList.append(value)
@@ -2339,6 +2602,7 @@ class DictFileParser:
                     else:
                         key = value._name
                     if hasattr(value, '_name'):
+                        logger.debug(f"_parseLine: setting {key}: {value}")
                         self.dictFile.update({key: value})
                     elif hasattr(value, 'name'):
                         self.dictFile.update({key: value})
@@ -2356,6 +2620,8 @@ class DictFileParser:
         #                 #location=Path(file).parent, 
         #                 #filename=Path(file).name
         #                 )
+        
+        logger.debug(f"dictFile name = {self.dictFile._name} ")
 
         return self.dictFile
 
@@ -2449,6 +2715,9 @@ class DictFileParser:
         elif lineList[1] == 'table':
             # Found a table entry
             return self._parseTable(lineList[0])
+        elif lineList[1] == '(' or lineList[1] == '{':
+            # Found list or dict
+            return self._parseListOrDict(lineList[0], line=lineList[1])
         else:
             logger.error(f"Cannot handle single line entry '{lineList}' on line "\
                 f"{self.i+1} of {self.filepath}.")
@@ -3109,7 +3378,7 @@ class DictFileParser:
         type_, value_ = self._parseValue(valueStr_)
         logger.debug(f"type: {type_}")
         # logger.debug(f"value: {type_(value=value_)}")
-        value__ = type_(value_)
+        value__ = type_(value=value_)
         return ofUniformField(name=name, value=value__) 
         # else: # parse lines
         #     line = self.lines[self.i]
@@ -3124,7 +3393,8 @@ class DictFileParser:
         # TODO: Should I assume list values of certain length are tensors?
         # TODO:  Add ofScalar?
 
-
+        if value is True or value is False:
+            return ofBool, value
         if isinstance(value, int):
             return ofInt, value
         if isinstance(value, float):

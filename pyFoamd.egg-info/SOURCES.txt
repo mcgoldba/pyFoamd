@@ -22,8 +22,8 @@ pyfoamd/functions/getLatestTime.py
 pyfoamd/functions/init.py
 pyfoamd/functions/isCase.py
 pyfoamd/functions/isDecomposed.py
+pyfoamd/functions/isDictFile.py
 pyfoamd/functions/isMeshed.py
-pyfoamd/functions/isOFDict.py
 pyfoamd/functions/isReconstructed.py
 pyfoamd/functions/listCases.py
 pyfoamd/functions/load.py
@@ -31,6 +31,7 @@ pyfoamd/functions/monitor.py
 pyfoamd/functions/printInputs.py
 pyfoamd/functions/readCaseFromCache.py
 pyfoamd/functions/readConfig.py
+pyfoamd/functions/readDictFile.py
 pyfoamd/functions/readInputs.py
 pyfoamd/functions/removeBlockEntries.py
 pyfoamd/functions/removeEntry.py

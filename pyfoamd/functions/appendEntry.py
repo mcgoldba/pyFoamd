@@ -2,7 +2,7 @@ import os
 
 from .private.dictUtil import _appendBlockEntryWithLineNum, _appendBlockEntryWithBlockName, _findEndOfHeader, _findEndOfDict
 
-def appendEntry(value, blockList=None, lineNum=None, searchValues=False,
+def appendEntry(value, location, filename, blockList=None, lineNum=None, searchValues=False,
                 insert=False, whitespace=False):
     """
     Append an ofType into a dictoinary file.
@@ -39,13 +39,13 @@ def appendEntry(value, blockList=None, lineNum=None, searchValues=False,
         if insert:
             _appendBlockEntryWithLineNum(value,
                             _findEndOfHeader(os.path.join(
-                                value.location, value.filename)),
+                                location, filename)),
                             searchValues=searchValues,
                             whitespace=whitespace
                             )
         else:
             _appendBlockEntryWithLineNum(value,
-                    _findEndOfDict(os.path.join(value.location, value.filename)),
+                    _findEndOfDict(os.path.join(location, filename)),
                     searchValues=searchValues,
                     whitespace=whitespace
                     )

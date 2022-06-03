@@ -1,11 +1,12 @@
 import os
 import logging
+from pathlib import Path
 from pyfoamd import getPyFoamdConfig
 
 #from pyfoamd.richLogger import logger
 logger = logging.getLogger('pf')
 
-def _isOFDict(file):
+def _isDictFile(file):
     """
     Checks if the argument file is an OpenFOAM dictionary file.  It is assumed
     that all OpenFOAM dictionary files start with a block comment header of the 
@@ -38,14 +39,17 @@ Description
 
     logger.debug(f"Checking file: {file}")
 
-    isOFDict = False
+    isDictFile = False
 
+    #- Skip directories
+    if Path(file).is_dir():
+        return False
 
     filesizeLimit = int(getPyFoamdConfig('dict_filesize_limit'))
 
     #- Skip large files
     if os.path.getsize(file) > filesizeLimit:
-        return isOFDict
+        return isDictFile
 
 
     #- check for binary
@@ -53,13 +57,13 @@ Description
     textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
     is_binary_string = lambda bytes: bool(bytes.translate(None, textchars))
     if is_binary_string(open(file, 'rb').read(1024)):
-        return isOFDict    
+        return isDictFile    
 
     with open(file, encoding='utf8') as f:
         try:
             lines = f.readlines()
         except UnicodeDecodeError:
-            return isOFDict
+            return isDictFile
 
         #- Find start of first commented block
         i_start=-1
@@ -89,7 +93,7 @@ Description
             and '\\\\  /    A nd' in commentedBlock[4]
             and '\\\\/     M anipulation' in commentedBlock[5]
             ):
-                isOFDict = True
+                isDictFile = True
 
 
         #- Previous implementation
@@ -110,12 +114,12 @@ Description
         #         continue
         #     else:
         #         if line.startswith('FoamFile'):
-        #             isOFDict = True
+        #             isDictFile = True
         #         break
 
-    if isOFDict:
-        logger.debug(f"'{file}' is a an OpenFOAM dictionary file.")
+    if isDictFile:
+        logger.debug(f"'{file}' is an OpenFOAM dictionary file.")
     else:
         logger.debug(f"'{file}' is not an OpenFOAM dictionary file.")
 
-    return isOFDict
+    return isDictFile

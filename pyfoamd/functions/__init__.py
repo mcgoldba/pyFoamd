@@ -7,8 +7,7 @@ if sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported.')
 
 from pyfoamd.types import ofDictFile, ofDict, ofList, ofInt, ofFloat, \
-    ofStr, ofBool, ofDimensionedScalar, ofVector, ofNamedVector, \
-        ofDimensionedVector, TAB_STR
+    ofStr, ofBool, ofDimensionedScalar, ofVector, ofDimensionedVector, TAB_STR
 
 import os
 from shutil import copyfile
@@ -52,13 +51,14 @@ from .monitor import monitor
 from .writeConfig import writeConfig
 from .readConfig import readConfig
 from .extractLogData import extractLogData
-from .isOFDict import isOFDict
+from .isDictFile import isDictFile
 from .init import init
 from .readCaseFromCache import readCaseFromCache
 from .writeCase import writeCase
 from .load import load
 from .restore import restore
 from .allRun import allRun
+from.readDictFile import readDictFile
 
 #import logging
 

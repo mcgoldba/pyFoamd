@@ -1,9 +1,14 @@
 import sys
+from pathlib import Path
+
+from pyfoamd.types import _isDictFile
 
 import logging
 logger = logging.getLogger('pf')
 
-def isOFDict(file):
+
+
+def isDictFile(file):
     """
     Checks if the argument file is an OpenFOAM dictionary file.  It is assumed
     that all OpenFOAM dictionary files start with a block comment header of the 
@@ -21,7 +26,7 @@ Description
 
 \*---------------------------------------------------------------------------*/
     
-    Previous impementation:
+    Previous implementation:
 
     It is assumed that all OpenFOAM dictionary files start with the first 
     uncommented line as 'FoamFile\n'
@@ -30,25 +35,30 @@ Description
         file (str or Path):  The path of the file to test.
     """
 
-    # -Convert to string in case of Path object
-    file = str(file)
+    # # -Convert to string in case of Path object
+    # file = Path(file)
 
-    isOFDict = False
+    # if file.is_dir():
+    #     return False
 
-    with open(file) as f:
-        lines = f.readlines
+    # isDictFile = False
 
-        #- Parse file to first block comment
-        for i, line in enumerate(lines): 
-            if line.startswith('*/'):
-                break
+    # with open(file) as f:
+    #     lines = f.readlines()
 
-        blockComment = lines[i:i+7]
+    #     #- Parse file to first block comment
+    #     for i, line in enumerate(lines): 
+    #         if line.startswith('*/'):
+    #             break
+
+    #     blockComment = lines[i:i+7]
 
             
-    logger.debug(f"blockComment: {blockComment}")
-    sys.exit()
+    # logger.debug(f"blockComment: {blockComment}")
+    # sys.exit()
 
+
+    return _isDictFile(file)
 
     #- Previous implementation
 
@@ -71,7 +81,7 @@ Description
     #             continue
     #         else:
     #             if line.startswith('FoamFile'):
-    #                 isOFDict = True
+    #                 isDictFile = True
     #             break
 
-    # return isOFDict
+    # return isDictFile
