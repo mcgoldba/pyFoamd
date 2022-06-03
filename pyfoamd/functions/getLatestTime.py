@@ -17,6 +17,19 @@ import logging
 #     return latestTime
 
 def getLatestTime(caseDir=Path.cwd()):
+    """
+    Returns the latest time directory of an OpenFOAM case.  Searches
+    reconstructed and decomposed directories.
+
+    Parameters:
+        caseDir [pathlib.Path]:  The location of the OpenFoam case to search
+
+    Returns:
+        latestTime [float]: The latest time directory
+        
+        caseType [str]: The type of case containing the `latestTime`.  Either 
+            'decomposed' or 'reconstructed'.
+    """
 
     logger = logging.getLogger('xcfdv')
     
@@ -26,7 +39,7 @@ def getLatestTime(caseDir=Path.cwd()):
     for directory in directories:
         name = directory.replace('/', '')
         if name.isdigit() is True:
-            if int(name) > int(latestTime):
+            if float(name) > float(latestTime):
                 latestTime = name
 
     #- Get the latest time for the decomposed case
@@ -37,9 +50,14 @@ def getLatestTime(caseDir=Path.cwd()):
         for directory in directories:
             name = directory.replace('/', '')
             if name.isdigit() is True:
-                if int(name) > int(platestTime):
+                if float(name) > float(platestTime):
                     platestTime = name
 
-    latestTime = max(float(latestTime), float(platestTime)) 
+    if float(platestTime) > float(latestTime):
+        latestTime = platestTime
+        caseType = 'decomposed'
+    else: 
+        caseType = 'reconstructed'
+    
 
-    return latestTime
+    return latestTime, caseType
