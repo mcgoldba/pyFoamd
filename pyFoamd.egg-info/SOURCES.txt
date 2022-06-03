@@ -41,5 +41,6 @@ pyfoamd/functions/writeConfig.py
 pyfoamd/functions/writeParams.py
 pyfoamd/richLogger/__init__.py
 pyfoamd/types/__init__.py
+pyfoamd/types/_isCase.py
 pyfoamd/types/_isOFDict.py
 pyfoamd/types/_readDictFile.py
