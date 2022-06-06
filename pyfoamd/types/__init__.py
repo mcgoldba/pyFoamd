@@ -61,7 +61,8 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  ',': '_',  # doesnt start with '('
                  '*': '_',
                  ':': '_',
-                 '.': '_'}
+                 '.': '_',
+                 '-': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -471,6 +472,10 @@ class FolderParser:  # Class id required because 'default_factory' argument
         attrList = [('_path', str, field(default=str(self.path)))]
         internalNames = {}
         for obj in (Path(self.case) / self.path).iterdir():
+            #- Ignore polyMesh:
+            logger.debug(f"path.name: {Path(self.path).name}")
+            if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
+                continue
             #- Prevent invalid ofFolder attribute names:
             name_ = _checkReserved(obj.name, ['_path', '_type'])
             name_ = _parseNameTag(name_)
@@ -907,14 +912,14 @@ class CaseParser:
                 logger.debug(f"_ofCaseBase: \
                     {_ofCaseBase}")
                 logger.debug(f"obj: {obj}")
+                if obj.name.startswith('.'):
+                    #- ignore hidden directories.
+                    continue
                 fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
                 # if any([obj.name == field for field in fields]):
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
-                if obj.name.startswith('.'):
-                    #- ignore hidden directories.  These are included in ofTimeReg
-                    continue
                 name_ = _checkReserved(obj.name.replace('.', '_'), fields)
                 
                 logger.debug(f"digit test value: {name_.split('_')[0]}")
@@ -2668,6 +2673,18 @@ class DictFileParser:
                     return ofWord(lineList[0].strip().rstrip(';'))
                 if lineList[0] == '}':
                     return None # Found beggining or end of dictionary
+                #TODO:  Implement for dictionary as well:
+                if ((all(c in lineList[0].strip() for c in ['(', ')'])
+                or all(c in lineList[0].strip() for c in ['{', '}']))
+                and not any([lineList[0].startswith(c) for c in ['"', "'"]])):
+                    #found list on sinlge line. e.g '0()'
+                    line = lineList[0].strip()
+                    listOrDictName = line.split('(')[0]
+                    strippedLine = '('+'('.join(line.split('(')[1:])
+                    value = self._parseListOrDict(listOrDictName, 
+                                                  line=strippedLine)
+                    logger.debug(f"_parseLine list or dict:\n{value}")
+                    return value
                 listOrDictName = self.lines[self.i].lstrip().rstrip()
                 logger.debug(f"listOrDictName: {listOrDictName}")                
                 if any([listOrDictName is char for char in ['(', '{']]):
@@ -2677,6 +2694,7 @@ class DictFileParser:
                     logger.debug(f"_parseLine list or dict:\n{value}")
 
                     return value
+                
                 else:
                     self.i += 1
                     value = self._parseListOrDict(listOrDictName)
@@ -2782,6 +2800,7 @@ class DictFileParser:
 
         logger.debug(f"parseListOrDict name: {name}")
 
+        logger.debug(f"line[{self.i+1}]: {line or self.lines[self.i]}")
         logger.debug(f"lineList[{self.i+1}]: {lineList}")
 
         openingChar = None
