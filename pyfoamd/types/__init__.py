@@ -454,7 +454,7 @@ def pickleOfFolder(f):
 
 copyreg.pickle(_ofFolderBase, pickleOfFolder)
 
-class FolderParser:  # Class id required because 'default_factory' argument 
+class FolderParser:  # Class is required because 'default_factory' argument 
                      # 'makeOFFolder' must be zero argument
     def __init__(self, case, path=Path.cwd()):
         self.case = case
@@ -472,6 +472,7 @@ class FolderParser:  # Class id required because 'default_factory' argument
         attrList = [('_path', str, field(default=str(self.path)))]
         internalNames = {}
         for obj in (Path(self.case) / self.path).iterdir():
+        # for obj in Path(self.path).iterdir():
             #- Ignore polyMesh:
             logger.debug(f"path.name: {Path(self.path).name}")
             if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
@@ -588,7 +589,7 @@ class FolderParser:  # Class id required because 'default_factory' argument
 # @dataclass(kw_only=True)
 @dataclass
 class _ofCaseBase(_ofTypeBase):
-    _path : Path = field(default=Path.cwd())
+    _path : Path = field(default=Path.cwd().resolve())
     # _path : Path
     # _location : str = field(default=Path.cwd().parent)
     # _name : str = field(default=Path.cwd().name)
@@ -617,16 +618,16 @@ class _ofCaseBase(_ofTypeBase):
     #     self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
     #     self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
 
-    # @property
-    # def path(self):
-    #     # return Path(self._location) / self._name
-    #     return self._path_
+    @property
+    def _path(self):
+        # return Path(self._location) / self._name
+        return self._path_
 
-    # @_path.setter
-    # def _path(self, p):
-    #     self._location = str(Path(p).parent)
-    #     self._name = str(Path(p).name)
-    #     self._path_ = Path(p)
+    @_path.setter
+    def _path(self, p):
+        # self._location = str(Path(p).parent)
+        # self._name = str(Path(p).name)
+        self._path_ = Path(p).resolve()
 
     # @property
     # def _name(self):
@@ -773,6 +774,9 @@ class _ofCaseBase(_ofTypeBase):
                 data
         """
 
+        #TODO: Path is saved relative to directory originally called and results
+        #       in error if loaded from a different directory
+
         logger.debug(f"path: {path}")
 
         if _isCase(path):
@@ -864,12 +868,12 @@ class _ofCaseBase(_ofTypeBase):
         Run the specified run script.
         
         Parameters:
-            cmd [str]:  THe script to run.  Default value is 'Allrun'.
+            cmd [str]:  The script to run.  Default value is 'Allrun'.
 
         """
         script_ = str(Path(self._path)/ cmd)
         userMsg(f"Running Allrun script from {self._path}.")
-        subprocess.check_call('./'+script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
+        subprocess.check_call(script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
 def pickleOfCase(f):
@@ -1714,7 +1718,7 @@ class ofDict(dict, _ofTypeBase):
     #         yield item
 
     def __deepcopy__(self, memo=None):
-        print("__deepcopy__ type(self):", type(self))
+        # print("__deepcopy__ type(self):", type(self))
         new_ = ofDict()
         for key in self.keys():
             new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
@@ -2581,9 +2585,9 @@ class DictFileParser:
         attempts = 0
         while True:
             attempts += 1
-            if attempts > 1000:
+            if attempts > 5000:
                 logger.error("Error reading dictionary file.  Maximum "\
-                    "number of lines exceeded.")
+                    "number of lines exceeded:\n"+str(self.filepath))
                 sys.exit()
             if self.i >= len(self.lines):
                 break
@@ -2673,18 +2677,18 @@ class DictFileParser:
                     return ofWord(lineList[0].strip().rstrip(';'))
                 if lineList[0] == '}':
                     return None # Found beggining or end of dictionary
-                #TODO:  Implement for dictionary as well:
-                if ((all(c in lineList[0].strip() for c in ['(', ')'])
-                or all(c in lineList[0].strip() for c in ['{', '}']))
-                and not any([lineList[0].startswith(c) for c in ['"', "'"]])):
-                    #found list on sinlge line. e.g '0()'
-                    line = lineList[0].strip()
-                    listOrDictName = line.split('(')[0]
-                    strippedLine = '('+'('.join(line.split('(')[1:])
-                    value = self._parseListOrDict(listOrDictName, 
-                                                  line=strippedLine)
-                    logger.debug(f"_parseLine list or dict:\n{value}")
-                    return value
+                #TODO:  Implement in way that ofVars can be captured:
+                # if ((all(c in lineList[0].strip() for c in ['(', ')'])
+                # or all(c in lineList[0].strip() for c in ['{', '}']))
+                # and not any([lineList[0].startswith(c) for c in ['"', "'"]])):
+                #     #found list on sinlge line. e.g '0()'
+                #     line = lineList[0].strip()
+                #     listOrDictName = line.split('(')[0]
+                #     strippedLine = '('+'('.join(line.split('(')[1:])
+                #     value = self._parseListOrDict(listOrDictName, 
+                #                                   line=strippedLine)
+                #     logger.debug(f"_parseLine list or dict:\n{value}")
+                #     return value
                 listOrDictName = self.lines[self.i].lstrip().rstrip()
                 logger.debug(f"listOrDictName: {listOrDictName}")                
                 if any([listOrDictName is char for char in ['(', '{']]):
