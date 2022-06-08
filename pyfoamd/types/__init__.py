@@ -2490,14 +2490,14 @@ class ofStudy:
                     
                 #- Copy the template case path to ensure all files are copied:
                 shutil.copytree(self.templateCase._path, newPath)
-                tCase_ = copy.deepcopy(self.templateCase)
+                # tCase_ = copy.deepcopy(self.templateCase)
+                tCase_ = self.templateCase
                 tCase_.setName(name)
                 case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
 
-                print(f"Case path: {case_._path}")
+                print(f"Case path: {tCase_._path}")
 
-                # case_.write()
-                tCase_.write()
+                case_.write()
                 # case_.allRun(cmd=self.runCommand)            
 
 
