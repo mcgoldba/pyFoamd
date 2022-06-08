@@ -2475,7 +2475,7 @@ class ofStudy:
             userMsg("'updateFunction' argument must be callable.", "ERROR")
         self._updateFunction = f
 
-    def run(self):
+    def run(self, dryRun = False):
         #- Save the sample points to file
         self.samples.to_csv('studySamplePoints.txt', sep='\t')
 
@@ -2498,7 +2498,8 @@ class ofStudy:
                 print(f"Case path: {tCase_._path}")
 
                 case_.write()
-                case_.allRun(cmd=self.runCommand)            
+                if not dryRun:
+                    case_.allRun(cmd=self.runCommand)            
 
 
 class DictFileParser:
