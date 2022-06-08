@@ -16,7 +16,7 @@ from .richLogger import logger
 try:
     FOAM_VERSION = os.environ['WM_PROJECT_VERSION']
 except:
-    FOAM_VERSION = None
+    FOAM_VERSION = ""
     print("OpenFOAM not found!")
 
 def getPyFoamdConfig(param):

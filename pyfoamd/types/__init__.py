@@ -706,6 +706,8 @@ class _ofCaseBase(_ofTypeBase):
 
     def setName(self, name):
         self._path = Path(self._path).parent / name
+        self._name = name
+
 
     #- Recursively convert an ofCase object (or any type) to a dictionary.
     def toDict(self, obj=None):
@@ -834,7 +836,7 @@ class _ofCaseBase(_ofTypeBase):
             backupPath = Path(self._path) / '.pyfoamd' / f'_case.backup{n}'
 
         # TODO: Write JSON data as binary to save disk space.
-        #- Read in the file that was just saaved as binary:
+        #- Read in the file that was just saved as binary:
         with open(Path(self._path) / '.pyfoamd' / '_case.json', 'r') as f_:
             savedCase = f_.read()
             with open(backupPath, 'w') as f:
@@ -2494,8 +2496,9 @@ class ofStudy:
 
                 print(f"Case path: {case_._path}")
 
-                case_.write()
-                case_.allRun(cmd=self.runCommand)            
+                # case_.write()
+                tCase_.write()
+                # case_.allRun(cmd=self.runCommand)            
 
 
 class DictFileParser:
