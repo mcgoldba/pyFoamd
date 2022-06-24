@@ -2992,6 +2992,9 @@ class ofStudy:
                 if not dryRun:
                     case_.allRun(cmd=self.runCommand)            
 
+@dataclass
+class ofMonitor:
+    pass
 
 class DictFileParser:
     def __init__(self, filepath):
