@@ -62,7 +62,8 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  '*': '_',
                  ':': '_',
                  '.': '_',
-                 '-': '_'}
+                 '-': '_',
+                 ' ': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -2458,6 +2459,253 @@ TYPE_REGISTRY.append(ofIncludeFunc)
 
 #     # logger.debug(data)
 
+@dataclass
+class _ofMonitorBase:
+    _dataPath: Path
+    _columns: List = None
+    _index: int = field(init=False, default=0)
+    _startTime : str = field(init=False, default=0)
+    _name : str = None
+    
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def nSamples(self):
+        return self._nSamples
+
+    @property
+    def dataPath(self):
+        return self._dataPath
+
+    # @dataPath.setter
+    # def dataPath(self, path):
+    def __post_init__(self):
+
+        path = self._dataPath
+
+        logger.debug(f"datapath: {path}")
+
+        if Path(path).is_file():
+            self._dataPath = Path(path)
+        else:
+            userMsg(f"Invalid probe file specified:\n{path}", "ERROR")
+        #- TODO:  Check that the field is actually in the object registry
+        self._name = Path(path).name
+
+        time_ = Path(path).parent.name
+
+        try:
+            int(time_)
+            self.startTime = time_
+        except ValueError:
+            pass
+        else:
+            try:
+                float(time_)
+                self.startTime= time_
+            except ValueError:
+                userMsg(f"Invalid startTime found for monitor: " \
+                +{self._dataPath}, "WARNING")
+
+        if not hasattr(self, "_data") or self.data is None:
+            with open(self.dataPath) as file:
+                i = 0
+                self._locations = []
+                if self._columns is None:
+                    #- Parse commented lines
+                    while True:
+                        line = file.readline()
+                        logger.debug(f"line: {line}")
+                        if not line.startswith("#"):
+                            break
+                        prevLine = line
+                    self._columns = prevLine.lstrip('#').split('\t')
+                    self.columns = [v.strip() for v in self._columns]
+                #- read data after header
+                logger.info(f"fileColumns: {self._columns}")
+                parsedColumnLabels = False
+                while True:
+                    line = file.readline()
+                    #logger.info(f"line: {line}")
+                    if not line:
+                        break
+                    if line.startswith('#'):
+                        continue
+                    values = re.split(r'\s{2,}', line)
+                    values = [v.strip() for v in values]
+                    #logger.debug(f"monitor values: {values}")
+                    #logger.info(f"len(values) < len(columns): {len(values)} < {len(fileColumns)}")
+                    if len(values) < len(self._columns):  # Skip line with missing data
+                        continue
+                    parsedValues = [float(values[0])]  #Time index
+                    parsedLabels = [self._columns[0]]
+                    for i, value in enumerate(values[1:]):
+                        # logger.info(f"value: {value}")
+                        ofType, ofValue = DictFileParser._parseValue(value)
+                        #logger.debug(f"ofValue: {ofValue}")
+                        if isinstance(ofValue, list):
+                            for v in ofValue:
+                                parsedValues.append(v)
+                                parsedLabels.append(self._columns[i+1])
+                            if not parsedColumnLabels:
+                                if isinstance(ofType, ofVector):
+                                    #- Found vector
+                                    parsedLabels.append(self._columns[i+1]+" x")
+                                    parsedLabels.append(self._columns[i+1]+" y")
+                                    parsedLabels.append(self._columns[i+1]+" z")
+                                elif isinstance(ofType, ofSymmTensor):
+                                    parsedLabels.append(self._columns[i+1]+" xx")
+                                    parsedLabels.append(self._columns[i+1]+" xy")
+                                    parsedLabels.append(self._columns[i+1]+" xz")
+                                    parsedLabels.append(self._columns[i+1]+" yy")
+                                    parsedLabels.append(self._columns[i+1]+" yz")
+                                    parsedLabels.append(self._columns[i+1]+" zz")
+                                elif isinstance(ofType, ofTensor):
+                                    parsedLabels.append(self._columns[i+1]+" xx")
+                                    parsedLabels.append(self._columns[i+1]+" xy")
+                                    parsedLabels.append(self._columns[i+1]+" xz")
+                                    parsedLabels.append(self._columns[i+1]+" yx")
+                                    parsedLabels.append(self._columns[i+1]+" yy")
+                                    parsedLabels.append(self._columns[i+1]+" yz")
+                                    parsedLabels.append(self._columns[i+1]+" zx")
+                                    parsedLabels.append(self._columns[i+1]+" zy")
+                                    parsedLabels.append(self._columns[i+1]+" zz")
+                                #TODO: Check that the appropriate ofType was found
+                        else:
+                            parsedValues.append(ofValue)
+                            parsedLabels.append(self._columns[i+1])
+                    if len(parsedValues) == len(parsedLabels):
+                        columns = parsedLabels
+                    else:
+                        raise Exception("Could not parse log file data type.")
+
+                    # logger.info(f"Parsed values: {parsedValues}")
+
+                    try:
+                        #logger.info('testing data_...')
+                        data_
+                    except NameError:
+                        #logger.info("Defining 'data_'.")
+                        data_ = np.array([parsedValues])
+                    else:
+                        #logger.info(f"Adding row to data: {parsedValues}")
+                        data_ = np.append(data_, [parsedValues], axis=0)
+                    # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
+
+                    parsedColumnLabels = True
+
+            # converters = {}
+            # for i in range(1,len(columns)):
+            #     converters.update({i: _parseProbeValues})
+            # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
+            #     engine='python', converters=converters)   
+            # data_ = _parseProbeValues(path)
+
+            logger.info(data_)
+
+            logger.debug(data_.shape)
+
+            self._data = pd.DataFrame(data=data_, index=data_[:,0],
+                                     columns=columns)
+            logger.debug(f"probes: {columns}")
+            # self._data.columns = probes
+            self._nSamples = self._data.shape[0]
+        else: #- Append only the unread lines to the existing data
+    
+            i = self.nSamples - 1
+            with open(self.dataPath) as file:
+                while True:
+                    line = file.readline(i)
+                    if line == "": # Found end of file
+                        break
+                    lineDf = pd.DataFrame(line.split(), index=i, 
+                        header=self._data.columns)
+                    self._data = pd.concat(self._data, lineDf)
+
+class MonitorParser:
+    def __init__(self, path=Path.cwd()):
+        if not isinstance(path, Path):
+            self.path = Path(path)
+        else:
+            self.path = path
+
+    def makeOFMonitor(self):
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        attrList = []
+
+        # read in the header comments to store as ofMonitor attributes
+        with open(self.path) as f:
+            for line in f:
+                if line.startswith('#') == False:
+                    break
+                if ':' in line:
+                    lineList = line.lstrip('#').split(':')
+                    lineList = [v.strip() for v in lineList]
+                    key = _parseNameTag(lineList[0].strip())
+                    value = ':'.join(lineList[1:])
+                    logger.debug(f"monitor file key: {key}")
+                    #TODO:  What types should be acceptable here?
+                    type_ = str
+                    try:
+                        int(value)
+                        type_ = int
+                    except ValueError:
+                        pass
+                    else:
+                        try:
+                            float(value)
+                            type_ = float
+                        except ValueError:
+                            pass
+
+                    attrList.append((key, type_, field(default=value)))
+                else: # store values as column labels
+                    header = line.lstrip('#').split('\t')
+                    header = [v.strip() for v in header]
+                    
+                
+        dc_ = make_dataclass('ofMonitor', attrList, 
+                    bases=(_ofMonitorBase, ))(_dataPath=self.path, 
+                                        _columns=header)
+                
+        return dc_
+
+            
+
+
+        # Pass headers to _ofMonitorBase and create a new ofMonitor using 
+        # 'make_dataclass'
+
+#TODO:  Create an ofMonitorCollection class that stores multiple start time 
+# values for a single probe.  Use MonitorParser to create a list of 
+# ofMonitorCollections, but do not store in an ofCase, because this would be too 
+# cumbersome for saving data. 
+
+class MonitorCollectionParser:
+    def __init__(self, path=Path.cwd()):
+        if not isinstance(path, Path):
+            self.path = Path(path)
+        else:
+            self.path = path
+
+    def parse(self):
+        """
+        Parse the top level folder containing all monitors (i.e. 
+        'postProcessing'), and return a list of ofMonitor objects.
+        """
+        for obj in self.path.iterdir():
+            if obj.is_dir() and obj.name.startswith('.') == False:
+                pass
+
+    def makeOFMonitor(self):
+        attrList = []
+        for obj in self.path.iterdir():
+            if obj.is_dir() and obj.name.startswith('.') == False:
+                pass
 
 
 @dataclass
@@ -2516,23 +2764,19 @@ class ofProbe:
                             line.split('(')[1].split(')')[0].split()]))
                     i+=1
                 #- read data after header
-                logger.info(f"fileColumns: {fileColumns}")
                 parsedColumnLabels = False
                 while True:
                     line = file.readline()
-                    #logger.info(f"line: {line}")
                     if not line:
                         break
                     if line.startswith('#'):
                         continue
                     values = re.split(r'\s{2,}', line)
-                    #logger.info(f"len(values) < len(columns): {len(values)} < {len(fileColumns)}")
                     if len(values) < len(fileColumns):  # Skip line with missing data
                         continue
                     parsedValues = [float(values[1])]  #Time index
                     parsedLabels = [fileColumns[0]]
                     for i, value in enumerate(values[2:]):
-                        # logger.info(f"value: {value}")
                         ofType, ofValue = DictFileParser._parseValue(value)
                         if isinstance(ofValue, list):
                             for v in ofValue:
@@ -2570,13 +2814,10 @@ class ofProbe:
                     # logger.info(f"Parsed values: {parsedValues}")
 
                     try:
-                        #logger.info('testing data_...')
                         data_
                     except NameError:
-                        #logger.info("Defining 'data_'.")
                         data_ = np.array([parsedValues])
                     else:
-                        #logger.info(f"Adding row to data: {parsedValues}")
                         data_ = np.append(data_, [parsedValues], axis=0)
                     # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
 
@@ -2588,8 +2829,6 @@ class ofProbe:
             # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
             #     engine='python', converters=converters)   
             # data_ = _parseProbeValues(path)
-
-            logger.info(data_)
 
             logger.debug(data_.shape)
 

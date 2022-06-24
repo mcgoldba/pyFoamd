@@ -1,15 +1,16 @@
 from pathlib import Path
 import numpy as np
 import pyfoamd.types as pt
+from pyfoamd import userMsg
 
 import logging
 
 logger = logging.getLogger('pf')
 
-def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
-     logPath=None):
+def getMonitor(name=None, startTime='latestTime', dataFileName=None,
+     logPath=None, workingDir=Path.cwd()):
     """
-    Get an ofProbe object from a log file written to the 'postProcessing/probes'
+    Get an ofMonitor object from a log file written to the 'postProcessing/'
     directory.
 
     Data file is either specified by a `field` and `startTime` argument or a 
@@ -18,7 +19,7 @@ def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
 
     Post processing data is typically stored as:
 
-    postProcessing/probes/<startTime>/<field>
+    postProcessing/<name>/<startTime>/<dataFile>.dat
 
     Parameters:
         field [str]:  The field for which data is to be extracted.
@@ -38,7 +39,7 @@ def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
 
     if logPath is None:
         if startTime == 'latestTime':
-            timePath = Path(workingDir) / 'postProcessing' / 'probes'
+            timePath = Path(workingDir) / 'postProcessing' / name
             startTime = 0
             for time in timePath.iterdir():
                 try:
@@ -48,12 +49,30 @@ def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
                 except ValueError:
                     pass            
             startTime = str(startTime)
-        logPath = (Path(workingDir) / 'postProcessing' / 'probes' 
-        / str(startTime) / field)
+        logPathParent = (Path(workingDir) / 'postProcessing' / name 
+        / str(startTime))
+
+    if dataFileName is None:
+        #TODO:  This just takes the first log file in the list.  Is there a 
+        # better way?
+        logFileNames = []
+        for path in logPathParent.iterdir():
+            if path.is_file():
+                logFileNames.append(path.name)
+        if len(logFileNames) > 1:
+            userMsg("Found multiple log files, defualting to first item in list: " \
+                +str(logFileNames), "WARNING"
+            )
+        if len(logFileNames) == 0:
+            userMsg("Could not find any log file in directory {logPathParent}",
+            "ERROR")
+        logPath = logPathParent / logFileNames[0]
+    else:
+        logPath = logPathParent / dataFileName
 
     logger.debug(f"logPath: {logPath}")
 
-    probe = pt.ofProbe(logPath)
+    monitor = pt.MonitorParser(logPath).makeOFMonitor()
     # data = np.loadtxt(logPath, delimiter="\s+")
 
-    return probe
+    return monitor
