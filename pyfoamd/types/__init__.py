@@ -2415,6 +2415,258 @@ class ofIncludeFunc(ofInclude):
 
 TYPE_REGISTRY.append(ofIncludeFunc)
 
+# def _parseProbeValues(logPath):
+#     """
+#     Parse the raw string from an OpenFOAM probe log, and 
+#     convert to the appropriate components.
+
+#     e.g
+#     # Probe 0 (-1.2192 -1.28873 1.75054e-18)
+#     # Probe 1 (-0.1905 -3.13339 0.6096)  # Not Found
+#     # Probe 2 (0.762 -3.13339 0.6096)  # Not Found
+#     # Probe 3 (1.7145 -3.13339 0.6096)  # Not Found
+#     # Probe 4 (1 0 0)
+#     #       Probe             0             1             2             3             4
+#     #        Time
+#             1             (-1.72271 -0.0195384 0.0334737)             (-1e+300 -1e+300 -1e+300)             (-1e+300 -1e+300 -1e+300)             (-1e+300 -1e+300 -1e+300)             (-1.58571 2.11359e-05 1.37121e-05)
+    
+#     is converted to:
+
+#     Probe0_x Probe0_y Probe0_z Probe1_x ...
+#     -1.72271 -0.0195384 0.0334737 -1e+300 ...
+#     ...
+
+#     Parameters:
+#         logPath [str] : path of the log file data to read.
+
+#     Returns:
+#         data [nd.array] : a 2D numpy array of values.
+
+#     """
+
+#     v_ = DictFileParser._parseValue(value)
+
+#     if isinstance(v_.value, list):
+#          for v in v_.value:
+#              logger.debug(f"_parseProbeValues value: {v}")
+#              yield v
+#     else:
+#         logger.debug(f"_parseProbeValues value: {v_.value}")
+#         return v_.value
+
+#     # data = np.loadtxt(logPath, delimiter='\t')
+
+#     # logger.debug(data)
+
+
+
+@dataclass
+class ofProbe:
+    dataPath: Path
+    _index: int = field(init=False, default=0)
+
+    
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def field(self):
+        return self._field
+
+    @property
+    def locations(self):
+        """Coordinate locations of the sampled data"""
+        return self._locations
+
+    @property
+    def nSamples(self):
+        return self._nSamples
+
+    @property
+    def dataPath(self):
+        return self._dataPath
+
+    @dataPath.setter
+    def dataPath(self, path):
+
+        logger.debug(f"datapath: {path}")
+
+        if Path(path).is_file():
+            self._dataPath = Path(path)
+        else:
+            userMsg(f"Invalid probe file specified:\n{p}", "ERROR")
+        #- TODO:  Check that the field is actually in the object registry
+        self._field = Path(path).name
+
+        if not hasattr(self, "_data") or self.data is None:
+            #- Parse commented lines
+            with open(self.dataPath) as file:
+                i = 0
+                self._locations = []
+                fileColumns = ['Time']
+                while True:
+                    line = file.readline()
+                    logger.debug(f"line: {line}")
+                    if not line.startswith("# Probe"):
+                        break
+                    fileColumns.append(f"Probe {i}")
+                    self._locations.append(
+                        ofVector([float(v) for v in 
+                            line.split('(')[1].split(')')[0].split()]))
+                    i+=1
+                #- read data after header
+                logger.info(f"fileColumns: {fileColumns}")
+                parsedColumnLabels = False
+                while True:
+                    line = file.readline()
+                    #logger.info(f"line: {line}")
+                    if not line:
+                        break
+                    if line.startswith('#'):
+                        continue
+                    values = re.split(r'\s{2,}', line)
+                    #logger.info(f"len(values) < len(columns): {len(values)} < {len(fileColumns)}")
+                    if len(values) < len(fileColumns):  # Skip line with missing data
+                        continue
+                    parsedValues = [float(values[1])]  #Time index
+                    parsedLabels = [fileColumns[0]]
+                    for i, value in enumerate(values[2:]):
+                        # logger.info(f"value: {value}")
+                        ofType, ofValue = DictFileParser._parseValue(value)
+                        if isinstance(ofValue, list):
+                            for v in ofValue:
+                                parsedValues.append(v)
+                                parsedLabels.append(fileColumns[i+1])
+                            if not parsedColumnLabels:
+                                if isinstance(ofType, ofVector):
+                                    #- Found vector
+                                    parsedLabels.append(fileColumns[i+1]+" x")
+                                    parsedLabels.append(fileColumns[i+1]+" y")
+                                    parsedLabels.append(fileColumns[i+1]+" z")
+                                elif isinstance(ofType, ofSymmTensor):
+                                    parsedLabels.append(fileColumns[i+1]+" xx")
+                                    parsedLabels.append(fileColumns[i+1]+" xy")
+                                    parsedLabels.append(fileColumns[i+1]+" xz")
+                                    parsedLabels.append(fileColumns[i+1]+" yy")
+                                    parsedLabels.append(fileColumns[i+1]+" yz")
+                                    parsedLabels.append(fileColumns[i+1]+" zz")
+                                elif isinstance(ofType, ofTensor):
+                                    parsedLabels.append(fileColumns[i+1]+" xx")
+                                    parsedLabels.append(fileColumns[i+1]+" xy")
+                                    parsedLabels.append(fileColumns[i+1]+" xz")
+                                    parsedLabels.append(fileColumns[i+1]+" yx")
+                                    parsedLabels.append(fileColumns[i+1]+" yy")
+                                    parsedLabels.append(fileColumns[i+1]+" yz")
+                                    parsedLabels.append(fileColumns[i+1]+" zx")
+                                    parsedLabels.append(fileColumns[i+1]+" zy")
+                                    parsedLabels.append(fileColumns[i+1]+" zz")
+                                #TODO: Check that the appropriate ofType was found
+                    if len(parsedValues) == len(parsedLabels):
+                        columns = parsedLabels
+                    else:
+                        raise Exception("Could not parse log file data type.")
+
+                    # logger.info(f"Parsed values: {parsedValues}")
+
+                    try:
+                        #logger.info('testing data_...')
+                        data_
+                    except NameError:
+                        #logger.info("Defining 'data_'.")
+                        data_ = np.array([parsedValues])
+                    else:
+                        #logger.info(f"Adding row to data: {parsedValues}")
+                        data_ = np.append(data_, [parsedValues], axis=0)
+                    # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
+
+                    parsedColumnLabels = True
+
+            # converters = {}
+            # for i in range(1,len(columns)):
+            #     converters.update({i: _parseProbeValues})
+            # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
+            #     engine='python', converters=converters)   
+            # data_ = _parseProbeValues(path)
+
+            logger.info(data_)
+
+            logger.debug(data_.shape)
+
+            self._data = pd.DataFrame(data=data_, index=data_[:,0],
+                                     columns=columns)
+            logger.debug(f"probes: {columns}")
+            # self._data.columns = probes
+            self._nSamples = self._data.shape[0]
+        else: #- Append only the unread lines to the existing data
+    
+            i = self.nSamples - 1
+            with open(self.dataPath) as file:
+                while True:
+                    line = file.readline(i)
+                    if line == "": # Found end of file
+                        break
+                    lineDf = pd.DataFrame(line.split(), index=i, 
+                        header=self._data.columns)
+                    self._data = pd.concat(self._data, lineDf)
+
+    # TODO:  Dataclasses cannot be iterable??
+    # def __iter__(self):
+    #     return self
+    
+    # def __next__(self):
+    #     if self._index < len(self.locations):
+    #         time = self.data.iloc[:,0]
+    #         return (time, self.data.iloc[:,i+1]), self.data.columns[i+1], self.locations[i]
+    #     else:
+    #         raise StopIteration
+
+    # def monitor(values=['U', 'p'], time=None, supplement=None, 
+    #     workingDir=Path.cwd(), ylabel = None, title=None,
+    #     legendName = None):
+
+    #     if title is None:
+    #         title = Path(workingDir).name
+
+    #     pauseTime = 0.2
+
+    #     def updatePlot(x, y, plotData, identifier='', pauseTime=0.2):
+    #         if plotData==[]:
+    #             plt.ion()
+    #             fig = plt.figure(figsize=(6,3))
+    #             ax = fig.add_subplot(1, 1, 1)
+    #             plotData, = ax.plot(x, y, label = legendName)
+    #             plt.ylabel(ylabel)
+    #             plt.xlabel("Time")
+    #             plt.title(title)
+    #             plt.legend()
+    #             plt.show()
+            
+    #         plotData.set_data(x, y)
+    #         plt.xlim(np.min(x), np.max(x))
+
+    #         if (np.min(y) <= plotData.axes.get_ylim()[0]
+    #         or np.max(y) >= plotData.axes.get_ylim()[1]):
+    #             ystd = np.std(y)
+    #             plt.ylim([np.min(y)-ystd, np.max(y)+ystd])
+
+    #         # plt.pause(pause_time)
+
+    #         return plotData
+
+    #     plotData = [[] for value in values for probe in value]
+
+    #     while True:
+    #         for probe in probes:
+
+    #             for (x, y), name, loc in probe:
+    #                 legendName = f"{name}: ({loc[0]}, {loc[1]}, {loc[2]})"
+    #                 plotData = updatePlot(x, y, plotData, ylabel=probe.field,
+    #                 legend= legendName)
+
+    #         plt.pause(pauseTime)
+
+
 @dataclass
 class ofStudy:
     templatePath : Path

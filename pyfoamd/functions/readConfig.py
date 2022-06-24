@@ -8,9 +8,10 @@ import logging
 log = logging.getLogger("pf")
 
 #TODO:  Should this replace the inputParameters file?
-def readConfig(key=None, file="xcfd.json", caseDir=Path.cwd()):
+def readConfig(key=None, file="pyfoamd.json", caseDir=Path.cwd()):
     """
-    Reads a value to the specified configuration file.
+    Reads a value to the specified configuration file, or returns the 
+    configuration file as a python dictionary.
 
     Parameters
     ----------

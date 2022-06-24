@@ -13,6 +13,8 @@ from traitlets.config import Config # for IPython config
 # import config
 import sys
 
+import pyfoamd.types as pt
+
 import logging
 logger = logging.getLogger('pf')
 
@@ -171,6 +173,8 @@ class CommandLine:
 
         parser = argparse.ArgumentParser(prog=self.prog)
 
+
+
         parser.add_argument('-path',type=str, nargs='?',
                             help='The path of the OpenFOAM case to parse.')
 
@@ -183,5 +187,21 @@ class CommandLine:
             case = pf.load(path=args.path)
         
         case.write()
+
+    def monitor(self):
+        self.prog+= ' monitor'
+
+        parser = argparse.ArgumentParser(prog=self.prog)
+
+        parser.add_argument('values', type=str, nargs='+', default=['U', 'p'],
+                            help='fields to monitor')
+
+        parser.add_argument('-casePath',type=str, nargs='?',
+                            help='The path of the OpenFOAM case to parse.')
+
+
+        args = parser.parse_args(self.addArgs)
+
+        pf.monitor(values=args.fields, workingDir=args.casePath)
 
 
