@@ -64,7 +64,8 @@ def main():
         'init': None,#- `None` values to be updated after extracting `addArgs`
         'edit': None,   
         'setConfig': None,
-        'write': None
+        'write': None,
+        'monitor': None
     }
 
     # commandsStr = ''
@@ -105,6 +106,7 @@ def main():
     commands['edit'] = cl.edit
     commands['setConfig'] = cl.setConfig
     commands['write'] = cl.write
+    commands['monitor'] = cl.monitor
 
     commandsStr = ''
 
