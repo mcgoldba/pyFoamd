@@ -2500,6 +2500,9 @@ class ofStudy:
                 case_.write()
                 case_.allRun(cmd=self.runCommand)            
 
+@dataclass
+class ofMonitor:
+    pass
 
 class DictFileParser:
     def __init__(self, filepath):

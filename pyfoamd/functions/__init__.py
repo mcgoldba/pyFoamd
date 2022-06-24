@@ -58,7 +58,8 @@ from .writeCase import writeCase
 from .load import load
 from .restore import restore
 from .allRun import allRun
-from.readDictFile import readDictFile
+from .readDictFile import readDictFile
+from .plot import plot
 
 #import logging
 
