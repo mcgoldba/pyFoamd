@@ -2483,6 +2483,8 @@ class _ofMonitorBase:
     # def dataPath(self, path):
     def __post_init__(self):
 
+        logging.getLogger('pf').setLevel(logging.DEBUG)
+
         path = self._dataPath
 
         logger.debug(f"datapath: {path}")
@@ -2492,7 +2494,7 @@ class _ofMonitorBase:
         else:
             userMsg(f"Invalid probe file specified:\n{path}", "ERROR")
         #- TODO:  Check that the field is actually in the object registry
-        self._name = Path(path).name
+        self._name = Path(path).parent.parent.name
 
         time_ = Path(path).parent.name
 
@@ -2522,29 +2524,29 @@ class _ofMonitorBase:
                             break
                         prevLine = line
                     self._columns = prevLine.lstrip('#').split('\t')
-                    self.columns = [v.strip() for v in self._columns]
+                    self._columns = [v.strip() for v in self._columns]
+                
+                # logger.debug(f"columns: {self._columns}")
+                
                 #- read data after header
-                logger.info(f"fileColumns: {self._columns}")
                 parsedColumnLabels = False
                 while True:
                     line = file.readline()
-                    #logger.info(f"line: {line}")
                     if not line:
                         break
                     if line.startswith('#'):
                         continue
-                    values = re.split(r'\s{2,}', line)
+                    values = re.split(r'\s{2,}|\t', line)
                     values = [v.strip() for v in values]
-                    #logger.debug(f"monitor values: {values}")
-                    #logger.info(f"len(values) < len(columns): {len(values)} < {len(fileColumns)}")
+                    # logger.debug(f"values: {values}")
+                    # logger.debug(f"len(values) len(self._columns): {len(values)} {len(self._columns)}")
                     if len(values) < len(self._columns):  # Skip line with missing data
+                        # logger.debug("Skipping line...")
                         continue
                     parsedValues = [float(values[0])]  #Time index
                     parsedLabels = [self._columns[0]]
                     for i, value in enumerate(values[1:]):
-                        # logger.info(f"value: {value}")
                         ofType, ofValue = DictFileParser._parseValue(value)
-                        #logger.debug(f"ofValue: {ofValue}")
                         if isinstance(ofValue, list):
                             for v in ofValue:
                                 parsedValues.append(v)
@@ -2581,16 +2583,12 @@ class _ofMonitorBase:
                     else:
                         raise Exception("Could not parse log file data type.")
 
-                    # logger.info(f"Parsed values: {parsedValues}")
 
                     try:
-                        #logger.info('testing data_...')
                         data_
                     except NameError:
-                        #logger.info("Defining 'data_'.")
                         data_ = np.array([parsedValues])
                     else:
-                        #logger.info(f"Adding row to data: {parsedValues}")
                         data_ = np.append(data_, [parsedValues], axis=0)
                     # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
 
@@ -2603,12 +2601,11 @@ class _ofMonitorBase:
             #     engine='python', converters=converters)   
             # data_ = _parseProbeValues(path)
 
-            logger.info(data_)
-
             logger.debug(data_.shape)
 
-            self._data = pd.DataFrame(data=data_, index=data_[:,0],
-                                     columns=columns)
+            self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+                                     columns=columns[1:])
+            self._data.index.name = columns[0]                         
             logger.debug(f"probes: {columns}")
             # self._data.columns = probes
             self._nSamples = self._data.shape[0]
@@ -3953,7 +3950,7 @@ class DictFileParser:
             v_ = ofVar(value=value)
             return ofVar, v_
 
-        logger.debug(f"value: '{value}'")
+        # logger.debug(f"value: '{value}'")
 
         # check for a list field type.  e.g. a spherical tensor '(0)' 
         if value[0] == '(' and value[-1] == ')':
