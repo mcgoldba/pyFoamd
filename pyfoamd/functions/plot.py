@@ -9,7 +9,8 @@ import pyfoamd.types as pt
 import logging
 logger = logging.getLogger('pf')
 
-def plot(relDataFile=None, monitor=None, filter=None, logScale=False, workingDir=Path.cwd()):
+def plot(relDataFile=None, monitor=None, filter=None, logScale=False, 
+    workingDir=Path.cwd(), yrange = None):
     """
     Plot data from a log file.  
 
@@ -26,6 +27,9 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False, workingDir
 
         logScale [bool]:  If `True` plots the data with a log scale on the 
         y-axis.
+
+        yrange [list(float)]:  The range for the yaxis as a list of 2 values 
+            (e.g. `[0, 100]`)
 
     """
 
@@ -72,7 +76,7 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False, workingDir
             if re.search(filter, name):
                filteredNames.append(name)
                filteredData.append(data_)
-        data = filteredData
+        data = np.array(filteredData, dtype=float)
         names = filteredNames
 
         if len(filteredData) == 0:
@@ -91,5 +95,7 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False, workingDir
     plt.legend()
     if logScale:
         plt.yscale('log')
+    if yrange is not None:
+        plt.ylim(yrange)
 
     plt.show()
