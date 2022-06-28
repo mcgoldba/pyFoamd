@@ -58,7 +58,7 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False, workingDir
     xData = monitor.data.index.to_numpy(dtype=float)
 
     data = monitor.data.to_numpy().T
-    names = monitor._columns
+    names = monitor.data.columns
 
     logger.debug(f"names: {names}")
     logger.debug(f"data: {data}")

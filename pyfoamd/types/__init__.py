@@ -2483,7 +2483,7 @@ class _ofMonitorBase:
     # def dataPath(self, path):
     def __post_init__(self):
 
-        logging.getLogger('pf').setLevel(logging.DEBUG)
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
 
         path = self._dataPath
 
@@ -2527,99 +2527,190 @@ class _ofMonitorBase:
                     self._columns = [v.strip() for v in self._columns]
                 
                 # logger.debug(f"columns: {self._columns}")
-                
-                #- read data after header
-                parsedColumnLabels = False
-                while True:
-                    line = file.readline()
-                    if not line:
-                        break
-                    if line.startswith('#'):
-                        continue
-                    values = re.split(r'\s{2,}|\t', line)
-                    values = [v.strip() for v in values]
-                    # logger.debug(f"values: {values}")
-                    # logger.debug(f"len(values) len(self._columns): {len(values)} {len(self._columns)}")
-                    if len(values) < len(self._columns):  # Skip line with missing data
-                        # logger.debug("Skipping line...")
-                        continue
-                    parsedValues = [float(values[0])]  #Time index
-                    parsedLabels = [self._columns[0]]
-                    for i, value in enumerate(values[1:]):
-                        ofType, ofValue = DictFileParser._parseValue(value)
-                        if isinstance(ofValue, list):
-                            for v in ofValue:
-                                parsedValues.append(v)
-                                parsedLabels.append(self._columns[i+1])
-                            if not parsedColumnLabels:
-                                if isinstance(ofType, ofVector):
-                                    #- Found vector
-                                    parsedLabels.append(self._columns[i+1]+" x")
-                                    parsedLabels.append(self._columns[i+1]+" y")
-                                    parsedLabels.append(self._columns[i+1]+" z")
-                                elif isinstance(ofType, ofSymmTensor):
-                                    parsedLabels.append(self._columns[i+1]+" xx")
-                                    parsedLabels.append(self._columns[i+1]+" xy")
-                                    parsedLabels.append(self._columns[i+1]+" xz")
-                                    parsedLabels.append(self._columns[i+1]+" yy")
-                                    parsedLabels.append(self._columns[i+1]+" yz")
-                                    parsedLabels.append(self._columns[i+1]+" zz")
-                                elif isinstance(ofType, ofTensor):
-                                    parsedLabels.append(self._columns[i+1]+" xx")
-                                    parsedLabels.append(self._columns[i+1]+" xy")
-                                    parsedLabels.append(self._columns[i+1]+" xz")
-                                    parsedLabels.append(self._columns[i+1]+" yx")
-                                    parsedLabels.append(self._columns[i+1]+" yy")
-                                    parsedLabels.append(self._columns[i+1]+" yz")
-                                    parsedLabels.append(self._columns[i+1]+" zx")
-                                    parsedLabels.append(self._columns[i+1]+" zy")
-                                    parsedLabels.append(self._columns[i+1]+" zz")
-                                #TODO: Check that the appropriate ofType was found
-                        else:
-                            parsedValues.append(ofValue)
-                            parsedLabels.append(self._columns[i+1])
-                    if len(parsedValues) == len(parsedLabels):
-                        columns = parsedLabels
-                    else:
-                        raise Exception("Could not parse log file data type.")
-
-
-                    try:
-                        data_
-                    except NameError:
-                        data_ = np.array([parsedValues])
-                    else:
-                        data_ = np.append(data_, [parsedValues], axis=0)
-                    # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
-
-                    parsedColumnLabels = True
-
-            # converters = {}
-            # for i in range(1,len(columns)):
-            #     converters.update({i: _parseProbeValues})
-            # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
-            #     engine='python', converters=converters)   
-            # data_ = _parseProbeValues(path)
-
-            logger.debug(data_.shape)
-
-            self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
-                                     columns=columns[1:])
-            self._data.index.name = columns[0]                         
-            logger.debug(f"probes: {columns}")
-            # self._data.columns = probes
-            self._nSamples = self._data.shape[0]
-        else: #- Append only the unread lines to the existing data
-    
-            i = self.nSamples - 1
+                self._readData(file)
+        else:
             with open(self.dataPath) as file:
-                while True:
-                    line = file.readline(i)
-                    if line == "": # Found end of file
-                        break
-                    lineDf = pd.DataFrame(line.split(), index=i, 
-                        header=self._data.columns)
-                    self._data = pd.concat(self._data, lineDf)
+                self._readData(file)
+    
+    def _readData(self, file):
+        """Read data after header"""
+        parsedColumnLabels = False
+        parsedLabels = [self._columns[0]]
+        linei = 0
+        while True:
+            linei+=1
+            line = file.readline()
+            if not line:
+                break
+            if line.startswith('#'):
+                continue
+            values = re.split(r'\s{2,}|\t', line.strip())
+            values = [v.strip() for v in values]
+
+            parsedValues = [float(values[0])]  #Time index
+            ofValues = [float(values[0])]
+            ofTypes = [float]
+ 
+            for i, value in enumerate(values[1:]):
+                ofType, ofValue = DictFileParser._parseValue(value)
+                           
+                ofValues.append(ofValue)
+                ofTypes.append(ofType)
+            
+            logger.debug(f"ofValues:\n{ofValues}")
+
+            def countValues(list_, n=0):
+                for value in list_:
+                    if isinstance(value, list):
+                        n+= countValues(value)
+                    else:
+                        n+= 1
+                logger.debug(f"returning {n}...")
+                return n
+            nValues = countValues(ofValues)
+            # values_ = np.array(ofValues, dtype=object).flatten()
+            # logger.debug(f"values_: {values_}")
+            # nValues = values_.shape[0]
+
+            logger.debug(f"nValues: {nValues}")
+
+            for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
+
+                # if found additional data values in middle of file, parse
+                # header again
+                try:
+                    data_
+                    if nValues > data_.shape[1]:
+                        parsedLabels = [self._columns[0]]
+                        parsedColumnLabels = False
+                except NameError:
+                    pass
+
+                if isinstance(ofValue, list):
+                    for v in ofValue:
+                        parsedValues.append(v)
+                    if not parsedColumnLabels:
+
+                        logger.debug(f"ofType: {ofType}")
+
+                        if ofType == ofVector:
+                            logger.debug("Found ofVector...")
+                            #- Found vector
+                            parsedLabels.append(self._columns[i+1]+" X")
+                            parsedLabels.append(self._columns[i+1]+" Y")
+                            parsedLabels.append(self._columns[i+1]+" Z")
+                        elif ofType == ofSymmTensor:
+                            parsedLabels.append(self._columns[i+1]+" XX")
+                            parsedLabels.append(self._columns[i+1]+" XY")
+                            parsedLabels.append(self._columns[i+1]+" XZ")
+                            parsedLabels.append(self._columns[i+1]+" YY")
+                            parsedLabels.append(self._columns[i+1]+" YZ")
+                            parsedLabels.append(self._columns[i+1]+" ZZ")
+                        elif ofType == ofTensor:
+                            parsedLabels.append(self._columns[i+1]+" XX")
+                            parsedLabels.append(self._columns[i+1]+" XY")
+                            parsedLabels.append(self._columns[i+1]+" XZ")
+                            parsedLabels.append(self._columns[i+1]+" YX")
+                            parsedLabels.append(self._columns[i+1]+" YY")
+                            parsedLabels.append(self._columns[i+1]+" YZ")
+                            parsedLabels.append(self._columns[i+1]+" ZX")
+                            parsedLabels.append(self._columns[i+1]+" ZY")
+                            parsedLabels.append(self._columns[i+1]+" ZZ")
+                        elif ofType == ofSphericalTensor:
+                            parsedLabels.append(self._columns[i+1])
+                        else:
+                            logger.warning("Could not locate appropriate ofType")
+                            parsedLabels.append(self._columns[i+1])
+                        #TODO: Check that the appropriate ofType was found
+                else:
+                    parsedValues.append(ofValue)
+                    if not parsedColumnLabels:
+                        parsedLabels.append(self._columns[i+1])
+            
+            logger.debug("len(parsedValues) == len(parsedLabels): "
+                f"{len(parsedValues)} == {len(parsedLabels)}")
+            if len(parsedValues) == len(parsedLabels):
+                if not parsedColumnLabels:
+                    columns = parsedLabels
+                    parsedColumnLabels = True
+            else:
+                logger.warning(f"Skipping row {linei} with missing data.")
+                continue # skip rows with missing values
+                
+            # If data_ exists make sure it is the correct shape (in the case of 
+            # missing data for the first data points)
+            try:
+                data_
+                if len(parsedValues) > data_.shape[1]:
+                    # found additional data values in middle of file
+                    #If data exists, pad existing values
+                    logger.debug(f"data_ size: {data_.shape}")
+                    #TODO:  Doesnt handle case of missing value only in middle 
+                    # columns
+                    data_ = np.array([np.pad(v, (0, len(parsedValues)-
+                                        data_.shape[1])) for v in data_])
+                    logger.debug(f"data_ size after pad: {data_.shape}")
+            except NameError:
+                pass
+
+
+            logger.debug(f"columns: {columns}")
+
+            try:
+                data_
+            except NameError:
+                data_ = np.array([parsedValues])
+            else:
+                logger.debug(f"data_ shape: {data_.shape}")
+                logger.debug(f"parsedValues shape: {np.array([parsedValues]).shape}")
+                logger.debug(f"parsedValues: {[parsedValues]}")
+                data_ = np.append(data_, [parsedValues], axis=0)
+
+            parsedColumnLabels = True
+
+            #TODO:  How should non-numeric values be handled?
+            # if len(values) < len(self._columns):  # Skip line with missing data
+            #     logger.debug(f"len(values), len(self._columns): "
+            #         f"{len(values)}, {len(self._columns)}")
+            #     logger.debug("Skipping line...") 
+            #     continue
+
+        # converters = {}
+        # for i in range(1,len(columns)):
+        #     converters.update({i: _parseProbeValues})
+        # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
+        #     engine='python', converters=converters)   
+        # data_ = _parseProbeValues(path)
+
+        logger.debug(data_.shape)
+
+        self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+                                    columns=columns[1:])
+        self._data.index.name = columns[0]                         
+        logger.debug(f"probes: {columns}")
+        # self._data.columns = probes
+        self._nSamples = self._data.shape[0]
+
+    
+    def _appendData(self):
+        """
+        Append only the unread lines to the existing data
+        """
+
+        #TODO:  Accomodate list values for ofVector, ofTensor, etc.
+
+        #TODO:  How do you check for new columns in case of vector or other list 
+        # values?  Always read the entire file until this can be fixed.
+
+        i = self.nSamples - 1
+        with open(self.dataPath) as file:
+            while True:
+                line = file.readline(i)
+                if line == "": # Found end of file
+                    break
+                lineDf = pd.DataFrame(line.split(), index=i, 
+                    header=self._data.columns)
+                self._data = pd.concat(self._data, lineDf)
 
 class MonitorParser:
     def __init__(self, path=Path.cwd()):
@@ -2706,14 +2797,17 @@ class MonitorCollectionParser:
 
 
 @dataclass
-class ofProbe:
-    dataPath: Path
-    _index: int = field(init=False, default=0)
+class ofProbe(_ofMonitorBase):
+    # def __init__(self, dataPath, columns=None, name=None):
+    #     super(ofProbe, self).__init__(_dataPath=dataPath, _columns=columns, 
+    #                                     _name=name)
+    # dataPath: Path
+    # _index: int = field(init=False, default=0)
 
     
-    @property
-    def data(self):
-        return self._data
+    # @property
+    # def data(self):
+    #     return self._data
 
     @property
     def field(self):
@@ -2724,16 +2818,22 @@ class ofProbe:
         """Coordinate locations of the sampled data"""
         return self._locations
 
-    @property
-    def nSamples(self):
-        return self._nSamples
+    # @property
+    # def nSamples(self):
+    #     return self._nSamples
 
-    @property
-    def dataPath(self):
-        return self._dataPath
+    # @property
+    # def dataPath(self):
+    #     return self._dataPath
 
-    @dataPath.setter
-    def dataPath(self, path):
+    # @dataPath.setter
+    # def dataPath(self, path):
+    #TODO:  Call baseclass __post_init__ function instead of copying code
+    def __post_init__(self): 
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        path = self._dataPath
 
         logger.debug(f"datapath: {path}")
 
@@ -2749,102 +2849,126 @@ class ofProbe:
             with open(self.dataPath) as file:
                 i = 0
                 self._locations = []
-                fileColumns = ['Time']
+                self._columns = ['Time']
                 while True:
                     line = file.readline()
                     logger.debug(f"line: {line}")
                     if not line.startswith("# Probe"):
                         break
-                    fileColumns.append(f"Probe {i}")
+                    self._columns.append(f"Probe {i}")
                     self._locations.append(
                         ofVector([float(v) for v in 
                             line.split('(')[1].split(')')[0].split()]))
                     i+=1
+                logger.debug(f"columns: {self._columns}")
                 #- read data after header
-                parsedColumnLabels = False
-                while True:
-                    line = file.readline()
-                    if not line:
-                        break
-                    if line.startswith('#'):
-                        continue
-                    values = re.split(r'\s{2,}', line)
-                    if len(values) < len(fileColumns):  # Skip line with missing data
-                        continue
-                    parsedValues = [float(values[1])]  #Time index
-                    parsedLabels = [fileColumns[0]]
-                    for i, value in enumerate(values[2:]):
-                        ofType, ofValue = DictFileParser._parseValue(value)
-                        if isinstance(ofValue, list):
-                            for v in ofValue:
-                                parsedValues.append(v)
-                                parsedLabels.append(fileColumns[i+1])
-                            if not parsedColumnLabels:
-                                if isinstance(ofType, ofVector):
-                                    #- Found vector
-                                    parsedLabels.append(fileColumns[i+1]+" x")
-                                    parsedLabels.append(fileColumns[i+1]+" y")
-                                    parsedLabels.append(fileColumns[i+1]+" z")
-                                elif isinstance(ofType, ofSymmTensor):
-                                    parsedLabels.append(fileColumns[i+1]+" xx")
-                                    parsedLabels.append(fileColumns[i+1]+" xy")
-                                    parsedLabels.append(fileColumns[i+1]+" xz")
-                                    parsedLabels.append(fileColumns[i+1]+" yy")
-                                    parsedLabels.append(fileColumns[i+1]+" yz")
-                                    parsedLabels.append(fileColumns[i+1]+" zz")
-                                elif isinstance(ofType, ofTensor):
-                                    parsedLabels.append(fileColumns[i+1]+" xx")
-                                    parsedLabels.append(fileColumns[i+1]+" xy")
-                                    parsedLabels.append(fileColumns[i+1]+" xz")
-                                    parsedLabels.append(fileColumns[i+1]+" yx")
-                                    parsedLabels.append(fileColumns[i+1]+" yy")
-                                    parsedLabels.append(fileColumns[i+1]+" yz")
-                                    parsedLabels.append(fileColumns[i+1]+" zx")
-                                    parsedLabels.append(fileColumns[i+1]+" zy")
-                                    parsedLabels.append(fileColumns[i+1]+" zz")
-                                #TODO: Check that the appropriate ofType was found
-                    if len(parsedValues) == len(parsedLabels):
-                        columns = parsedLabels
-                    else:
-                        raise Exception("Could not parse log file data type.")
+                self._readData(file)
 
-                    # logger.info(f"Parsed values: {parsedValues}")
-
-                    try:
-                        data_
-                    except NameError:
-                        data_ = np.array([parsedValues])
-                    else:
-                        data_ = np.append(data_, [parsedValues], axis=0)
-                    # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
-
-                    parsedColumnLabels = True
-
-            # converters = {}
-            # for i in range(1,len(columns)):
-            #     converters.update({i: _parseProbeValues})
-            # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
-            #     engine='python', converters=converters)   
-            # data_ = _parseProbeValues(path)
-
-            logger.debug(data_.shape)
-
-            self._data = pd.DataFrame(data=data_, index=data_[:,0],
-                                     columns=columns)
-            logger.debug(f"probes: {columns}")
-            # self._data.columns = probes
-            self._nSamples = self._data.shape[0]
-        else: #- Append only the unread lines to the existing data
-    
-            i = self.nSamples - 1
+        else:
+            #self._appendData()
             with open(self.dataPath) as file:
-                while True:
-                    line = file.readline(i)
-                    if line == "": # Found end of file
-                        break
-                    lineDf = pd.DataFrame(line.split(), index=i, 
-                        header=self._data.columns)
-                    self._data = pd.concat(self._data, lineDf)
+                self._readData(file)
+
+        #         parsedColumnLabels = False
+        #         parsedLabels = [self._columns[0]]
+        #         while True:
+        #             line = file.readline()
+        #             if not line:
+        #                 break
+        #             if line.startswith('#'):
+        #                 continue
+        #             values = re.split(r'\s{2,}|\t', line.strip())
+        #             values = [v.strip() for v in values]
+        #             #TODO:  How should non-numeric values be handled?
+        #             # if len(values) < len(self._columns):  # Skip line with missing data
+        #             #     logger.debug(f"len(values), len(self._columns): "
+        #             #         f"{len(values)}, {len(self._columns)}")
+        #             #     logger.debug("Skipping line...") 
+        #             #     continue
+
+        #             parsedValues = [float(values[0])]  #Time index
+        #             for i, value in enumerate(values[1:]):
+        #                 ofType, ofValue = DictFileParser._parseValue(value)
+        #                 logger.debug(f"ofType, ofValue: {ofType}, {ofValue}")
+        #                 if isinstance(ofValue, list):
+        #                     for v in ofValue:
+        #                         parsedValues.append(v)
+        #                         #parsedLabels.append(self._columns[i+1])
+        #                     if not parsedColumnLabels:
+        #                         # if isinstance(ofType, ofVector):
+        #                         if ofType == ofVector:
+        #                             #- Found vector
+        #                             parsedLabels.append(f"{self._columns[i+1]} X")
+        #                             parsedLabels.append(f"{self._columns[i+1]} Y")
+        #                             parsedLabels.append(f"{self._columns[i+1]} Z")
+        #                         elif ofType == ofSymmTensor:
+        #                             parsedLabels.append(f"{self._columns[i+1]} XX")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZZ")
+        #                         elif ofType == ofTensor:
+        #                             parsedLabels.append(f"{self._columns[i+1]} XX")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZX")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZZ")
+        #                         else:
+        #                             parsedLabels.append(self._columns[i+1])
+        #                         #TODO: Check that the appropriate ofType was found
+        #                 else:
+        #                     parsedValues.append(ofValue)
+        #                     parsedLabels.append(self._columns[i+1])
+        #             logger.debug("len(parsedValues) == len(parsedLabels): "
+        #                 f"{len(parsedValues)} == {len(parsedLabels)}")
+        #             if len(parsedValues) == len(parsedLabels):
+        #                 logger.debug(f"parsedLabels: {parsedLabels}")
+        #                 self._columns = parsedLabels
+        #             else:
+        #                 raise Exception("Could not parse log file data type.")
+
+        #             # logger.info(f"Parsed values: {parsedValues}")
+
+        #             try:
+        #                 data_
+        #             except NameError:
+        #                 data_ = np.array([parsedValues])
+        #             else:
+        #                 data_ = np.append(data_, [parsedValues], axis=0)
+        #             # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
+
+        #             parsedColumnLabels = True
+
+        #     # converters = {}
+        #     # for i in range(1,len(columns)):
+        #     #     converters.update({i: _parseProbeValues})
+        #     # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
+        #     #     engine='python', converters=converters)   
+        #     # data_ = _parseProbeValues(path)
+
+        #     logger.debug(f"data shape: {data_.shape}")
+
+        #     self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+        #                              columns=self._columns[1:])
+        #     logger.debug(f"probes: {self._columns}")
+        #     # self._data.columns = probes
+        #     self._nSamples = self._data.shape[0]
+        # else: #- Append only the unread lines to the existing data
+    
+        #     i = self.nSamples - 1
+        #     with open(self.dataPath) as file:
+        #         while True:
+        #             line = file.readline(i)
+        #             if line == "": # Found end of file
+        #                 break
+        #             lineDf = pd.DataFrame(line.split(), index=i, 
+        #                 header=self._data.columns)
+        #             self._data = pd.concat(self._data, lineDf)
 
     # TODO:  Dataclasses cannot be iterable??
     # def __iter__(self):
@@ -2988,10 +3112,6 @@ class ofStudy:
                 case_.write()
                 if not dryRun:
                     case_.allRun(cmd=self.runCommand)            
-
-@dataclass
-class ofMonitor:
-    pass
 
 class DictFileParser:
     def __init__(self, filepath):
