@@ -33,8 +33,6 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False,
 
     """
 
-    logging.getLogger('pf').setLevel(logging.DEBUG)
-
     # with open(dataFile) as f:
     #     line = f.readline()
     #     while line.strip().startswith('#'):

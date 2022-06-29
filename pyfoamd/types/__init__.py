@@ -3102,16 +3102,25 @@ class ofStudy:
                     
                 #- Copy the template case path to ensure all files are copied:
                 shutil.copytree(self.templateCase._path, newPath)
-                # tCase_ = copy.deepcopy(self.templateCase)
-                tCase_ = self.templateCase
-                tCase_.setName(name)
-                case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
+                # case_ = copy.deepcopy(self.templateCase)
+                case_ = copy.copy(self.templateCase)
+                # case_ = self.templateCase
+                case_.setName(name)
+                case_ = self.updateFunction(case_, row.values.flatten().tolist())            
 
-                print(f"Case path: {tCase_._path}")
+                print(f"Case path: {case_._path}")
 
                 case_.write()
                 if not dryRun:
-                    case_.allRun(cmd=self.runCommand)            
+                    case_.allRun(cmd=self.runCommand)      
+
+    def diff(self):
+        """
+        Print the difference between cases for all operating scenarios 
+        of the study.
+        """      
+        #TODO:  Implement this...
+        pass
 
 class DictFileParser:
     def __init__(self, filepath):
