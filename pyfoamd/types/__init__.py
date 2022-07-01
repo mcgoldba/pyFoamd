@@ -2519,7 +2519,6 @@ class _ofMonitorBase:
                     #- Parse commented lines
                     while True:
                         line = file.readline()
-                        logger.debug(f"line: {line}")
                         if not line.startswith("#"):
                             break
                         prevLine = line
@@ -2537,6 +2536,7 @@ class _ofMonitorBase:
         parsedColumnLabels = False
         parsedLabels = [self._columns[0]]
         linei = 0
+        data_ = None
         while True:
             linei+=1
             line = file.readline()
@@ -2544,155 +2544,150 @@ class _ofMonitorBase:
                 break
             if line.startswith('#'):
                 continue
-            values = re.split(r'\s{2,}|\t', line.strip())
-            values = [v.strip() for v in values]
+            data_, parsedColumnLabels, columns = \
+                self._parseLine(line, linei, data_, 
+                    parsedColumnLabels, parsedLabels)
 
-            parsedValues = [float(values[0])]  #Time index
-            ofValues = [float(values[0])]
-            ofTypes = [float]
- 
-            for i, value in enumerate(values[1:]):
-                ofType, ofValue = DictFileParser._parseValue(value)
-                           
-                ofValues.append(ofValue)
-                ofTypes.append(ofType)
-            
-            logger.debug(f"ofValues:\n{ofValues}")
+        self._storeData(data_, columns)
+        # self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+        #                             columns=columns[1:])
+        # self._data = self._data.convert_dtypes()
+        # self._data.index.name = columns[0]                         
+        # # logger.debug(f"probes: {columns}")
+        # # self._data.columns = probes
+        # self._nSamples = self._data.shape[0]
 
-            def countValues(list_, n=0):
-                for value in list_:
-                    if isinstance(value, list):
-                        n+= countValues(value)
-                    else:
-                        n+= 1
-                logger.debug(f"returning {n}...")
-                return n
-            nValues = countValues(ofValues)
-            # values_ = np.array(ofValues, dtype=object).flatten()
-            # logger.debug(f"values_: {values_}")
-            # nValues = values_.shape[0]
+    def _parseLine(self, line, linei, data_, parsedColumnLabels=True, 
+    parsedLabels=None):
 
-            logger.debug(f"nValues: {nValues}")
+        if parsedLabels is None:
+            parsedLabels = self._columns
 
-            for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
+        values = re.split(r'\s{2,}|\t', line.strip())
+        values = [v.strip() for v in values]
 
-                # if found additional data values in middle of file, parse
-                # header again
-                try:
-                    data_
-                    if nValues > data_.shape[1]:
-                        parsedLabels = [self._columns[0]]
-                        parsedColumnLabels = False
-                except NameError:
-                    pass
+        parsedValues = [float(values[0])]  #Time index
+        ofValues = [float(values[0])]
+        ofTypes = [float]
 
-                if isinstance(ofValue, list):
-                    for v in ofValue:
-                        parsedValues.append(v)
-                    if not parsedColumnLabels:
+        for i, value in enumerate(values[1:]):
+            ofType, ofValue = DictFileParser._parseValue(value)
+                        
+            ofValues.append(ofValue)
+            ofTypes.append(ofType)
+        
+        # logger.debug(f"ofValues:\n{ofValues}")
 
-                        logger.debug(f"ofType: {ofType}")
-
-                        if ofType == ofVector:
-                            logger.debug("Found ofVector...")
-                            #- Found vector
-                            parsedLabels.append(self._columns[i+1]+" X")
-                            parsedLabels.append(self._columns[i+1]+" Y")
-                            parsedLabels.append(self._columns[i+1]+" Z")
-                        elif ofType == ofSymmTensor:
-                            parsedLabels.append(self._columns[i+1]+" XX")
-                            parsedLabels.append(self._columns[i+1]+" XY")
-                            parsedLabels.append(self._columns[i+1]+" XZ")
-                            parsedLabels.append(self._columns[i+1]+" YY")
-                            parsedLabels.append(self._columns[i+1]+" YZ")
-                            parsedLabels.append(self._columns[i+1]+" ZZ")
-                        elif ofType == ofTensor:
-                            parsedLabels.append(self._columns[i+1]+" XX")
-                            parsedLabels.append(self._columns[i+1]+" XY")
-                            parsedLabels.append(self._columns[i+1]+" XZ")
-                            parsedLabels.append(self._columns[i+1]+" YX")
-                            parsedLabels.append(self._columns[i+1]+" YY")
-                            parsedLabels.append(self._columns[i+1]+" YZ")
-                            parsedLabels.append(self._columns[i+1]+" ZX")
-                            parsedLabels.append(self._columns[i+1]+" ZY")
-                            parsedLabels.append(self._columns[i+1]+" ZZ")
-                        elif ofType == ofSphericalTensor:
-                            parsedLabels.append(self._columns[i+1])
-                        else:
-                            logger.warning("Could not locate appropriate ofType")
-                            parsedLabels.append(self._columns[i+1])
-                        #TODO: Check that the appropriate ofType was found
+        def countValues(list_, n=0):
+            for value in list_:
+                if isinstance(value, list):
+                    n+= countValues(value)
                 else:
-                    parsedValues.append(ofValue)
-                    if not parsedColumnLabels:
-                        parsedLabels.append(self._columns[i+1])
-            
-            logger.debug("len(parsedValues) == len(parsedLabels): "
-                f"{len(parsedValues)} == {len(parsedLabels)}")
-            if len(parsedValues) == len(parsedLabels):
+                    n+= 1
+            # logger.debug(f"returning {n}...")
+            return n
+        nValues = countValues(ofValues)
+        # values_ = np.array(ofValues, dtype=object).flatten()
+        # logger.debug(f"values_: {values_}")
+        # nValues = values_.shape[0]
+
+        # if found additional data values in middle of file, parse
+        # header again
+        if data_ is not None:
+            # logger.debug(f"nValues > data_.shape[1]: {nValues} > {data_.shape[1]}")
+            if nValues > data_.shape[1]:
+                parsedLabels = [self._columns[0]]
+                parsedColumnLabels = False
+                # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
+
+
+        for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
+
+
+            if isinstance(ofValue, list):
+                for v in ofValue:
+                    parsedValues.append(v)
                 if not parsedColumnLabels:
-                    columns = parsedLabels
-                    parsedColumnLabels = True
+
+                    # logger.debug(f"ofType: {ofType}")
+
+                    if ofType == ofVector:
+                        # logger.debug("Found ofVector...")
+                        #- Found vector
+                        parsedLabels.append(self._columns[i+1]+" X")
+                        parsedLabels.append(self._columns[i+1]+" Y")
+                        parsedLabels.append(self._columns[i+1]+" Z")
+                    elif ofType == ofSymmTensor:
+                        parsedLabels.append(self._columns[i+1]+" XX")
+                        parsedLabels.append(self._columns[i+1]+" XY")
+                        parsedLabels.append(self._columns[i+1]+" XZ")
+                        parsedLabels.append(self._columns[i+1]+" YY")
+                        parsedLabels.append(self._columns[i+1]+" YZ")
+                        parsedLabels.append(self._columns[i+1]+" ZZ")
+                    elif ofType == ofTensor:
+                        parsedLabels.append(self._columns[i+1]+" XX")
+                        parsedLabels.append(self._columns[i+1]+" XY")
+                        parsedLabels.append(self._columns[i+1]+" XZ")
+                        parsedLabels.append(self._columns[i+1]+" YX")
+                        parsedLabels.append(self._columns[i+1]+" YY")
+                        parsedLabels.append(self._columns[i+1]+" YZ")
+                        parsedLabels.append(self._columns[i+1]+" ZX")
+                        parsedLabels.append(self._columns[i+1]+" ZY")
+                        parsedLabels.append(self._columns[i+1]+" ZZ")
+                    elif ofType == ofSphericalTensor:
+                        parsedLabels.append(self._columns[i+1])
+                    else:
+                        logger.warning("Could not locate appropriate ofType")
+                        parsedLabels.append(self._columns[i+1])
+                    #TODO: Check that the appropriate ofType was found
             else:
-                logger.warning(f"Skipping row {linei} with missing data.")
-                continue # skip rows with missing values
-                
-            # If data_ exists make sure it is the correct shape (in the case of 
-            # missing data for the first data points)
-            try:
-                data_
-                if len(parsedValues) > data_.shape[1]:
-                    # found additional data values in middle of file
-                    #If data exists, pad existing values
-                    logger.debug(f"data_ size: {data_.shape}")
-                    #TODO:  Doesnt handle case of missing value only in middle 
-                    # columns
-                    data_ = np.array([np.pad(v, (0, len(parsedValues)-
-                                        data_.shape[1])) for v in data_])
-                    logger.debug(f"data_ size after pad: {data_.shape}")
-            except NameError:
-                pass
-
-
-            logger.debug(f"columns: {columns}")
-
-            try:
-                data_
-            except NameError:
-                data_ = np.array([parsedValues])
+                parsedValues.append(ofValue)
+                if not parsedColumnLabels:
+                    parsedLabels.append(self._columns[i+1])
+        
+        # logger.debug("len(parsedValues) == len(parsedLabels): "
+            # f"{len(parsedValues)} == {len(parsedLabels)}")
+        if len(parsedValues) == len(parsedLabels):
+            if not parsedColumnLabels:
+                columns = parsedLabels
+                parsedColumnLabels = True
+                # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
             else:
-                logger.debug(f"data_ shape: {data_.shape}")
-                logger.debug(f"parsedValues shape: {np.array([parsedValues]).shape}")
-                logger.debug(f"parsedValues: {[parsedValues]}")
-                data_ = np.append(data_, [parsedValues], axis=0)
+                columns = parsedLabels
+        else:
+            logger.warning(f"Skipping row {linei} with missing data.")
+            sys.exit()
+            return data_, parsedColumnLabels, self._columns # skip rows with missing values
+            
+        # If data_ exists make sure it is the correct shape (in the case of 
+        # missing data for the first data points)
+        if data_ is not None:
+            if len(parsedValues) > data_.shape[1]:
+                # found additional data values in middle of file
+                #If data exists, pad existing values
+                # logger.debug(f"data_ size: {data_.shape}")
+                #TODO:  Doesnt handle case of missing value only in middle 
+                # columns
+                data_ = np.array([np.pad(v, (0, len(parsedValues)-
+                                    data_.shape[1])) for v in data_])
+                # logger.debug(f"data_ size after pad: {data_.shape}")
 
-            parsedColumnLabels = True
 
-            #TODO:  How should non-numeric values be handled?
-            # if len(values) < len(self._columns):  # Skip line with missing data
-            #     logger.debug(f"len(values), len(self._columns): "
-            #         f"{len(values)}, {len(self._columns)}")
-            #     logger.debug("Skipping line...") 
-            #     continue
+        if data_ is None:
+            data_ = np.array([parsedValues])
+        else:
+            # logger.debug(f"data_ shape: {data_.shape}")
+            # logger.debug(f"parsedValues shape: {np.array([parsedValues]).shape}")
+            # logger.debug(f"parsedValues: {[parsedValues]}")
+            data_ = np.append(data_, [parsedValues], axis=0)
 
-        # converters = {}
-        # for i in range(1,len(columns)):
-        #     converters.update({i: _parseProbeValues})
-        # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
-        #     engine='python', converters=converters)   
-        # data_ = _parseProbeValues(path)
+        parsedColumnLabels = True
+        # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
 
-        logger.debug(data_.shape)
-
-        self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
-                                    columns=columns[1:])
-        self._data.index.name = columns[0]                         
-        logger.debug(f"probes: {columns}")
-        # self._data.columns = probes
-        self._nSamples = self._data.shape[0]
+        return data_, parsedColumnLabels, columns
 
     
-    def _appendData(self):
+    def update(self):
         """
         Append only the unread lines to the existing data
         """
@@ -2702,15 +2697,42 @@ class _ofMonitorBase:
         #TODO:  How do you check for new columns in case of vector or other list 
         # values?  Always read the entire file until this can be fixed.
 
+        index_ = self.data.index.to_numpy(dtype=float).reshape( (-1,1) )
+
+        data_ = np.hstack((index_, self.data.to_numpy()))
+
         i = self.nSamples - 1
         with open(self.dataPath) as file:
+            parsedColumnLabels = True
+            columns = self._columns
+            lines = file.readlines()
             while True:
-                line = file.readline(i)
-                if line == "": # Found end of file
+                if i >= len(lines):
+                    break # Found end of file
+                line = lines[i]
+                if not line:
                     break
-                lineDf = pd.DataFrame(line.split(), index=i, 
-                    header=self._data.columns)
-                self._data = pd.concat(self._data, lineDf)
+                if line.startswith('#'):
+                    continue
+                data_, parsedColumnLabels, columns = \
+                        self._parseLine(line, i, data_, parsedColumnLabels, 
+                        columns)
+                # lineDf = pd.DataFrame(data_, index=i, 
+                #     columns=columns)
+                i+=1
+            # self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+            #                         columns=columns[1:])
+            # self._data.convert_dtypes()
+            # self._data.index.name = columns[0]                         
+            # self._nSamples = self._data.shape[0]
+        self._storeData(data_, columns)
+
+    def _storeData(self, data_, columns):
+        self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+                                    columns=columns[1:])
+        # self._data = self._data.convert_dtypes()
+        self._data.index.name = columns[0]                         
+        self._nSamples = self._data.shape[0]
 
 class MonitorParser:
     def __init__(self, path=Path.cwd()):
