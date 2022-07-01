@@ -22,7 +22,7 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
     postProcessing/<name>/<startTime>/<dataFile>.dat
 
     Parameters:
-        field [str]:  The field for which data is to be extracted.
+        name [str]:  The field for which data is to be extracted.
         startTime [str]:  The start time from which to read the log 
             data.  Accepts a string value as either `latestTime` or a numerical 
             value indicating the start time.  If `latestTime` data will be read 
@@ -60,13 +60,13 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
             if path.is_file():
                 logFileNames.append(path.name)
         if len(logFileNames) > 1:
-            userMsg("Found multiple log files, defualting to first item in list: " \
+            userMsg("Found multiple log files, defualting to last item in list: " \
                 +str(logFileNames), "WARNING"
             )
-        if len(logFileNames) == 0:
+        elif len(logFileNames) == 0:
             userMsg("Could not find any log file in directory {logPathParent}",
             "ERROR")
-        logPath = logPathParent / logFileNames[0]
+        logPath = logPathParent / logFileNames[-1]
     else:
         logPath = logPathParent / dataFileName
 

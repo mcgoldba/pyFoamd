@@ -3,95 +3,115 @@ import sys
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import numpy as np
+import pandas as pd
 import logging
+import re
+import copy
+from pyfoamd import userMsg
 import pyfoamd.types as pt
 from pyfoamd.functions.getProbe import getProbe
+from pyfoamd.functions.getMonitor import getMonitor
+
 logger = logging.getLogger("pf")
 
 plt.style.use('ggplot')
 
-# def monitor(time=None, supplement=None, workingDir=os.getcwd()):
-
-#     commands = ['pfmonitor']
-#     if time:
-#         commands.append('-t')
-#         commands.append(str(time))
-#     if supplement:
-#         commands.append('-s')
-#         for s in supplement:
-#             commands.append(str(s))
-
-#     log.debug("commands: "+str(commands))
-#     try:
-#         subprocess.run(commands, cwd=workingDir)
-#     except KeyboardInterrupt:
-#         sys.exit(0)
-#     # subprocess.call(commands, cwd=workingDir)
-
-def monitor(values=['U', 'p'], time='latestTime', supplement=None, 
-    workingDir=Path.cwd(), title=None):
+def monitor(value='U', time='latestTime', supplement=None, 
+    workingDir=Path.cwd(), title=None, filter=None, yrange = None,
+    logScale=False):
 
     if title is None:
         title = Path(workingDir).name
 
-    pauseTime = 3
+    try:
+        monitor = getMonitor(name=value, startTime=time, 
+                    workingDir=workingDir)
+    except FileNotFoundError:
+        monitor = getProbe(value, time, workingDir)
 
-    def updatePlot(x, y, plotData, identifier='', pauseTime=0.2,
-    ylabel = None, title=None,legendName = None):
-        if not plotData: # i.e. if plotData == []:
-            print(f"Initializing plot for {ylabel}")
-            plt.ion()
-            fig = plt.figure(figsize=(6,3))
-            ax = fig.add_subplot(1, 1, 1)
-            plotData,  = ax.plot(x, y, label=legendName)
-            plt.ylabel(ylabel)
-            plt.xlabel("Time")
-            plt.title(title)
-            plt.legend()
-            # plt.show()
-        
-        plotData.set_data(x, y)
-        plt.xlim(np.min(x), np.max(x))
+    if filter is not None:
+        columns_ = [monitor.data.columns[i] for i, item in 
+        enumerate(monitor.data.columns) if re.search(filter, item)]
+    else:
+        columns_ = monitor.data.columns
 
-        logging.getLogger('pf').setLevel(logging.DEBUG)
+    # x = monitor.data.index.to_numpy(dtype=float)
+    # y = monitor.data.iloc[:,filteredColumnIdx].to_numpy(dtype=float)
 
-        logger.debug(f"ylim: {plotData.axes.get_ylim()}")
 
-        if ( all([np.isfinite(v) for 
-            v in plotData.axes.get_ylim()])
-        and (np.min(y) <= plotData.axes.get_ylim()[0]
-        or np.max(y) >= plotData.axes.get_ylim()[1])):
-            y[y > 1e8] = 0 # replace very large values
-            y[y < -1e8] = 0 # replace very large negative values             
-            ystd = np.std(y)
-            logger.debug(f"y: {y}")
-            logger.debug(f"ystd: {ystd}")
-            plt.ylim([0.9*np.min(y), 1.1*np.max(y)])
+    # fig, ax = plt.subplots(figsize=(4,3))
+    # # line, = ax.plot(x,y)
+    # lines = ax.plot(data=monitor.data)
+    # if yrange is not None:
+    #     ax.set_ylim(yrange)
+    # if logScale:
+    #     ax.set_yscale('log')
 
-        # plt.pause(pause_time)
 
-        return plotData
+    # def updatePlot(_, monitor, filterIdx, lines):
+    def updatePlot(i):
+        #TODO:  This function should update existing monitors with new value,
+        # rather than rereading the whole monitor file every loop.
+        # logger.info("Updating monitor data...")
+        monitor.update()
+        x = pd.to_numeric(monitor.data.index).to_numpy().reshape((-1, 1))
+        # try:
+        #     x = [int(v) for v in x]
+        # except:
+        #     x = [float(v) for v in x]
 
-    plotDataGroups = [[[] for probe in value] for value in values]
+        Y = monitor.data[columns_].apply(pd.to_numeric).to_numpy()
 
-    probes = [getProbe(value, time, workingDir) for value in values]
+        logger.debug(f"Y: {Y}")
 
-    while True:
-        for plotDataGroup, probe in zip(plotDataGroups, probes):
-            for plotData in plotDataGroup:
-                logger.debug(f"parsing probe:\n {probe.dataPath}")
-                logger.debug(f"plotData: {plotData}")
-                logger.debug(f"probe.data :\n {probe.data}")
-                data = probe.data.to_numpy()
-                x = data[:,0]
-                for ((y , name), loc) in zip(zip(data[:,1:].T, 
-                probe.data.columns), probe.locations):
-                    logger.debug(f"x: {x}")
-                    logger.debug(f"y: {y}")
-                    logger.debug(f"location: {loc}")
-                    legendName = f"{name}: {loc}"
-                    plotData = updatePlot(x, y, plotData, ylabel=probe.field,
-                    legendName= legendName)
+        if any(not np.isnan(v) for v in Y.flatten()) is False:
+            userMsg("No data found for plot!", "WARNING")
+            return
 
-        plt.pause(pauseTime)
+        # lines_ = []
+
+        # for line, y in zip(lines, Y):
+
+        # fig.set_data(x,y)
+
+
+        # logger.info("Redrawing...")
+
+        plt.cla()
+        # df_ = monitor.data.iloc[:,filteredColumnIdx].apply(pd.to_numeric)
+        # fig = df_.plot()
+        for i, label in enumerate(columns_):
+            plt.plot(x,Y[:,i], label=label)
+
+
+
+        # plt.xlabel(monitor.data.index.name)
+        # plt.ylabel('Value')
+        # plt.title(monitor._name)
+        # plt.legend()
+        # if logScale:
+        #     plt.yscale('log')
+        # if yrange is not None:
+        #     plt.ylim(yrange)
+
+        plt.xlabel(monitor.data.index.name)
+        plt.ylabel('Value')
+        if isinstance(monitor, pt.ofProbe):
+            plt.title(monitor._field)
+        else:
+            plt.title(monitor._name)
+        plt.legend()
+        if logScale:
+            plt.yscale('log')
+        if yrange is not None:
+            plt.ylim(yrange)
+
+    ani = FuncAnimation(plt.gcf(), updatePlot, 
+        #fargs=(monitor, filteredColumnIdx, lines),
+        interval=1000)
+
+    plt.tight_layout() 
+
+    plt.show()

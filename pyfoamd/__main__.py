@@ -61,10 +61,11 @@ def main():
     #subparsers = parser.add_subparsers()
 
     commands = {
-        'init': None,#- `None` values to be updated after extracting `addArgs`
+        'init': None, #- `None` values to be updated after extracting `addArgs`
         'edit': None,   
         'setConfig': None,
         'write': None,
+        'plot': None,
         'monitor': None
     }
 
@@ -106,6 +107,7 @@ def main():
     commands['edit'] = cl.edit
     commands['setConfig'] = cl.setConfig
     commands['write'] = cl.write
+    commands['plot'] = cl.plot
     commands['monitor'] = cl.monitor
 
     commandsStr = ''

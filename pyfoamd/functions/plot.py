@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger('pf')
 
 def plot(relDataFile=None, monitor=None, filter=None, logScale=False, 
-    workingDir=Path.cwd(), yrange = None):
+    workingDir=Path.cwd(), yrange = None, returnPlot= False):
     """
     Plot data from a log file.  
 
@@ -30,6 +30,9 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False,
 
         yrange [list(float)]:  The range for the yaxis as a list of 2 values 
             (e.g. `[0, 100]`)
+
+        returnPlot [bool]: If `True`, returns the matplotlib.plt object instead 
+            of displaying the figure.
 
     """
 
@@ -96,4 +99,7 @@ def plot(relDataFile=None, monitor=None, filter=None, logScale=False,
     if yrange is not None:
         plt.ylim(yrange)
 
-    plt.show()
+    if returnPlot:
+        return plt
+    else:
+        plt.show()

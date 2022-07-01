@@ -2483,7 +2483,7 @@ class _ofMonitorBase:
     # def dataPath(self, path):
     def __post_init__(self):
 
-        # logging.getLogger('pf').setLevel(logging.DEBUG)
+        logging.getLogger('pf').setLevel(logging.DEBUG)
 
         path = self._dataPath
 
@@ -2560,8 +2560,12 @@ class _ofMonitorBase:
     def _parseLine(self, line, linei, data_, parsedColumnLabels=True, 
     parsedLabels=None):
 
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
         if parsedLabels is None:
             parsedLabels = self._columns
+
+        logger.debug(f"parsedLabels: {parsedLabels}")
 
         values = re.split(r'\s{2,}|\t', line.strip())
         values = [v.strip() for v in values]
@@ -2594,7 +2598,8 @@ class _ofMonitorBase:
         # if found additional data values in middle of file, parse
         # header again
         if data_ is not None:
-            # logger.debug(f"nValues > data_.shape[1]: {nValues} > {data_.shape[1]}")
+            logger.debug(f"nValues > data_.shape[1]: {nValues} > {data_.shape[1]}")
+            logger.debug(f"parsedLabels: {parsedLabels}")
             if nValues > data_.shape[1]:
                 parsedLabels = [self._columns[0]]
                 parsedColumnLabels = False
@@ -2607,10 +2612,10 @@ class _ofMonitorBase:
             if isinstance(ofValue, list):
                 for v in ofValue:
                     parsedValues.append(v)
+
+                logger.debug(f"parsedColumnLabels: {parsedColumnLabels}")
                 if not parsedColumnLabels:
-
                     # logger.debug(f"ofType: {ofType}")
-
                     if ofType == ofVector:
                         # logger.debug("Found ofVector...")
                         #- Found vector
@@ -2645,8 +2650,8 @@ class _ofMonitorBase:
                 if not parsedColumnLabels:
                     parsedLabels.append(self._columns[i+1])
         
-        # logger.debug("len(parsedValues) == len(parsedLabels): "
-            # f"{len(parsedValues)} == {len(parsedLabels)}")
+        logger.debug("len(parsedValues) == len(parsedLabels): "
+            f"{len(parsedValues)} == {len(parsedLabels)}")
         if len(parsedValues) == len(parsedLabels):
             if not parsedColumnLabels:
                 columns = parsedLabels
@@ -2656,8 +2661,7 @@ class _ofMonitorBase:
                 columns = parsedLabels
         else:
             logger.warning(f"Skipping row {linei} with missing data.")
-            sys.exit()
-            return data_, parsedColumnLabels, self._columns # skip rows with missing values
+            return data_, parsedColumnLabels, parsedLabels# skip rows with missing values
             
         # If data_ exists make sure it is the correct shape (in the case of 
         # missing data for the first data points)
@@ -2704,7 +2708,10 @@ class _ofMonitorBase:
         i = self.nSamples - 1
         with open(self.dataPath) as file:
             parsedColumnLabels = True
-            columns = self._columns
+            columns = [self.data.index.name]
+            for v in self.data.columns:
+                columns.append(v)
+            logger.debug(f"columns: {columns}")
             lines = file.readlines()
             while True:
                 if i >= len(lines):
