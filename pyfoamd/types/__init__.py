@@ -1356,10 +1356,14 @@ class ofComment(_ofUnnamedTypeBase):
             return '/*'+self.value+'*/'+'\n'
 
 
+#TODO:   Merge this class with ofSplitList?
 @dataclass
 class ofList(_ofNamedTypeBase):
-    def __init__(self, *args, **kwargs):
-        super(ofList, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+    _comment=None):
+        super(ofList, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment
+            )
     
     @property
     def value(self):
@@ -1393,6 +1397,8 @@ class ofList(_ofNamedTypeBase):
                         dStr += dStr2[i]
                 elif isinstance(v, list):
                     dStr += TAB_STR+ofList(value=v).toString().strip()
+                elif isinstance(v, ofStr):
+                    dStr += f'"{v}"'
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     dStr += v.toString(ofRep=False).strip()+" "
                 else:
@@ -1411,8 +1417,9 @@ TYPE_REGISTRY.append(ofList)
 
 @dataclass
 class ofSplitList(ofList):
-    def __init__(self, *args, **kwargs):
-        super(ofSplitList, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, _comment=None):
+        super(ofSplitList, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
 
     def toString(self, ofRep=False) -> str:
         """ 
@@ -1671,21 +1678,25 @@ class ofDict(dict, _ofTypeBase):
             if not isinstance(obj, list):
                 logger.error("Recived non list type as value.")
                 sys.exit()
+                # type_, value_ = DictFileParser._parseValue(v)
+                # return type_(value)
             else:
                 ofType_ = ofSplitList()
                 #TODO: Parse lists of lists
-                for v in value:
+                for v in obj:
                     if isinstance(v, list):
                         ofType_.value.append(_parseList(v))
                     else:
                         type_, value_ = DictFileParser._parseValue(v)
                         logger.debug(f"type, value: {type_}, {value_}")
-                        ofType_.value.append(type_(name=key_, value=value_))
+                        ofType_.value.append(type_(value=value_))
             return ofType_
         if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
         # if key not in self._CLASS_VARS:
             if isinstance(value, list):
-                ofType = _parseList(value)    
+                ofType = _parseList(value)
+                ofType._name = key 
+                # ofType = [DictFileParser._parseValue(v) for v in value]    
             elif value is not None and not isinstance(value, _ofTypeBase):
                 logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
@@ -2483,7 +2494,7 @@ class _ofMonitorBase:
     # def dataPath(self, path):
     def __post_init__(self):
 
-        logging.getLogger('pf').setLevel(logging.DEBUG)
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
 
         path = self._dataPath
 
@@ -2544,6 +2555,9 @@ class _ofMonitorBase:
                 break
             if line.startswith('#'):
                 continue
+    
+            logger.debug(f"parsedColumnLabels: {parsedColumnLabels}")            
+
             data_, parsedColumnLabels, columns = \
                 self._parseLine(line, linei, data_, 
                     parsedColumnLabels, parsedLabels)
@@ -2608,12 +2622,10 @@ class _ofMonitorBase:
 
         for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
 
-
             if isinstance(ofValue, list):
                 for v in ofValue:
                     parsedValues.append(v)
 
-                logger.debug(f"parsedColumnLabels: {parsedColumnLabels}")
                 if not parsedColumnLabels:
                     # logger.debug(f"ofType: {ofType}")
                     if ofType == ofVector:
@@ -2659,6 +2671,8 @@ class _ofMonitorBase:
                 # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
             else:
                 columns = parsedLabels
+        elif len(parsedLabels) < len(parsedValues):
+            columns = self._columns
         else:
             logger.warning(f"Skipping row {linei} with missing data.")
             return data_, parsedColumnLabels, parsedLabels# skip rows with missing values
@@ -2685,7 +2699,7 @@ class _ofMonitorBase:
             # logger.debug(f"parsedValues: {[parsedValues]}")
             data_ = np.append(data_, [parsedValues], axis=0)
 
-        parsedColumnLabels = True
+        # parsedColumnLabels = True
         # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
 
         return data_, parsedColumnLabels, columns
@@ -2869,7 +2883,7 @@ class ofProbe(_ofMonitorBase):
         if Path(path).is_file():
             self._dataPath = Path(path)
         else:
-            userMsg(f"Invalid probe file specified:\n{p}", "ERROR")
+            userMsg(f"Invalid probe file specified:\n{path}", "ERROR")
         #- TODO:  Check that the field is actually in the object registry
         self._field = Path(path).name
 
@@ -3065,7 +3079,6 @@ class ofStudy:
     updateFunction : Callable
     path: Path = Path.cwd()
     runCommand : str = './Allrun'
-    ignoreIndices : List = field(default_factory=[])
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
@@ -3116,14 +3129,33 @@ class ofStudy:
             userMsg("'updateFunction' argument must be callable.", "ERROR")
         self._updateFunction = f
 
-    def run(self, dryRun = False):
+    def run(self, ignoreIndices = [], dryRun = False, sort=None):
+        """
+        Run an OpenFOAM study.
+
+        Parameters:
+            dryRun [bool]: If True, write case directories, but does not run the
+                simulations.
+            sort [list(int or str)]:  Index or column names on which to sort 
+                the run order.
+        """
         #- Save the sample points to file
         self.samples.to_csv('studySamplePoints.txt', sep='\t')
 
+        print(f"samples keys: {self.samples.columns}")
+
+        #TODO:  The call to `sort_values` raises a KeyError
+        if sort is not None:
+            sortNames = [self.samples.columns[s] if isinstance(s, int) \
+                else str(s) for s in sort]
+            samples_ = self.samples.sort_values(by=sortNames, axis=0)
+        else:
+            samples_ = self.samples
+
         nPad = len(str(self.nSamples))
 
-        for idx, row in self.samples.iterrows():
-            if idx not in self.ignoreIndices:
+        for idx, row in samples_.iterrows():
+            if idx not in ignoreIndices:
                 print(f"Running sample {idx}")
                 name = ".".join(self.templateCase.name().split('.')[:-1])+\
                     '.'+str(idx).zfill(nPad)
