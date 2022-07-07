@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, make_dataclass
+from selectors import EpollSelector
 from typing import List, Callable
 import copy
 from pathlib import Path
@@ -1459,47 +1460,84 @@ class ofSplitList(ofList):
 
 @dataclass
 class ofTable(ofList):
-
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, _comment=None):
+        super(ofTable, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
     _value = None
 
     @property
     def value(self):
-        return self.value
+        return self._value
 
     @value.setter
-    def value(self, val):
+    def value(self, v):
         """Convert varoius input types to pd.Dataframe"""
 
-        if isinstance(val, str):
-            logger.debug("Found string input.")
-            list_ = DictFileParser()._parseListValues(v)
-        elif isinstance(val, ofList):
-            logger.debug("Found ofList input.")
-            list_ = list(val)
-        elif isinstance(val, list):
-            logger.debug("Found list input.")
-            list_ = [v.value if isinstance(v, _ofIntBase) else v \
-                for v in val]
-        else:
-            logger.error("Unhandled type provided for 'value'.")
-            
-        logger.debug(f"list_: {list_}.")
+        if v is None:
+            self._value = None
+            return
+        
+        logger.debug(f"value: {v}")
+
+        def _listParser(val):
+            # if isinstance(val, str):
+            #     logger.debug("Found string input.")
+            #     list_ = DictFileParser()._parseListValues(v)
+            if isinstance(val, ofList):
+                val = val.value
+            # if isinstance(val, ofList):
+            #     listValue = []
+            #     for val_ in val.value:
+            #         logger.debug("Found ofList input.")
+            #         # list_ = list(val)
+            #         listValue.append(_listParser(val_))
+            #         # list_ = [v.value if isinstance(v, _ofTypeBase) else v \
+            #         #     for v in val.value]
+            #     list_.append(listValue)
+            if isinstance(val, list):
+                if len(val) == 1:
+                    return _listParser(val[0])
+                else:
+                    listValue = []
+                    for val_ in val:
+                        logger.debug("Found list input.")
+                        # list_ = [v.value if isinstance(v, _ofTypeBase) else v \
+                        #     for v in val]
+                        listValue.append(_listParser(val_))
+                    return listValue
+            elif isinstance(val, _ofTypeBase):
+                if isinstance(val.value, list):
+                    listValue = []
+                    for val_ in val.value:
+                        listValue.append(_listParser(val_))
+                    return listValue
+
+                else:        
+                    return val.value
+            else:
+                return val
+                # logger.error("Unhandled type provided for 'value'.")
+
+        list_ = _listParser(v)
+
+        logger.debug(f"list_: {list_}")
         #- check that value is a list of lists of equal length
-        if (len(list_) == 1 and isinstance(list_[0], list) 
-            and all([isinstance(l, list) for l in list_[0]])
-            and all([len(list_[0][0]) == len(l) for l in list_[0][1:]])):
+        if (all([isinstance(l, list) for l in list_])
+            and all([len(list_[0]) == len(l) for l in list_[1:]])):
             
             table_ = pd.DataFrame()
 
-            if len(list_[0]) > 1:
+            if len(list_) > 1:
                 if isinstance(list_[0][1], list): # if '(0.0 (1 2 3))' format
                     for item in list_:
                         df_ = pd.DataFrame(item[1], index=[item[0]])
-                        pd.concat([table_, df_])
+                        table_ = pd.concat([table_, df_])
                 else:  # '(0.0 1 2 3)' format
                     for item in list_:
                         df_ = pd.DataFrame(item[1:], index=[item[0]])
-                        pd.concat([table_, df_])
+                        table_ = pd.concat([table_, df_])
+            
+                self._value = table_
 
             else:
                 raise Exception("Invalid list formatting for table.")                
@@ -1508,7 +1546,7 @@ class ofTable(ofList):
 
 
 
-    def toString(self) -> str:
+    def toString(self, ofRep=False) -> str:
         dStr = "( "
         for v in self.value:
             if isinstance(v, ofDict):
@@ -1520,7 +1558,11 @@ class ofTable(ofList):
                 dStr += v.toString()
             else:
                 dStr += str(v)+" "
-        dStr+= ") "
+        dStr+= ");"
+
+        if ofRep:
+            dStr = dStr.rstrip(';')
+
         return dStr
     # def toString(self) -> str:
     #     return self.valueStr
@@ -3773,7 +3815,8 @@ class DictFileParser:
                     for value in subStr.split():
                         listValues.append(value)
                 else:
-                    #TODO: Store as ofList or list
+                    #TODO: Store as ofList or list. An ofLIst is required here to 
+                    # store line comments
                     listValue_ = ofList(value=self._parseListValues(subStr))
                     # listValues.append(self._parseListValues(subStr))
                     if foundComment:
@@ -4256,18 +4299,19 @@ class DictFileParser:
         if dimValue is not None:
             return dimValue
 
-        # Extract key values, note that key may contain parenthises, 
-        # e.g. as in the fvSchemes dictionary
-        lineList = self._getLinesList(line)
-        entryName = lineList[0]
-        valueStr = " ".join(lineList[1:])
-
-
         #- check if the line value terminates in an open list or dict
-        nl = 0
-        nd = 0
+        line_ = copy.deepcopy(line)
 
         while True:
+            nl = 0
+            nd = 0
+            # Extract key values, note that key may contain parenthises, 
+            # e.g. as in the fvSchemes dictionary
+            lineList = self._getLinesList(line_)
+            entryName = lineList[0]
+
+            valueStr = " ".join(lineList[1:])
+            logger.debug(f"valueStr: {valueStr}")
             for char in valueStr:
                 if char == '(':
                     nl+=1
@@ -4277,6 +4321,8 @@ class DictFileParser:
                     nd+=1
                 if char == '}':
                     nd-=1
+
+            logger.debug(f"nl / nd: {nl} / {nd}")
             
             if nl <= 0 and nd <= 0:
                 break
@@ -4284,20 +4330,34 @@ class DictFileParser:
             if nl > 0:
                 logger.debug("Found open list..")
                 self.i += 1
-                line += self.lines[self.i]
+                line_ += self.lines[self.i]
             if nd > 0:
                 logger.debug("Found open dictionary...")
                 self.i += 1
-                line += self.lines[self.i]
+                line_ += self.lines[self.i]
 
             # self.i+=1
-            line+=self.lines[self.i]
+            #line+=self.lines[self.i]
+            
+        line = line_
+
+        #Parse the line to extract the entry name
+        lineList = self._getLinesList(line_)
+        if lineList[1] == 'table':
+            entryName = " ".join(lineList[:2])
+            valueStr = " ".join(lineList[2:]).strip()
+            logger.debug(f"entryName: {entryName}")
+            logger.debug(f"valueStr: {valueStr}")
+        else:
+            entryName = lineList[0]
+            valueStr = " ".join(lineList[1:]).strip()
 
         if ';' in line:
             #- add extra text after ';' as a new line to be parsed later
             #- Remove ';'.  Assuming within list or dict.  Other possibilities 
             # (e.g dimensioned types) should be handled prior to this point in 
             # the method.
+            logger.debug(f"line[{self.i+1}]: {line}")
             extraText = ''.join(line.split(';')[1:]).replace('\n', '')
             self._addExtraLine(extraText)
             #line = line.split(';')[0][:-1] 
