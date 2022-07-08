@@ -1559,7 +1559,7 @@ class ofTable(ofList):
 
     def toString(self, ofRep=False) -> str:
         str_ = printNameStr(self.name)+' table '+\
-            ofSplitList(self.name, self.toList()).toString(ofRep=ofRep)
+            ofSplitList(self.toList()).toString(ofRep=ofRep)
         return str_
         for v in self.value:
             if isinstance(v, ofDict):
