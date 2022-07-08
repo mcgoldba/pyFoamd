@@ -64,7 +64,9 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  ':': '_',
                  '.': '_',
                  '-': '_',
-                 ' ': '_'}
+                 ' ': '_',
+                 '"': '_',
+                 '|': '_'}
 def printNameStr(name) -> str:
     if name is None:
         name=''
@@ -748,6 +750,8 @@ class _ofCaseBase(_ofTypeBase):
                 logger.debug("Parsing ofFolder")
                 return dict((key, _toDict(val)) for 
                             key, val in obj.attrDict().items())
+            elif isinstance(obj, pd.DataFrame):
+                return obj.to_dict()
             elif isinstance(obj, dict):
                 return dict((key, _toDict(val)) for key, val in obj.items())
             elif isinstance(obj, list):
@@ -1545,9 +1549,18 @@ class ofTable(ofList):
             raise Exception("Invalid list formatting for table.")
 
 
+    def toList(self):
+        list_ = []
+
+        for row in self.value.itertuples():
+            list_.append(list(row))
+
+        return list_
 
     def toString(self, ofRep=False) -> str:
-        dStr = "( "
+        str_ = printNameStr(self.name)+' table '+\
+            ofSplitList(self.name, self.toList()).toString(ofRep=ofRep)
+        return str_
         for v in self.value:
             if isinstance(v, ofDict):
                 dStr2 = v.toString().split(" ")
@@ -1674,6 +1687,10 @@ class ofDict(dict, _ofTypeBase):
         elif isinstance(item, _ofNamedTypeBase):
             nameTag = 'name'
         
+        if isinstance(value, _ofNamedTypeBase):
+            #- item = key and value = ofType
+            value._name = item
+
         if nameTag is not None:
             logger.debug("****Processing ofDict entry name for specification as "\
                 "attribute.")
@@ -1705,6 +1722,7 @@ class ofDict(dict, _ofTypeBase):
                 item_ = UNNAMED_TAG+str(self._nUnnamed)
             else:
                 item_ = _parseNameTag(item)
+                # item_ = item
             self.__setattr__(item_, value)
 
 
