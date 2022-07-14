@@ -1897,7 +1897,7 @@ class ofDict(dict, _ofTypeBase):
         for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             k = k.rstrip('_') # remove possible "_" added in _checkReserved
             logger.debug(f"dict entry: {k}: {v}")
-            if k is None:
+            if k is None or re.match('unnamed_[0-9]+$', k):
                 k=''
             if k not in self._CLASS_VARS:
                 if isinstance(v, ofDict):
