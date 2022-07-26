@@ -44,7 +44,7 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
             for time in timePath.iterdir():
                 try:
                     time_ = float(time.name)
-                    if time_ > startTime:
+                    if time_ > float(startTime):
                         startTime = time.name
                 except ValueError:
                     pass            
