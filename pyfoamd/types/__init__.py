@@ -1483,6 +1483,14 @@ class ofTable(ofList):
         
         logger.debug(f"value: {v}")
 
+        if isinstance(v, dict):
+            self._value = pd.DataFrame.from_dict(v)
+            return
+
+        if isinstance(v, pd.DataFrame):
+            self._value = v
+            return
+
         def _listParser(val):
             # if isinstance(val, str):
             #     logger.debug("Found string input.")
@@ -1552,10 +1560,18 @@ class ofTable(ofList):
     def toList(self):
         list_ = []
 
-        for row in self.value.itertuples():
-            list_.append(list(row))
-
+        if self.value is not None:
+            #TODO:  Why is self.value stored as a dict when loaded from JSON?
+            if isinstance(self.value, dict):
+                value_ = pd.DataFrame.from_dict(self.value)
+            else:
+                value_ = self.value
+            if isinstance(value_, pd.DataFrame):
+                for row in value_.itertuples():
+                        list_.append(list(row))
+        
         return list_
+
 
     def toString(self, ofRep=False) -> str:
         str_ = printNameStr(self.name)+' table '+\
@@ -1651,6 +1667,7 @@ class ofMultilineStatement(_ofNamedTypeBase):
 class ofDict(dict, _ofTypeBase):
 
     #TODO: Add method or way to delete the entries (i.e. with `None``)
+    #TODO: Allow initializtion with a "name" arg.  
 
    #- ref: https://stackoverflow.com/a/27472354/10592330
     def __init__(self, *args, **kwargs):
@@ -3726,6 +3743,15 @@ class DictFileParser:
             #     self.i += 1
             #     continue
 
+            # if line.strip().strip('(') == '':
+            #     # Do not parse unhandled case of only opening chars '('
+            #     i_end2 = self._findDictOrListEndLine('list')
+            #     if i_end2 > i_end:
+            #         logger.error(f"Unhandled syntax found on line {self.i-1} "\
+            #             f"of file {self.filepath}.")
+            #     while self.i <= i_end2:
+            #         line+= 
+
             #- Try to parse whole line as single value:
             entry_ = self._parseListValues(line)
             # entry_._comment = comment
@@ -3819,10 +3845,15 @@ class DictFileParser:
                 logger.debug(f"line list searchStr: {values[i:]}")
                 j=self._findDictOrListEndIndex(values[i:])
                 if j is None:
-                    logger.error("Could not find end of list on a single "\
-                        "line")
-                    sys.exit()
+                    # logger.error("Could not find end of list on a single "\
+                    #     "line")
+                    # sys.exit()
                     # return None
+                    
+                    #- Add an extra line to 'values':
+
+                    self.i+=1
+                    return self._parseListValues(values+" "+self.lines[self.i])
                 subStr = values[i+1:i+j]
                 logger.debug(f"subStr: {subStr}")
                 # if j != len(values)-1:

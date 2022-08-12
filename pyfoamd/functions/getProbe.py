@@ -43,7 +43,7 @@ def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
             for time in timePath.iterdir():
                 try:
                     time_ = float(time.name)
-                    if time_ > startTime:
+                    if time_ > float(startTime):
                         startTime = time.name
                 except ValueError:
                     pass            
