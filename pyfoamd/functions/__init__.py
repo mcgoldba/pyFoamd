@@ -62,6 +62,7 @@ from .readDictFile import readDictFile
 from .plot import plot
 from .getProbe import getProbe
 from .getMonitor import getMonitor
+from .foamVersion import foamVersion
 
 #import logging
 

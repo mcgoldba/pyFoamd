@@ -236,6 +236,10 @@ class CommandLine:
                                 help='If `True`, y-axis is plotted with a log '
                                 'scale.')
 
+        parser.add_argument('-time', type=str, nargs='?', default = 'latestTime',
+                                help='The postprocessing startTime to monitor')
+
+
         args = parser.parse_args(self.addArgs)
 
         if args.yrange is not None and len(args.yrange) != 2:
@@ -243,6 +247,6 @@ class CommandLine:
 
         pf.monitor(value=args.value[0], workingDir=args.casePath, 
                     filter=args.filter, yrange=args.yrange, 
-                    logScale = args.log)
+                    logScale = args.log, time = args.time)
 
 

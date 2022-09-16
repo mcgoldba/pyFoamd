@@ -68,8 +68,10 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  '"': '_',
                  '|': '_'}
 def printNameStr(name) -> str:
-    if name is None:
-        name=''
+    if (name is None 
+    or re.match(UNNAMED_TAG+'[0-9]+$', name)):
+        # name=''
+        return ''
     if len(name) >= 12:
         return name+"\t"
     else:
@@ -256,8 +258,15 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
 
     #TODO:  seprate the ofRep argument?  This may prevent all derived classes
     #       from having to implement this.
-    def toString(self, ofRep=False) -> str:
-        str_ =  printNameStr(self.name)+str(self.value)
+    def toString(self, ofRep=False, indent=True) -> str:
+        if indent:
+            str_ =  printNameStr(self.name)+str(self.value)
+        else:
+            if self.name is None:
+                str_ = str(self.value)
+            else:
+                str_ = f"{self.name} {self.value}"
+
 
         if ofRep:
             str_ += "; "
@@ -479,7 +488,15 @@ class FolderParser:  # Class is required because 'default_factory' argument
         # for obj in Path(self.path).iterdir():
             #- Ignore polyMesh:
             logger.debug(f"path.name: {Path(self.path).name}")
-            if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
+            # if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
+            if obj.name == 'polyMesh' and obj.is_dir():
+                continue
+
+            #- Ignore .eMesh files
+            if obj.name.endswith('.eMesh'):
+                continue
+            #- Ignore .extendedFeatureEdgeMesh files
+            if obj.name.endswith('.extendedFeatureEdgeMesh'):
                 continue
             #- Prevent invalid ofFolder attribute names:
             name_ = _checkReserved(obj.name, ['_path', '_type'])
@@ -1330,9 +1347,12 @@ class ofVar(_ofNamedTypeBase):
         else:
             self._value = None
 
-    def toString(self, ofRep=False) -> str:
+    def toString(self, ofRep=False, indent=True) -> str:
         if self.name is not None:
-            str_ = printNameStr(self.name)
+            if indent:
+                str_ = printNameStr(self._name)
+            else:
+                str_ = str(self._name)
         else:
             str_ = ''
         str_ +=  f"${self.value}"
@@ -1352,7 +1372,7 @@ class ofComment(_ofUnnamedTypeBase):
         self.value = value 
         self.block = block
 
-    def toString(self, ofRep=False):
+    def toString(self, ofRep=False, indent=False):
         if self.value is None:
             return ''
         if not self.block:
@@ -1385,27 +1405,32 @@ class ofList(_ofNamedTypeBase):
         else:
             self._value = []
     
-    def toString(self, ofRep=False) -> str:
+    def toString(self, ofRep=False, indent=True) -> str:
         if self.name:
-            dStr = printNameStr(self.name)+"( "
+            if indent:
+                dStr = printNameStr(self.name)+"( "
+            else:
+                dStr = f"{self.name}("
         else:
             dStr = "( "
         if self.value is not None:
+            indentStr = TAB_STR if indent else ''
             for v in self.value:
                 if isinstance(v, ofDict):
-                    dStr2 = v.toString().split(" ")
+                    dStr2 = v.toString(indent=False).split(" ")
                     for i in range(len(dStr2)):
-                        if len(TAB_STR+dStr2[i]+" ") > 79:
-                            dStr2[i] = "\n"+TAB_STR+dStr2[i]+" "
+                        if len(indentStr+dStr2[i]+" ") > 79:
+                            dStr2[i] = "\n"+indentStr+dStr2[i]+" "
                         else:
-                            dStr2[i] = TAB_STR+dStr2[i]+" "
+                            dStr2[i] = indentStr+dStr2[i]+" "
                         dStr += dStr2[i]
                 elif isinstance(v, list):
-                    dStr += TAB_STR+ofList(value=v).toString().strip()
+                    dStr += indentStr+ofList(value=v).toString(indent=False).strip()
                 elif isinstance(v, ofStr):
-                    dStr += f'"{v}"'
+                    # dStr += f'"{v}"'
+                    dStr+= v.toString(indent=False, ofRep=False).rstrip('\n')
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                    dStr += v.toString(ofRep=False).strip()+" "
+                    dStr += v.toString(ofRep=False, indent=False).strip()+" "
                 else:
                     dStr += str(v).strip()+" "
         if ofRep:
@@ -1426,7 +1451,7 @@ class ofSplitList(ofList):
         super(ofSplitList, self).__init__(
             arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
 
-    def toString(self, ofRep=False) -> str:
+    def toString(self, ofRep=False, indent=True) -> str:
         """ 
         Convert to a string representation.  If ofRep is `True` prints  a string
         conforming to an OpenFOAM dictionry. 
@@ -1454,7 +1479,7 @@ class ofSplitList(ofList):
 
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr :qa+= printNameStr(TAB_STR+k)+v.toString()
-                    dStr += TAB_STR+v.toString(ofRep=False)
+                    dStr += TAB_STR+v.toString(ofRep=False, indent=False)
                 else:
                     dStr += TAB_STR+str(v)+'\n'
         dStr+= ");\n"
@@ -1719,7 +1744,7 @@ class ofDict(dict, _ofTypeBase):
             if itemName is None:
                 self._nUnnamed += 1
                 name_ = UNNAMED_TAG+str(self._nUnnamed)
-            elif '_unnamed' in itemName or itemName == '_name':
+            elif UNNAMED_TAG in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
             elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
                 #- Replace special chars with attribute acceptable string
@@ -1819,7 +1844,7 @@ class ofDict(dict, _ofTypeBase):
 
     def _NoneKey(self):
         self._nUnnamed += 1
-        return '_unnamed'+str(self._nUnnamed)
+        return UNNAMED_TAG+str(self._nUnnamed)
     
     def update(self, iterable):
         #TODO:  Can this function be simplified since self.__setitem__ parses
@@ -1914,7 +1939,7 @@ class ofDict(dict, _ofTypeBase):
         for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             k = k.rstrip('_') # remove possible "_" added in _checkReserved
             logger.debug(f"dict entry: {k}: {v}")
-            if k is None or re.match('unnamed_[0-9]+$', k):
+            if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
                 k=''
             if k not in self._CLASS_VARS:
                 if isinstance(v, ofDict):
@@ -3159,6 +3184,7 @@ class ofStudy:
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
+        logger.info(f"Using template case: {self.templateCase._path}")
         #self.templateCase._name = self.templateCase._name.rstrip('.template')
         #self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
         self.nSamples = len(self.samples)
@@ -3206,26 +3232,36 @@ class ofStudy:
             userMsg("'updateFunction' argument must be callable.", "ERROR")
         self._updateFunction = f
 
-    def run(self, ignoreIndices = [], dryRun = False, sort=None):
+    def run(self, runSequence=None, ignoreIndices = [], dryRun = False, sort=None, ascending=None):
         """
         Run an OpenFOAM study.
 
         Parameters:
+            runSequence [list(int)]:  List of indices specifying the order in
+                which to run the samples.  If specified, the `sort`, 
+                `ignoreIndices`, and `ascending` arguments are ignored.  Samples
+                not included in the list are ignored.
             dryRun [bool]: If True, write case directories, but does not run the
                 simulations.
             sort [list(int or str)]:  Index or column names on which to sort 
                 the run order.
+            ascending [list(bool)]: If `True`, sorting of column is in
+                ascending order [default], else sorts in descending order.  
+                List length must equal length of `sort` argument.
         """
         #- Save the sample points to file
         self.samples.to_csv('studySamplePoints.txt', sep='\t')
 
         print(f"samples keys: {self.samples.columns}")
 
+        if runSequence is not None:
+            samples_ = self.samples.iloc[runSequence]
         #TODO:  The call to `sort_values` raises a KeyError
-        if sort is not None:
+        elif sort is not None:
             sortNames = [self.samples.columns[s] if isinstance(s, int) \
                 else str(s) for s in sort]
-            samples_ = self.samples.sort_values(by=sortNames, axis=0)
+            samples_ = self.samples.sort_values(by=sortNames, axis=0, 
+                                                ascending=ascending)
         else:
             samples_ = self.samples
 
