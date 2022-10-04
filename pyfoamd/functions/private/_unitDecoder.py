@@ -1,5 +1,9 @@
 from pint import UnitRegistry
 
+import logging
+
+logger = logging.getLogger('pf')
+
 def _unitDecoder(dct):
     """
     Object hook function for the python 'json.load()' function.
@@ -14,13 +18,19 @@ def _unitDecoder(dct):
         The parsed Python dictionary with converted units
     """
 
+    # logger.setLevel(logging.DEBUG)
+
     ureg = UnitRegistry()
+    Q_ = ureg.Quantity
 
     ###- Helper function 1
     def _decodeUnits(v):
         if isinstance(v, str):
+            logger.debug("Found string value")
             try:
-                return ureg(v).to_base_units().magnitude
+                v_ = ureg(v).to_base_units().magnitude
+                logger.debug(f"Interpreted string as '{v_}'")
+                return v_
             #vList = v.split(" ")
             #if len(vList) >= 2:
             #    try:
@@ -50,8 +60,11 @@ def _unitDecoder(dct):
     def _parseOrDecode(obj):
         if isinstance(obj, dict):
             return {k:_parseOrDecode(v) for k, v in obj.items()}
-        if isinstance(obj, list):
+        elif isinstance(obj, list):
+            logger.debug("Parsing list...")
             return [_parseOrDecode(v) for v in obj]
-        return _decodeUnits(obj)
+        else:
+            logger.debug(f"Parsing value '{obj}'...")
+            return _decodeUnits(obj)
 
     return _parseOrDecode(dct)

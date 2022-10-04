@@ -2,6 +2,7 @@ import sys
 import argparse, textwrap
 from argparse import RawTextHelpFormatter
 import pkg_resources  # part of setuptools
+import resource
 import os
 from pyfoamd import getPyFoamdConfig, setLoggerLevel
 import pyfoamd.functions as pf
@@ -42,6 +43,11 @@ def main():
                     str(sys.version_info.micro)+'\n'
 
     print("[bold grey35]"+intro)
+
+    #- Increase memory allocation and recusion depth
+    # resource.setrlimit(resource.RLIMIT_STACK, 
+    #     (getPyFoamdConfig('stack_size'),resource.RLIM_INFINITY))
+    # sys.setrecursionlimit(10**6)
 
     # #- Manually capture the "help" arguments and process last
     # help = None
