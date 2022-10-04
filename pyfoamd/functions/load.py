@@ -8,6 +8,7 @@ import json
 from pydoc import locate #ref: https://stackoverflow.com/a/29831586/10592330
 import sys
 from pyfoamd.functions import isCase
+import pandas as pd
 
 import logging
 
@@ -156,6 +157,10 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     obj_ = type_(
                         value = [_parseCaseDict(v, case) for v in obj['_value']]
                         )
+                    parseValue = False
+                elif (obj['_type'] == 'ofTable'):
+                    type_ = locate('pyfoamd.types.'+obj['_type'])
+                    obj_ = type_(value=pd.DataFrame.from_dict(obj['_value']))
                     parseValue = False
                 else:
                     type_ = locate('pyfoamd.types.'+obj['_type'])

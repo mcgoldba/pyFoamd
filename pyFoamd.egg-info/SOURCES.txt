@@ -18,7 +18,9 @@ pyfoamd/functions/allRun.py
 pyfoamd/functions/appendEntry.py
 pyfoamd/functions/cleanDictFile.py
 pyfoamd/functions/extractLogData.py
+pyfoamd/functions/foamVersion.py
 pyfoamd/functions/getLatestTime.py
+pyfoamd/functions/getMonitor.py
 pyfoamd/functions/getProbe.py
 pyfoamd/functions/init.py
 pyfoamd/functions/isCase.py
@@ -28,6 +30,7 @@ pyfoamd/functions/isMeshed.py
 pyfoamd/functions/isReconstructed.py
 pyfoamd/functions/listCases.py
 pyfoamd/functions/load.py
+pyfoamd/functions/monitor.old.py
 pyfoamd/functions/monitor.py
 pyfoamd/functions/plot.py
 pyfoamd/functions/printInputs.py

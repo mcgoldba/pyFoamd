@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, make_dataclass
+from selectors import EpollSelector
 from typing import List, Callable
 import copy
 from pathlib import Path
@@ -62,10 +63,15 @@ SPECIAL_CHARS = {'(': '_',  # Replacement of special chars attribute
                  '*': '_',
                  ':': '_',
                  '.': '_',
-                 '-': '_'}
+                 '-': '_',
+                 ' ': '_',
+                 '"': '_',
+                 '|': '_'}
 def printNameStr(name) -> str:
-    if name is None:
-        name=''
+    if (name is None 
+    or re.match(UNNAMED_TAG+'[0-9]+$', name)):
+        # name=''
+        return ''
     if len(name) >= 12:
         return name+"\t"
     else:
@@ -252,8 +258,15 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
 
     #TODO:  seprate the ofRep argument?  This may prevent all derived classes
     #       from having to implement this.
-    def toString(self, ofRep=False) -> str:
-        str_ =  printNameStr(self.name)+str(self.value)
+    def toString(self, ofRep=False, indent=True) -> str:
+        if indent:
+            str_ =  printNameStr(self.name)+str(self.value)
+        else:
+            if self.name is None:
+                str_ = str(self.value)
+            else:
+                str_ = f"{self.name} {self.value}"
+
 
         if ofRep:
             str_ += "; "
@@ -475,7 +488,15 @@ class FolderParser:  # Class is required because 'default_factory' argument
         # for obj in Path(self.path).iterdir():
             #- Ignore polyMesh:
             logger.debug(f"path.name: {Path(self.path).name}")
-            if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
+            # if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
+            if obj.name == 'polyMesh' and obj.is_dir():
+                continue
+
+            #- Ignore .eMesh files
+            if obj.name.endswith('.eMesh'):
+                continue
+            #- Ignore .extendedFeatureEdgeMesh files
+            if obj.name.endswith('.extendedFeatureEdgeMesh'):
                 continue
             #- Prevent invalid ofFolder attribute names:
             name_ = _checkReserved(obj.name, ['_path', '_type'])
@@ -746,6 +767,8 @@ class _ofCaseBase(_ofTypeBase):
                 logger.debug("Parsing ofFolder")
                 return dict((key, _toDict(val)) for 
                             key, val in obj.attrDict().items())
+            elif isinstance(obj, pd.DataFrame):
+                return obj.to_dict()
             elif isinstance(obj, dict):
                 return dict((key, _toDict(val)) for key, val in obj.items())
             elif isinstance(obj, list):
@@ -1324,9 +1347,12 @@ class ofVar(_ofNamedTypeBase):
         else:
             self._value = None
 
-    def toString(self, ofRep=False) -> str:
+    def toString(self, ofRep=False, indent=True) -> str:
         if self.name is not None:
-            str_ = printNameStr(self.name)
+            if indent:
+                str_ = printNameStr(self._name)
+            else:
+                str_ = str(self._name)
         else:
             str_ = ''
         str_ +=  f"${self.value}"
@@ -1346,7 +1372,7 @@ class ofComment(_ofUnnamedTypeBase):
         self.value = value 
         self.block = block
 
-    def toString(self, ofRep=False):
+    def toString(self, ofRep=False, indent=False):
         if self.value is None:
             return ''
         if not self.block:
@@ -1355,10 +1381,14 @@ class ofComment(_ofUnnamedTypeBase):
             return '/*'+self.value+'*/'+'\n'
 
 
+#TODO:   Merge this class with ofSplitList?
 @dataclass
 class ofList(_ofNamedTypeBase):
-    def __init__(self, *args, **kwargs):
-        super(ofList, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+    _comment=None):
+        super(ofList, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment
+            )
     
     @property
     def value(self):
@@ -1375,25 +1405,32 @@ class ofList(_ofNamedTypeBase):
         else:
             self._value = []
     
-    def toString(self, ofRep=False) -> str:
+    def toString(self, ofRep=False, indent=True) -> str:
         if self.name:
-            dStr = printNameStr(self.name)+"( "
+            if indent:
+                dStr = printNameStr(self.name)+"( "
+            else:
+                dStr = f"{self.name}("
         else:
             dStr = "( "
         if self.value is not None:
+            indentStr = TAB_STR if indent else ''
             for v in self.value:
                 if isinstance(v, ofDict):
-                    dStr2 = v.toString().split(" ")
+                    dStr2 = v.toString(indent=False).split(" ")
                     for i in range(len(dStr2)):
-                        if len(TAB_STR+dStr2[i]+" ") > 79:
-                            dStr2[i] = "\n"+TAB_STR+dStr2[i]+" "
+                        if len(indentStr+dStr2[i]+" ") > 79:
+                            dStr2[i] = "\n"+indentStr+dStr2[i]+" "
                         else:
-                            dStr2[i] = TAB_STR+dStr2[i]+" "
+                            dStr2[i] = indentStr+dStr2[i]+" "
                         dStr += dStr2[i]
                 elif isinstance(v, list):
-                    dStr += TAB_STR+ofList(value=v).toString().strip()
+                    dStr += indentStr+ofList(value=v).toString(indent=False).strip()
+                elif isinstance(v, ofStr):
+                    # dStr += f'"{v}"'
+                    dStr+= v.toString(indent=False, ofRep=False).rstrip('\n')
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                    dStr += v.toString(ofRep=False).strip()+" "
+                    dStr += v.toString(ofRep=False, indent=False).strip()+" "
                 else:
                     dStr += str(v).strip()+" "
         if ofRep:
@@ -1410,10 +1447,11 @@ TYPE_REGISTRY.append(ofList)
 
 @dataclass
 class ofSplitList(ofList):
-    def __init__(self, *args, **kwargs):
-        super(ofSplitList, self).__init__(*args, **kwargs)
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, _comment=None):
+        super(ofSplitList, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
 
-    def toString(self, ofRep=False) -> str:
+    def toString(self, ofRep=False, indent=True) -> str:
         """ 
         Convert to a string representation.  If ofRep is `True` prints  a string
         conforming to an OpenFOAM dictionry. 
@@ -1441,7 +1479,7 @@ class ofSplitList(ofList):
 
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr :qa+= printNameStr(TAB_STR+k)+v.toString()
-                    dStr += TAB_STR+v.toString(ofRep=False)
+                    dStr += TAB_STR+v.toString(ofRep=False, indent=False)
                 else:
                     dStr += TAB_STR+str(v)+'\n'
         dStr+= ");\n"
@@ -1451,47 +1489,92 @@ class ofSplitList(ofList):
 
 @dataclass
 class ofTable(ofList):
-
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, _comment=None):
+        super(ofTable, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
     _value = None
 
     @property
     def value(self):
-        return self.value
+        return self._value
 
     @value.setter
-    def value(self, val):
+    def value(self, v):
         """Convert varoius input types to pd.Dataframe"""
 
-        if isinstance(val, str):
-            logger.debug("Found string input.")
-            list_ = DictFileParser()._parseListValues(v)
-        elif isinstance(val, ofList):
-            logger.debug("Found ofList input.")
-            list_ = list(val)
-        elif isinstance(val, list):
-            logger.debug("Found list input.")
-            list_ = [v.value if isinstance(v, _ofIntBase) else v \
-                for v in val]
-        else:
-            logger.error("Unhandled type provided for 'value'.")
-            
-        logger.debug(f"list_: {list_}.")
+        if v is None:
+            self._value = None
+            return
+        
+        logger.debug(f"value: {v}")
+
+        if isinstance(v, dict):
+            self._value = pd.DataFrame.from_dict(v)
+            return
+
+        if isinstance(v, pd.DataFrame):
+            self._value = v
+            return
+
+        def _listParser(val):
+            # if isinstance(val, str):
+            #     logger.debug("Found string input.")
+            #     list_ = DictFileParser()._parseListValues(v)
+            if isinstance(val, ofList):
+                val = val.value
+            # if isinstance(val, ofList):
+            #     listValue = []
+            #     for val_ in val.value:
+            #         logger.debug("Found ofList input.")
+            #         # list_ = list(val)
+            #         listValue.append(_listParser(val_))
+            #         # list_ = [v.value if isinstance(v, _ofTypeBase) else v \
+            #         #     for v in val.value]
+            #     list_.append(listValue)
+            if isinstance(val, list):
+                if len(val) == 1:
+                    return _listParser(val[0])
+                else:
+                    listValue = []
+                    for val_ in val:
+                        logger.debug("Found list input.")
+                        # list_ = [v.value if isinstance(v, _ofTypeBase) else v \
+                        #     for v in val]
+                        listValue.append(_listParser(val_))
+                    return listValue
+            elif isinstance(val, _ofTypeBase):
+                if isinstance(val.value, list):
+                    listValue = []
+                    for val_ in val.value:
+                        listValue.append(_listParser(val_))
+                    return listValue
+
+                else:        
+                    return val.value
+            else:
+                return val
+                # logger.error("Unhandled type provided for 'value'.")
+
+        list_ = _listParser(v)
+
+        logger.debug(f"list_: {list_}")
         #- check that value is a list of lists of equal length
-        if (len(list_) == 1 and isinstance(list_[0], list) 
-            and all([isinstance(l, list) for l in list_[0]])
-            and all([len(list_[0][0]) == len(l) for l in list_[0][1:]])):
+        if (all([isinstance(l, list) for l in list_])
+            and all([len(list_[0]) == len(l) for l in list_[1:]])):
             
             table_ = pd.DataFrame()
 
-            if len(list_[0]) > 1:
+            if len(list_) > 1:
                 if isinstance(list_[0][1], list): # if '(0.0 (1 2 3))' format
                     for item in list_:
                         df_ = pd.DataFrame(item[1], index=[item[0]])
-                        pd.concat([table_, df_])
+                        table_ = pd.concat([table_, df_])
                 else:  # '(0.0 1 2 3)' format
                     for item in list_:
                         df_ = pd.DataFrame(item[1:], index=[item[0]])
-                        pd.concat([table_, df_])
+                        table_ = pd.concat([table_, df_])
+            
+                self._value = table_
 
             else:
                 raise Exception("Invalid list formatting for table.")                
@@ -1499,9 +1582,26 @@ class ofTable(ofList):
             raise Exception("Invalid list formatting for table.")
 
 
+    def toList(self):
+        list_ = []
 
-    def toString(self) -> str:
-        dStr = "( "
+        if self.value is not None:
+            #TODO:  Why is self.value stored as a dict when loaded from JSON?
+            if isinstance(self.value, dict):
+                value_ = pd.DataFrame.from_dict(self.value)
+            else:
+                value_ = self.value
+            if isinstance(value_, pd.DataFrame):
+                for row in value_.itertuples():
+                        list_.append(list(row))
+        
+        return list_
+
+
+    def toString(self, ofRep=False) -> str:
+        str_ = printNameStr(self.name)+' table '+\
+            ofSplitList(self.toList()).toString(ofRep=ofRep)
+        return str_
         for v in self.value:
             if isinstance(v, ofDict):
                 dStr2 = v.toString().split(" ")
@@ -1512,7 +1612,11 @@ class ofTable(ofList):
                 dStr += v.toString()
             else:
                 dStr += str(v)+" "
-        dStr+= ") "
+        dStr+= ");"
+
+        if ofRep:
+            dStr = dStr.rstrip(';')
+
         return dStr
     # def toString(self) -> str:
     #     return self.valueStr
@@ -1588,6 +1692,7 @@ class ofMultilineStatement(_ofNamedTypeBase):
 class ofDict(dict, _ofTypeBase):
 
     #TODO: Add method or way to delete the entries (i.e. with `None``)
+    #TODO: Allow initializtion with a "name" arg.  
 
    #- ref: https://stackoverflow.com/a/27472354/10592330
     def __init__(self, *args, **kwargs):
@@ -1624,6 +1729,10 @@ class ofDict(dict, _ofTypeBase):
         elif isinstance(item, _ofNamedTypeBase):
             nameTag = 'name'
         
+        if isinstance(value, _ofNamedTypeBase):
+            #- item = key and value = ofType
+            value._name = item
+
         if nameTag is not None:
             logger.debug("****Processing ofDict entry name for specification as "\
                 "attribute.")
@@ -1635,7 +1744,7 @@ class ofDict(dict, _ofTypeBase):
             if itemName is None:
                 self._nUnnamed += 1
                 name_ = UNNAMED_TAG+str(self._nUnnamed)
-            elif '_unnamed' in itemName or itemName == '_name':
+            elif UNNAMED_TAG in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
             elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
                 #- Replace special chars with attribute acceptable string
@@ -1655,6 +1764,7 @@ class ofDict(dict, _ofTypeBase):
                 item_ = UNNAMED_TAG+str(self._nUnnamed)
             else:
                 item_ = _parseNameTag(item)
+                # item_ = item
             self.__setattr__(item_, value)
 
 
@@ -1670,21 +1780,25 @@ class ofDict(dict, _ofTypeBase):
             if not isinstance(obj, list):
                 logger.error("Recived non list type as value.")
                 sys.exit()
+                # type_, value_ = DictFileParser._parseValue(v)
+                # return type_(value)
             else:
                 ofType_ = ofSplitList()
                 #TODO: Parse lists of lists
-                for v in value:
+                for v in obj:
                     if isinstance(v, list):
                         ofType_.value.append(_parseList(v))
                     else:
                         type_, value_ = DictFileParser._parseValue(v)
                         logger.debug(f"type, value: {type_}, {value_}")
-                        ofType_.value.append(type_(name=key_, value=value_))
+                        ofType_.value.append(type_(value=value_))
             return ofType_
         if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
         # if key not in self._CLASS_VARS:
             if isinstance(value, list):
-                ofType = _parseList(value)    
+                ofType = _parseList(value)
+                ofType._name = key 
+                # ofType = [DictFileParser._parseValue(v) for v in value]    
             elif value is not None and not isinstance(value, _ofTypeBase):
                 logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
@@ -1730,7 +1844,7 @@ class ofDict(dict, _ofTypeBase):
 
     def _NoneKey(self):
         self._nUnnamed += 1
-        return '_unnamed'+str(self._nUnnamed)
+        return UNNAMED_TAG+str(self._nUnnamed)
     
     def update(self, iterable):
         #TODO:  Can this function be simplified since self.__setitem__ parses
@@ -1825,7 +1939,7 @@ class ofDict(dict, _ofTypeBase):
         for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             k = k.rstrip('_') # remove possible "_" added in _checkReserved
             logger.debug(f"dict entry: {k}: {v}")
-            if k is None:
+            if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
                 k=''
             if k not in self._CLASS_VARS:
                 if isinstance(v, ofDict):
@@ -2458,17 +2572,387 @@ TYPE_REGISTRY.append(ofIncludeFunc)
 
 #     # logger.debug(data)
 
-
-
 @dataclass
-class ofProbe:
-    dataPath: Path
+class _ofMonitorBase:
+    _dataPath: Path
+    _columns: List = None
     _index: int = field(init=False, default=0)
-
+    _startTime : str = field(init=False, default=0)
+    _name : str = None
     
     @property
     def data(self):
         return self._data
+
+    @property
+    def nSamples(self):
+        return self._nSamples
+
+    @property
+    def dataPath(self):
+        return self._dataPath
+
+    # @dataPath.setter
+    # def dataPath(self, path):
+    def __post_init__(self):
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        path = self._dataPath
+
+        logger.debug(f"datapath: {path}")
+
+        if Path(path).is_file():
+            self._dataPath = Path(path)
+        else:
+            userMsg(f"Invalid probe file specified:\n{path}", "ERROR")
+        #- TODO:  Check that the field is actually in the object registry
+        self._name = Path(path).parent.parent.name
+
+        time_ = Path(path).parent.name
+
+        try:
+            int(time_)
+            self.startTime = time_
+        except ValueError:
+            pass
+        else:
+            try:
+                float(time_)
+                self.startTime= time_
+            except ValueError:
+                userMsg(f"Invalid startTime found for monitor: " \
+                +{self._dataPath}, "WARNING")
+
+        if not hasattr(self, "_data") or self.data is None:
+            with open(self.dataPath) as file:
+                i = 0
+                self._locations = []
+                if self._columns is None:
+                    #- Parse commented lines
+                    while True:
+                        line = file.readline()
+                        if not line.startswith("#"):
+                            break
+                        prevLine = line
+                    self._columns = prevLine.lstrip('#').split('\t')
+                    self._columns = [v.strip() for v in self._columns]
+                
+                # logger.debug(f"columns: {self._columns}")
+                self._readData(file)
+        else:
+            with open(self.dataPath) as file:
+                self._readData(file)
+    
+    def _readData(self, file):
+        """Read data after header"""
+        parsedColumnLabels = False
+        parsedLabels = [self._columns[0]]
+        linei = 0
+        data_ = None
+        while True:
+            linei+=1
+            line = file.readline()
+            if not line:
+                break
+            if line.startswith('#'):
+                continue
+    
+            logger.debug(f"parsedColumnLabels: {parsedColumnLabels}")            
+
+            data_, parsedColumnLabels, columns = \
+                self._parseLine(line, linei, data_, 
+                    parsedColumnLabels, parsedLabels)
+
+        self._storeData(data_, columns)
+        # self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+        #                             columns=columns[1:])
+        # self._data = self._data.convert_dtypes()
+        # self._data.index.name = columns[0]                         
+        # # logger.debug(f"probes: {columns}")
+        # # self._data.columns = probes
+        # self._nSamples = self._data.shape[0]
+
+    def _parseLine(self, line, linei, data_, parsedColumnLabels=True, 
+    parsedLabels=None):
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        if parsedLabels is None:
+            parsedLabels = self._columns
+
+        logger.debug(f"parsedLabels: {parsedLabels}")
+
+        values = re.split(r'\s{2,}|\t', line.strip())
+        values = [v.strip() for v in values]
+
+        parsedValues = [float(values[0])]  #Time index
+        ofValues = [float(values[0])]
+        ofTypes = [float]
+
+        for i, value in enumerate(values[1:]):
+            ofType, ofValue = DictFileParser._parseValue(value)
+                        
+            ofValues.append(ofValue)
+            ofTypes.append(ofType)
+        
+        # logger.debug(f"ofValues:\n{ofValues}")
+
+        def countValues(list_, n=0):
+            for value in list_:
+                if isinstance(value, list):
+                    n+= countValues(value)
+                else:
+                    n+= 1
+            # logger.debug(f"returning {n}...")
+            return n
+        nValues = countValues(ofValues)
+        # values_ = np.array(ofValues, dtype=object).flatten()
+        # logger.debug(f"values_: {values_}")
+        # nValues = values_.shape[0]
+
+        # if found additional data values in middle of file, parse
+        # header again
+        if data_ is not None:
+            logger.debug(f"nValues > data_.shape[1]: {nValues} > {data_.shape[1]}")
+            logger.debug(f"parsedLabels: {parsedLabels}")
+            if nValues > data_.shape[1]:
+                parsedLabels = [self._columns[0]]
+                parsedColumnLabels = False
+                # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
+
+
+        for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
+
+            if isinstance(ofValue, list):
+                for v in ofValue:
+                    parsedValues.append(v)
+
+                if not parsedColumnLabels:
+                    # logger.debug(f"ofType: {ofType}")
+                    if ofType == ofVector:
+                        # logger.debug("Found ofVector...")
+                        #- Found vector
+                        parsedLabels.append(self._columns[i+1]+" X")
+                        parsedLabels.append(self._columns[i+1]+" Y")
+                        parsedLabels.append(self._columns[i+1]+" Z")
+                    elif ofType == ofSymmTensor:
+                        parsedLabels.append(self._columns[i+1]+" XX")
+                        parsedLabels.append(self._columns[i+1]+" XY")
+                        parsedLabels.append(self._columns[i+1]+" XZ")
+                        parsedLabels.append(self._columns[i+1]+" YY")
+                        parsedLabels.append(self._columns[i+1]+" YZ")
+                        parsedLabels.append(self._columns[i+1]+" ZZ")
+                    elif ofType == ofTensor:
+                        parsedLabels.append(self._columns[i+1]+" XX")
+                        parsedLabels.append(self._columns[i+1]+" XY")
+                        parsedLabels.append(self._columns[i+1]+" XZ")
+                        parsedLabels.append(self._columns[i+1]+" YX")
+                        parsedLabels.append(self._columns[i+1]+" YY")
+                        parsedLabels.append(self._columns[i+1]+" YZ")
+                        parsedLabels.append(self._columns[i+1]+" ZX")
+                        parsedLabels.append(self._columns[i+1]+" ZY")
+                        parsedLabels.append(self._columns[i+1]+" ZZ")
+                    elif ofType == ofSphericalTensor:
+                        parsedLabels.append(self._columns[i+1])
+                    else:
+                        logger.warning("Could not locate appropriate ofType")
+                        parsedLabels.append(self._columns[i+1])
+                    #TODO: Check that the appropriate ofType was found
+            else:
+                parsedValues.append(ofValue)
+                if not parsedColumnLabels:
+                    parsedLabels.append(self._columns[i+1])
+        
+        logger.debug("len(parsedValues) == len(parsedLabels): "
+            f"{len(parsedValues)} == {len(parsedLabels)}")
+        if len(parsedValues) == len(parsedLabels):
+            if not parsedColumnLabels:
+                columns = parsedLabels
+                parsedColumnLabels = True
+                # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
+            else:
+                columns = parsedLabels
+        elif len(parsedLabels) < len(parsedValues):
+            columns = self._columns
+        else:
+            logger.warning(f"Skipping row {linei} with missing data.")
+            return data_, parsedColumnLabels, parsedLabels# skip rows with missing values
+            
+        # If data_ exists make sure it is the correct shape (in the case of 
+        # missing data for the first data points)
+        if data_ is not None:
+            if len(parsedValues) > data_.shape[1]:
+                # found additional data values in middle of file
+                #If data exists, pad existing values
+                # logger.debug(f"data_ size: {data_.shape}")
+                #TODO:  Doesnt handle case of missing value only in middle 
+                # columns
+                data_ = np.array([np.pad(v, (0, len(parsedValues)-
+                                    data_.shape[1])) for v in data_])
+                # logger.debug(f"data_ size after pad: {data_.shape}")
+
+
+        if data_ is None:
+            data_ = np.array([parsedValues])
+        else:
+            # logger.debug(f"data_ shape: {data_.shape}")
+            # logger.debug(f"parsedValues shape: {np.array([parsedValues]).shape}")
+            # logger.debug(f"parsedValues: {[parsedValues]}")
+            data_ = np.append(data_, [parsedValues], axis=0)
+
+        # parsedColumnLabels = True
+        # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
+
+        return data_, parsedColumnLabels, columns
+
+    
+    def update(self):
+        """
+        Append only the unread lines to the existing data
+        """
+
+        #TODO:  Accomodate list values for ofVector, ofTensor, etc.
+
+        #TODO:  How do you check for new columns in case of vector or other list 
+        # values?  Always read the entire file until this can be fixed.
+
+        index_ = self.data.index.to_numpy(dtype=float).reshape( (-1,1) )
+
+        data_ = np.hstack((index_, self.data.to_numpy()))
+
+        i = self.nSamples - 1
+        with open(self.dataPath) as file:
+            parsedColumnLabels = True
+            columns = [self.data.index.name]
+            for v in self.data.columns:
+                columns.append(v)
+            logger.debug(f"columns: {columns}")
+            lines = file.readlines()
+            while True:
+                if i >= len(lines):
+                    break # Found end of file
+                line = lines[i]
+                if not line:
+                    break
+                if line.startswith('#'):
+                    continue
+                data_, parsedColumnLabels, columns = \
+                        self._parseLine(line, i, data_, parsedColumnLabels, 
+                        columns)
+                # lineDf = pd.DataFrame(data_, index=i, 
+                #     columns=columns)
+                i+=1
+            # self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+            #                         columns=columns[1:])
+            # self._data.convert_dtypes()
+            # self._data.index.name = columns[0]                         
+            # self._nSamples = self._data.shape[0]
+        self._storeData(data_, columns)
+
+    def _storeData(self, data_, columns):
+        self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+                                    columns=columns[1:])
+        # self._data = self._data.convert_dtypes()
+        self._data.index.name = columns[0]                         
+        self._nSamples = self._data.shape[0]
+
+class MonitorParser:
+    def __init__(self, path=Path.cwd()):
+        if not isinstance(path, Path):
+            self.path = Path(path)
+        else:
+            self.path = path
+
+    def makeOFMonitor(self):
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        attrList = []
+
+        # read in the header comments to store as ofMonitor attributes
+        with open(self.path) as f:
+            for line in f:
+                if line.startswith('#') == False:
+                    break
+                if ':' in line:
+                    lineList = line.lstrip('#').split(':')
+                    lineList = [v.strip() for v in lineList]
+                    key = _parseNameTag(lineList[0].strip())
+                    value = ':'.join(lineList[1:])
+                    logger.debug(f"monitor file key: {key}")
+                    #TODO:  What types should be acceptable here?
+                    type_ = str
+                    try:
+                        int(value)
+                        type_ = int
+                    except ValueError:
+                        pass
+                    else:
+                        try:
+                            float(value)
+                            type_ = float
+                        except ValueError:
+                            pass
+
+                    attrList.append((key, type_, field(default=value)))
+                else: # store values as column labels
+                    header = line.lstrip('#').split('\t')
+                    header = [v.strip() for v in header]
+                    
+                
+        dc_ = make_dataclass('ofMonitor', attrList, 
+                    bases=(_ofMonitorBase, ))(_dataPath=self.path, 
+                                        _columns=header)
+                
+        return dc_
+
+            
+
+
+        # Pass headers to _ofMonitorBase and create a new ofMonitor using 
+        # 'make_dataclass'
+
+#TODO:  Create an ofMonitorCollection class that stores multiple start time 
+# values for a single probe.  Use MonitorParser to create a list of 
+# ofMonitorCollections, but do not store in an ofCase, because this would be too 
+# cumbersome for saving data. 
+
+class MonitorCollectionParser:
+    def __init__(self, path=Path.cwd()):
+        if not isinstance(path, Path):
+            self.path = Path(path)
+        else:
+            self.path = path
+
+    def parse(self):
+        """
+        Parse the top level folder containing all monitors (i.e. 
+        'postProcessing'), and return a list of ofMonitor objects.
+        """
+        for obj in self.path.iterdir():
+            if obj.is_dir() and obj.name.startswith('.') == False:
+                pass
+
+    def makeOFMonitor(self):
+        attrList = []
+        for obj in self.path.iterdir():
+            if obj.is_dir() and obj.name.startswith('.') == False:
+                pass
+
+
+@dataclass
+class ofProbe(_ofMonitorBase):
+    # def __init__(self, dataPath, columns=None, name=None):
+    #     super(ofProbe, self).__init__(_dataPath=dataPath, _columns=columns, 
+    #                                     _name=name)
+    # dataPath: Path
+    # _index: int = field(init=False, default=0)
+
+    
+    # @property
+    # def data(self):
+    #     return self._data
 
     @property
     def field(self):
@@ -2479,23 +2963,29 @@ class ofProbe:
         """Coordinate locations of the sampled data"""
         return self._locations
 
-    @property
-    def nSamples(self):
-        return self._nSamples
+    # @property
+    # def nSamples(self):
+    #     return self._nSamples
 
-    @property
-    def dataPath(self):
-        return self._dataPath
+    # @property
+    # def dataPath(self):
+    #     return self._dataPath
 
-    @dataPath.setter
-    def dataPath(self, path):
+    # @dataPath.setter
+    # def dataPath(self, path):
+    #TODO:  Call baseclass __post_init__ function instead of copying code
+    def __post_init__(self): 
+
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        path = self._dataPath
 
         logger.debug(f"datapath: {path}")
 
         if Path(path).is_file():
             self._dataPath = Path(path)
         else:
-            userMsg(f"Invalid probe file specified:\n{p}", "ERROR")
+            userMsg(f"Invalid probe file specified:\n{path}", "ERROR")
         #- TODO:  Check that the field is actually in the object registry
         self._field = Path(path).name
 
@@ -2504,111 +2994,126 @@ class ofProbe:
             with open(self.dataPath) as file:
                 i = 0
                 self._locations = []
-                fileColumns = ['Time']
+                self._columns = ['Time']
                 while True:
                     line = file.readline()
                     logger.debug(f"line: {line}")
                     if not line.startswith("# Probe"):
                         break
-                    fileColumns.append(f"Probe {i}")
+                    self._columns.append(f"Probe {i}")
                     self._locations.append(
                         ofVector([float(v) for v in 
                             line.split('(')[1].split(')')[0].split()]))
                     i+=1
+                logger.debug(f"columns: {self._columns}")
                 #- read data after header
-                logger.info(f"fileColumns: {fileColumns}")
-                parsedColumnLabels = False
-                while True:
-                    line = file.readline()
-                    #logger.info(f"line: {line}")
-                    if not line:
-                        break
-                    if line.startswith('#'):
-                        continue
-                    values = re.split(r'\s{2,}', line)
-                    #logger.info(f"len(values) < len(columns): {len(values)} < {len(fileColumns)}")
-                    if len(values) < len(fileColumns):  # Skip line with missing data
-                        continue
-                    parsedValues = [float(values[1])]  #Time index
-                    parsedLabels = [fileColumns[0]]
-                    for i, value in enumerate(values[2:]):
-                        # logger.info(f"value: {value}")
-                        ofType, ofValue = DictFileParser._parseValue(value)
-                        if isinstance(ofValue, list):
-                            for v in ofValue:
-                                parsedValues.append(v)
-                                parsedLabels.append(fileColumns[i+1])
-                            if not parsedColumnLabels:
-                                if isinstance(ofType, ofVector):
-                                    #- Found vector
-                                    parsedLabels.append(fileColumns[i+1]+" x")
-                                    parsedLabels.append(fileColumns[i+1]+" y")
-                                    parsedLabels.append(fileColumns[i+1]+" z")
-                                elif isinstance(ofType, ofSymmTensor):
-                                    parsedLabels.append(fileColumns[i+1]+" xx")
-                                    parsedLabels.append(fileColumns[i+1]+" xy")
-                                    parsedLabels.append(fileColumns[i+1]+" xz")
-                                    parsedLabels.append(fileColumns[i+1]+" yy")
-                                    parsedLabels.append(fileColumns[i+1]+" yz")
-                                    parsedLabels.append(fileColumns[i+1]+" zz")
-                                elif isinstance(ofType, ofTensor):
-                                    parsedLabels.append(fileColumns[i+1]+" xx")
-                                    parsedLabels.append(fileColumns[i+1]+" xy")
-                                    parsedLabels.append(fileColumns[i+1]+" xz")
-                                    parsedLabels.append(fileColumns[i+1]+" yx")
-                                    parsedLabels.append(fileColumns[i+1]+" yy")
-                                    parsedLabels.append(fileColumns[i+1]+" yz")
-                                    parsedLabels.append(fileColumns[i+1]+" zx")
-                                    parsedLabels.append(fileColumns[i+1]+" zy")
-                                    parsedLabels.append(fileColumns[i+1]+" zz")
-                                #TODO: Check that the appropriate ofType was found
-                    if len(parsedValues) == len(parsedLabels):
-                        columns = parsedLabels
-                    else:
-                        raise Exception("Could not parse log file data type.")
+                self._readData(file)
 
-                    # logger.info(f"Parsed values: {parsedValues}")
-
-                    try:
-                        #logger.info('testing data_...')
-                        data_
-                    except NameError:
-                        #logger.info("Defining 'data_'.")
-                        data_ = np.array([parsedValues])
-                    else:
-                        #logger.info(f"Adding row to data: {parsedValues}")
-                        data_ = np.append(data_, [parsedValues], axis=0)
-                    # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
-
-                    parsedColumnLabels = True
-
-            # converters = {}
-            # for i in range(1,len(columns)):
-            #     converters.update({i: _parseProbeValues})
-            # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
-            #     engine='python', converters=converters)   
-            # data_ = _parseProbeValues(path)
-
-            logger.info(data_)
-
-            logger.debug(data_.shape)
-
-            self._data = pd.DataFrame(data=data_, index=data_[:,0],
-                                     columns=columns)
-            logger.debug(f"probes: {columns}")
-            # self._data.columns = probes
-            self._nSamples = self._data.shape[0]
-        else: #- Append only the unread lines to the existing data
-    
-            i = self.nSamples - 1
+        else:
+            #self._appendData()
             with open(self.dataPath) as file:
-                while True:
-                    line = file.readline(i)
-                    if line == "": # Found end of file
-                        break
-                    lineDf = pd.DataFrame(line.split(), index=i, 
-                        header=self._data.columns)
-                    self._data = pd.concat(self._data, lineDf)
+                self._readData(file)
+
+        #         parsedColumnLabels = False
+        #         parsedLabels = [self._columns[0]]
+        #         while True:
+        #             line = file.readline()
+        #             if not line:
+        #                 break
+        #             if line.startswith('#'):
+        #                 continue
+        #             values = re.split(r'\s{2,}|\t', line.strip())
+        #             values = [v.strip() for v in values]
+        #             #TODO:  How should non-numeric values be handled?
+        #             # if len(values) < len(self._columns):  # Skip line with missing data
+        #             #     logger.debug(f"len(values), len(self._columns): "
+        #             #         f"{len(values)}, {len(self._columns)}")
+        #             #     logger.debug("Skipping line...") 
+        #             #     continue
+
+        #             parsedValues = [float(values[0])]  #Time index
+        #             for i, value in enumerate(values[1:]):
+        #                 ofType, ofValue = DictFileParser._parseValue(value)
+        #                 logger.debug(f"ofType, ofValue: {ofType}, {ofValue}")
+        #                 if isinstance(ofValue, list):
+        #                     for v in ofValue:
+        #                         parsedValues.append(v)
+        #                         #parsedLabels.append(self._columns[i+1])
+        #                     if not parsedColumnLabels:
+        #                         # if isinstance(ofType, ofVector):
+        #                         if ofType == ofVector:
+        #                             #- Found vector
+        #                             parsedLabels.append(f"{self._columns[i+1]} X")
+        #                             parsedLabels.append(f"{self._columns[i+1]} Y")
+        #                             parsedLabels.append(f"{self._columns[i+1]} Z")
+        #                         elif ofType == ofSymmTensor:
+        #                             parsedLabels.append(f"{self._columns[i+1]} XX")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZZ")
+        #                         elif ofType == ofTensor:
+        #                             parsedLabels.append(f"{self._columns[i+1]} XX")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} XZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} YZ")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZX")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZY")
+        #                             parsedLabels.append(f"{self._columns[i+1]} ZZ")
+        #                         else:
+        #                             parsedLabels.append(self._columns[i+1])
+        #                         #TODO: Check that the appropriate ofType was found
+        #                 else:
+        #                     parsedValues.append(ofValue)
+        #                     parsedLabels.append(self._columns[i+1])
+        #             logger.debug("len(parsedValues) == len(parsedLabels): "
+        #                 f"{len(parsedValues)} == {len(parsedLabels)}")
+        #             if len(parsedValues) == len(parsedLabels):
+        #                 logger.debug(f"parsedLabels: {parsedLabels}")
+        #                 self._columns = parsedLabels
+        #             else:
+        #                 raise Exception("Could not parse log file data type.")
+
+        #             # logger.info(f"Parsed values: {parsedValues}")
+
+        #             try:
+        #                 data_
+        #             except NameError:
+        #                 data_ = np.array([parsedValues])
+        #             else:
+        #                 data_ = np.append(data_, [parsedValues], axis=0)
+        #             # data_ = np.reshape(data_, (len(data_), -1)) # Convert to 2D array
+
+        #             parsedColumnLabels = True
+
+        #     # converters = {}
+        #     # for i in range(1,len(columns)):
+        #     #     converters.update({i: _parseProbeValues})
+        #     # self._data = pd.read_csv(path, sep="\s+\s+",comment='#', 
+        #     #     engine='python', converters=converters)   
+        #     # data_ = _parseProbeValues(path)
+
+        #     logger.debug(f"data shape: {data_.shape}")
+
+        #     self._data = pd.DataFrame(data=data_[:,1:], index=data_[:,0],
+        #                              columns=self._columns[1:])
+        #     logger.debug(f"probes: {self._columns}")
+        #     # self._data.columns = probes
+        #     self._nSamples = self._data.shape[0]
+        # else: #- Append only the unread lines to the existing data
+    
+        #     i = self.nSamples - 1
+        #     with open(self.dataPath) as file:
+        #         while True:
+        #             line = file.readline(i)
+        #             if line == "": # Found end of file
+        #                 break
+        #             lineDf = pd.DataFrame(line.split(), index=i, 
+        #                 header=self._data.columns)
+        #             self._data = pd.concat(self._data, lineDf)
 
     # TODO:  Dataclasses cannot be iterable??
     # def __iter__(self):
@@ -2676,10 +3181,10 @@ class ofStudy:
     updateFunction : Callable
     path: Path = Path.cwd()
     runCommand : str = './Allrun'
-    ignoreIndices : List = field(default_factory=[])
 
     def __post_init__(self):
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
+        logger.info(f"Using template case: {self.templateCase._path}")
         #self.templateCase._name = self.templateCase._name.rstrip('.template')
         #self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
         self.nSamples = len(self.samples)
@@ -2727,14 +3232,43 @@ class ofStudy:
             userMsg("'updateFunction' argument must be callable.", "ERROR")
         self._updateFunction = f
 
-    def run(self, dryRun = False):
+    def run(self, runSequence=None, ignoreIndices = [], dryRun = False, sort=None, ascending=None):
+        """
+        Run an OpenFOAM study.
+
+        Parameters:
+            runSequence [list(int)]:  List of indices specifying the order in
+                which to run the samples.  If specified, the `sort`, 
+                `ignoreIndices`, and `ascending` arguments are ignored.  Samples
+                not included in the list are ignored.
+            dryRun [bool]: If True, write case directories, but does not run the
+                simulations.
+            sort [list(int or str)]:  Index or column names on which to sort 
+                the run order.
+            ascending [list(bool)]: If `True`, sorting of column is in
+                ascending order [default], else sorts in descending order.  
+                List length must equal length of `sort` argument.
+        """
         #- Save the sample points to file
         self.samples.to_csv('studySamplePoints.txt', sep='\t')
 
+        print(f"samples keys: {self.samples.columns}")
+
+        if runSequence is not None:
+            samples_ = self.samples.iloc[runSequence]
+        #TODO:  The call to `sort_values` raises a KeyError
+        elif sort is not None:
+            sortNames = [self.samples.columns[s] if isinstance(s, int) \
+                else str(s) for s in sort]
+            samples_ = self.samples.sort_values(by=sortNames, axis=0, 
+                                                ascending=ascending)
+        else:
+            samples_ = self.samples
+
         nPad = len(str(self.nSamples))
 
-        for idx, row in self.samples.iterrows():
-            if idx not in self.ignoreIndices:
+        for idx, row in samples_.iterrows():
+            if idx not in ignoreIndices:
                 print(f"Running sample {idx}")
                 name = ".".join(self.templateCase.name().split('.')[:-1])+\
                     '.'+str(idx).zfill(nPad)
@@ -2742,20 +3276,25 @@ class ofStudy:
                     
                 #- Copy the template case path to ensure all files are copied:
                 shutil.copytree(self.templateCase._path, newPath)
-                # tCase_ = copy.deepcopy(self.templateCase)
-                tCase_ = self.templateCase
-                tCase_.setName(name)
-                case_ = self.updateFunction(tCase_, row.values.flatten().tolist())            
+                # case_ = copy.deepcopy(self.templateCase)
+                case_ = copy.copy(self.templateCase)
+                # case_ = self.templateCase
+                case_.setName(name)
+                case_ = self.updateFunction(case_, row.values.flatten().tolist())            
 
-                print(f"Case path: {tCase_._path}")
+                print(f"Case path: {case_._path}")
 
                 case_.write()
                 if not dryRun:
-                    case_.allRun(cmd=self.runCommand)            
+                    case_.allRun(cmd=self.runCommand)      
 
-@dataclass
-class ofMonitor:
-    pass
+    def diff(self):
+        """
+        Print the difference between cases for all operating scenarios 
+        of the study.
+        """      
+        #TODO:  Implement this...
+        pass
 
 class DictFileParser:
     def __init__(self, filepath):
@@ -3240,6 +3779,15 @@ class DictFileParser:
             #     self.i += 1
             #     continue
 
+            # if line.strip().strip('(') == '':
+            #     # Do not parse unhandled case of only opening chars '('
+            #     i_end2 = self._findDictOrListEndLine('list')
+            #     if i_end2 > i_end:
+            #         logger.error(f"Unhandled syntax found on line {self.i-1} "\
+            #             f"of file {self.filepath}.")
+            #     while self.i <= i_end2:
+            #         line+= 
+
             #- Try to parse whole line as single value:
             entry_ = self._parseListValues(line)
             # entry_._comment = comment
@@ -3333,10 +3881,15 @@ class DictFileParser:
                 logger.debug(f"line list searchStr: {values[i:]}")
                 j=self._findDictOrListEndIndex(values[i:])
                 if j is None:
-                    logger.error("Could not find end of list on a single "\
-                        "line")
-                    sys.exit()
+                    # logger.error("Could not find end of list on a single "\
+                    #     "line")
+                    # sys.exit()
                     # return None
+                    
+                    #- Add an extra line to 'values':
+
+                    self.i+=1
+                    return self._parseListValues(values+" "+self.lines[self.i])
                 subStr = values[i+1:i+j]
                 logger.debug(f"subStr: {subStr}")
                 # if j != len(values)-1:
@@ -3347,7 +3900,8 @@ class DictFileParser:
                     for value in subStr.split():
                         listValues.append(value)
                 else:
-                    #TODO: Store as ofList or list
+                    #TODO: Store as ofList or list. An ofLIst is required here to 
+                    # store line comments
                     listValue_ = ofList(value=self._parseListValues(subStr))
                     # listValues.append(self._parseListValues(subStr))
                     if foundComment:
@@ -3714,7 +4268,7 @@ class DictFileParser:
             v_ = ofVar(value=value)
             return ofVar, v_
 
-        logger.debug(f"value: '{value}'")
+        # logger.debug(f"value: '{value}'")
 
         # check for a list field type.  e.g. a spherical tensor '(0)' 
         if value[0] == '(' and value[-1] == ')':
@@ -3830,18 +4384,19 @@ class DictFileParser:
         if dimValue is not None:
             return dimValue
 
-        # Extract key values, note that key may contain parenthises, 
-        # e.g. as in the fvSchemes dictionary
-        lineList = self._getLinesList(line)
-        entryName = lineList[0]
-        valueStr = " ".join(lineList[1:])
-
-
         #- check if the line value terminates in an open list or dict
-        nl = 0
-        nd = 0
+        line_ = copy.deepcopy(line)
 
         while True:
+            nl = 0
+            nd = 0
+            # Extract key values, note that key may contain parenthises, 
+            # e.g. as in the fvSchemes dictionary
+            lineList = self._getLinesList(line_)
+            entryName = lineList[0]
+
+            valueStr = " ".join(lineList[1:])
+            logger.debug(f"valueStr: {valueStr}")
             for char in valueStr:
                 if char == '(':
                     nl+=1
@@ -3851,6 +4406,8 @@ class DictFileParser:
                     nd+=1
                 if char == '}':
                     nd-=1
+
+            logger.debug(f"nl / nd: {nl} / {nd}")
             
             if nl <= 0 and nd <= 0:
                 break
@@ -3858,20 +4415,34 @@ class DictFileParser:
             if nl > 0:
                 logger.debug("Found open list..")
                 self.i += 1
-                line += self.lines[self.i]
+                line_ += self.lines[self.i]
             if nd > 0:
                 logger.debug("Found open dictionary...")
                 self.i += 1
-                line += self.lines[self.i]
+                line_ += self.lines[self.i]
 
             # self.i+=1
-            line+=self.lines[self.i]
+            #line+=self.lines[self.i]
+            
+        line = line_
+
+        #Parse the line to extract the entry name
+        lineList = self._getLinesList(line_)
+        if lineList[1] == 'table':
+            entryName = " ".join(lineList[:2])
+            valueStr = " ".join(lineList[2:]).strip()
+            logger.debug(f"entryName: {entryName}")
+            logger.debug(f"valueStr: {valueStr}")
+        else:
+            entryName = lineList[0]
+            valueStr = " ".join(lineList[1:]).strip()
 
         if ';' in line:
             #- add extra text after ';' as a new line to be parsed later
             #- Remove ';'.  Assuming within list or dict.  Other possibilities 
             # (e.g dimensioned types) should be handled prior to this point in 
             # the method.
+            logger.debug(f"line[{self.i+1}]: {line}")
             extraText = ''.join(line.split(';')[1:]).replace('\n', '')
             self._addExtraLine(extraText)
             #line = line.split(';')[0][:-1] 

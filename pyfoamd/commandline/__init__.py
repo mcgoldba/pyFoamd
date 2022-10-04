@@ -188,20 +188,65 @@ class CommandLine:
         
         case.write()
 
-    def monitor(self):
-        self.prog+= ' monitor'
+    def plot(self):
+        self.prog+= ' plot'
 
         parser = argparse.ArgumentParser(prog=self.prog)
 
-        parser.add_argument('values', type=str, nargs='+', default=['U', 'p'],
-                            help='fields to monitor')
+        parser.add_argument('values', type=str, nargs='+', 
+                            default=['U', 'p', 'residuals'],
+                            help='Log files to monitor')
 
-        parser.add_argument('-casePath',type=str, nargs='?',
+        parser.add_argument('-casePath',type=str, nargs='1',
+                            default = Path.cwd(),
                             help='The path of the OpenFOAM case to parse.')
 
 
         args = parser.parse_args(self.addArgs)
 
-        pf.monitor(values=args.fields, workingDir=args.casePath)
+        for value in args.values:
+            try:
+                monitor = pf.getProbe(value, workingDir=args.workingDir)
+            except FileNotFoundError:
+                monitor = pf.getMonitor(value, workingDir=args.workingDir)
+
+            pf.plot(monitor=monitor)
+
+
+    def monitor(self):
+        self.prog+= ' monitor'
+
+        parser = argparse.ArgumentParser(prog=self.prog)
+
+        parser.add_argument('value', type=str, nargs=1, default='residual',
+                            help='log file to monitor')
+
+        parser.add_argument('-casePath',type=str, nargs='?',
+                            default = Path.cwd(),
+                            help='The path of the OpenFOAM case to parse.')
+
+        parser.add_argument('-filter',type=str, nargs='?',
+                            help='Filter the probe value to only monitor those '
+                            'that match the regex string argument.')
+
+        parser.add_argument('-yrange',type=float, nargs='*',
+                            help='The limits of the y-axis for the monitor.')
+
+        parser.add_argument('-log', action='store_true',
+                                help='If `True`, y-axis is plotted with a log '
+                                'scale.')
+
+        parser.add_argument('-time', type=str, nargs='?', default = 'latestTime',
+                                help='The postprocessing startTime to monitor')
+
+
+        args = parser.parse_args(self.addArgs)
+
+        if args.yrange is not None and len(args.yrange) != 2:
+            userMsg("`yrange` argument must be length two.")
+
+        pf.monitor(value=args.value[0], workingDir=args.casePath, 
+                    filter=args.filter, yrange=args.yrange, 
+                    logScale = args.log, time = args.time)
 
 

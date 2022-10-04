@@ -2,6 +2,7 @@ import sys
 import argparse, textwrap
 from argparse import RawTextHelpFormatter
 import pkg_resources  # part of setuptools
+import resource
 import os
 from pyfoamd import getPyFoamdConfig, setLoggerLevel
 import pyfoamd.functions as pf
@@ -43,6 +44,11 @@ def main():
 
     print("[bold grey35]"+intro)
 
+    #- Increase memory allocation and recusion depth
+    # resource.setrlimit(resource.RLIMIT_STACK, 
+    #     (getPyFoamdConfig('stack_size'),resource.RLIM_INFINITY))
+    # sys.setrecursionlimit(10**6)
+
     # #- Manually capture the "help" arguments and process last
     # help = None
     # args = sys.argv
@@ -61,10 +67,11 @@ def main():
     #subparsers = parser.add_subparsers()
 
     commands = {
-        'init': None,#- `None` values to be updated after extracting `addArgs`
+        'init': None, #- `None` values to be updated after extracting `addArgs`
         'edit': None,   
         'setConfig': None,
         'write': None,
+        'plot': None,
         'monitor': None
     }
 
@@ -106,6 +113,7 @@ def main():
     commands['edit'] = cl.edit
     commands['setConfig'] = cl.setConfig
     commands['write'] = cl.write
+    commands['plot'] = cl.plot
     commands['monitor'] = cl.monitor
 
     commandsStr = ''
