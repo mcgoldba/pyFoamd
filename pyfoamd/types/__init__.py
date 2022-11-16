@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, make_dataclass
-from selectors import EpollSelector
+#from selectors import EpollSelector
 from typing import List, Callable
 import copy
 from pathlib import Path
@@ -3195,7 +3195,10 @@ class ofStudy:
     
     @samples.setter
     def samples(self, s):
-        if not isinstance(s, np.ndarray):
+        if isinstance(s, pd.DataFrame):
+            self._samples = s
+            return
+        elif not isinstance(s, np.ndarray):
             try:
                 s = np.asarray(s)
             except ValueError:
@@ -3217,7 +3220,9 @@ class ofStudy:
 
     @parameterNames.setter
     def parameterNames(self, n):
-        if not isinstance(n, list):
+        if n is None:
+            pass
+        elif not isinstance(n, list):
             userMsg("'parameterNames' argument must be list type."\
                 f"  Found {type(n)}", "ERROR")
         self._parameterNames = n

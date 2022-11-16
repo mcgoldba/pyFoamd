@@ -66,5 +66,6 @@ def getLatestTime(searchDir=Path.cwd()):
         else: 
             caseType = 'reconstructed'
     
+    logger.debug(f"latestTime: {latestTime}")
 
     return latestTime, caseType
