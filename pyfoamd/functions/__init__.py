@@ -63,6 +63,7 @@ from .plot import plot
 from .getProbe import getProbe
 from .getMonitor import getMonitor
 from .foamVersion import foamVersion
+from .parseNameTag import parseNameTag
 
 #import logging
 

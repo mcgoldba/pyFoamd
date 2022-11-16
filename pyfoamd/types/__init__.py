@@ -3232,7 +3232,8 @@ class ofStudy:
             userMsg("'updateFunction' argument must be callable.", "ERROR")
         self._updateFunction = f
 
-    def run(self, runSequence=None, ignoreIndices = [], dryRun = False, sort=None, ascending=None):
+    def run(self, runSequence=None, ignoreIndices = [], dryRun = False, 
+        sort=None, ascending=False, restart=False):
         """
         Run an OpenFOAM study.
 
@@ -3248,6 +3249,8 @@ class ofStudy:
             ascending [list(bool)]: If `True`, sorting of column is in
                 ascending order [default], else sorts in descending order.  
                 List length must equal length of `sort` argument.
+            restart [bool]: If `True`, simulations for which directories already 
+                exist will be restarted from the lastest time.
         """
         #- Save the sample points to file
         self.samples.to_csv('studySamplePoints.txt', sep='\t')
@@ -3275,12 +3278,24 @@ class ofStudy:
                 newPath = Path(self.templateCase._path.parent) / name
                     
                 #- Copy the template case path to ensure all files are copied:
-                shutil.copytree(self.templateCase._path, newPath)
+                if (restart and newPath.is_dir()):
+                    pass
+                else:
+                    shutil.copytree(self.templateCase._path, newPath)
                 # case_ = copy.deepcopy(self.templateCase)
                 case_ = copy.copy(self.templateCase)
                 # case_ = self.templateCase
                 case_.setName(name)
-                case_ = self.updateFunction(case_, row.values.flatten().tolist())            
+                case_ = self.updateFunction(case_, row.values.flatten().tolist())
+                if restart:
+                    case_.system.controlDict.startFrom = 'latestTime'
+                    runLogPath = case_._path / \
+                        ('log.' + case_.system.controlDict.application.value)
+                    if runLogPath.is_file():
+                        i = 0
+                        while Path(str(runLogPath) + f'.{i}').is_file():
+                            i+= 1
+                        shutil.move(runLogPath, str(runLogPath)+f'.{i}')            
 
                 print(f"Case path: {case_._path}")
 

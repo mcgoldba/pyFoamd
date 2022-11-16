@@ -683,14 +683,14 @@ def __unitDecoder(dct):
                     return v
                 try:
                     unit = (" ".join(vList[1:]))
-                    #log.debug("trying unit conversion on "+str(v)+"...")
+                    # log.debug("trying unit conversion on "+str(v)+"...")
                     unit = ureg(unit)
                 except:
                     unit = ureg(unit)
-                    #log.debug("Failed.")
+                    # log.debug("Failed.")
                     #continue
                     return v
-                #log.debug("Success.")
+                # log.debug("Success.")
                 v = mag*unit
                 return v.to_base_units().magnitude
             else:
@@ -701,10 +701,12 @@ def __unitDecoder(dct):
     ###- Helper function 2
     #- from stackoverflow: 34615164
     def _parseOrDecode(obj):
+        # log.debug(f"Parsing object: {obj}")
         if isinstance(obj, dict):
             return {k:_parseOrDecode(v) for k, v in obj.items()}
-        if isinstance(obj, list):
+        elif isinstance(obj, list):
             return [_parseOrDecode(v) for v in obj]
-        return _decodeUnits(obj)
+        else:
+            return _decodeUnits(obj)
 
     return _parseOrDecode(dct)
