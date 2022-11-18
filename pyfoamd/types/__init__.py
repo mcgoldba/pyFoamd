@@ -2135,6 +2135,28 @@ class ofDictFile(ofDict, _ofFolderItemBase):
         # return self._header.toString() + self._foamFile.toString() + \
         #     super(ofDictFile, self).toString()
 
+    def clear(self):
+        """
+        Removes all entries from dictionary file while retaining 
+        header information. 
+        """
+        rmKeys = []
+
+        for key, item in self.items():
+            if isinstance(item, _ofTypeBase):
+                if isinstance(item, ofComment):
+                    if not item.value.startswith('// * * * *'):
+                        rmKeys.append(key)
+                    continue
+                if not (isinstance(item, ofHeader) 
+                    or item._name=='FoamFile'):
+                    rmKeys.append(key)
+
+        print(f"rmKeys: {rmKeys}")
+
+        for key in rmKeys:
+            del self.__dict__[key]
+
 
 
 @dataclass
@@ -4029,7 +4051,14 @@ class DictFileParser:
         logger.debug(f"Parsing dictionary '{name}'.")
         logger.debug(f"line[{self.i+1}] '{self.lines[self.i].strip()}'.")
 
+        #TODO:  Store FoamFile as ofFoamFile type rather than dict 
+        # if name == 'FoamFile':
+        #     dict_ = ofFoamFile()
+        # else:
+        #     dict_ = ofDict(_name=name)
+
         dict_ = ofDict(_name=name)
+
 
         # self.i -= 1 #- reset index because will increment automatically in
                     #  _parseLine
