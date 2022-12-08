@@ -15,6 +15,7 @@ import keyword # To check if ofDict, ofCase, or ofFolder attribute is reserved
 import subprocess
 import numpy as np
 import shutil
+from math import isclose
 
 from inspect import signature #- just for debugging
 
@@ -385,6 +386,13 @@ def _parseNameTag(itemName):
     suitable replacement, as specified in the `SPECIAL_CHARS` variable.
     """
     name_ = ""
+
+    #Assume numeric values are times, and replace with t_##
+    try: 
+        float(itemName.rstrip('.orig'))
+        name_='t_'
+    except:
+        pass
     for c in itemName:
         found=False
         for special in SPECIAL_CHARS.keys():
@@ -721,6 +729,9 @@ class _ofCaseBase(_ofTypeBase):
     #- make class subscriptable (i.e. case['attr'] access)
     def __getitem__(self, item):
          return getattr(self, item)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
 
     def name(self):
         return Path(self._path).name
@@ -1816,10 +1827,10 @@ class ofDict(dict, _ofTypeBase):
             # key_ = _parseNameTag(key_)
             super(ofDict, self).__dict__[key_] = value
 
-    def __delattr__(self, name):
-        super(ofDict, self).__delitem__(self, name)
-        super(ofDict, self).__delattr__(self, name)
-        self.__dict__.pop(name)
+    # def __delattr__(self, name):
+    #     super(ofDict, self).__delitem__(self, name)
+    #     super(ofDict, self).__delattr__(self, name)
+    #     self.__dict__.pop(name)
 
     def __str__(self):
         return self.toString()
@@ -2135,6 +2146,11 @@ class ofDictFile(ofDict, _ofFolderItemBase):
         # return self._header.toString() + self._foamFile.toString() + \
         #     super(ofDictFile, self).toString()
 
+    # def __delattr__(self, name):
+    #     # super(ofDictFile, self).__delitem__(self, name)
+    #     # super(ofDictFile, self).__delattr__(self, name)
+    #     del self.__dict__[name]
+
     def clear(self):
         """
         Removes all entries from dictionary file while retaining 
@@ -2152,10 +2168,14 @@ class ofDictFile(ofDict, _ofFolderItemBase):
                     or item._name=='FoamFile'):
                     rmKeys.append(key)
 
-        print(f"rmKeys: {rmKeys}")
+        print(self.__dict__)
+        print(self.items())
+        print(f'rmKeys: {rmKeys}')
 
         for key in rmKeys:
-            del self.__dict__[key]
+            # del self.__dict__[key]
+            del self[key]
+            # self.pop(key)
 
 
 
@@ -4280,10 +4300,20 @@ class DictFileParser:
 
         if value is True or value is False:
             return ofBool, value
-        if isinstance(value, int):
-            return ofInt, value
-        if isinstance(value, float):
-            return ofFloat, value
+        # elif isinstance(value, int):
+        #     return ofInt, value
+        try:
+            int(value)
+            #check that fractional values was not truncated
+            if isclose(int(value), value):
+                return ofInt, int(value)
+        except (ValueError, TypeError):
+            pass
+        try:
+            float(value)
+            return ofFloat, float(value)
+        except (ValueError, TypeError):
+            pass
 
         if value is None:
             return None, None

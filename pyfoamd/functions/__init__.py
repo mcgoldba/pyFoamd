@@ -64,7 +64,7 @@ from .getProbe import getProbe
 from .getMonitor import getMonitor
 from .foamVersion import foamVersion
 from .parseNameTag import parseNameTag
-
+from .clean import clean
 #import logging
 
 #Define padding for blockMeshDict
