@@ -1817,9 +1817,9 @@ class ofDict(dict, _ofTypeBase):
             super(ofDict, self).__dict__[key_] = value
 
     def __delattr__(self, name):
-        super(ofDict, self).__delitem__(self, name)
-        super(ofDict, self).__delattr__(self, name)
-        self.__dict__.pop(name)
+        super(ofDict, self).__delitem__(name)
+        super(ofDict, self).__delattr__(name)
+        #self.__dict__.pop(name)
 
     def __str__(self):
         return self.toString()
