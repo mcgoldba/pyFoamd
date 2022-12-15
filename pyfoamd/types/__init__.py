@@ -1442,6 +1442,10 @@ class ofList(_ofNamedTypeBase):
 
     def __str__(self):
         return self.toString()
+    
+    def __iter__(self):
+        for item in self.value:
+            yield item
 
 TYPE_REGISTRY.append(ofList)
 
