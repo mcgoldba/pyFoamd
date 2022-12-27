@@ -16,6 +16,7 @@ pyfoamd/commandline/_iPython_env.py
 pyfoamd/functions/__init__.py
 pyfoamd/functions/allRun.py
 pyfoamd/functions/appendEntry.py
+pyfoamd/functions/clean.py
 pyfoamd/functions/cleanDictFile.py
 pyfoamd/functions/extractLogData.py
 pyfoamd/functions/foamVersion.py
@@ -32,6 +33,7 @@ pyfoamd/functions/listCases.py
 pyfoamd/functions/load.py
 pyfoamd/functions/monitor.old.py
 pyfoamd/functions/monitor.py
+pyfoamd/functions/parseNameTag.py
 pyfoamd/functions/plot.py
 pyfoamd/functions/printInputs.py
 pyfoamd/functions/readCaseFromCache.py
