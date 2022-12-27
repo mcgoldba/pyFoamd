@@ -4304,8 +4304,8 @@ class DictFileParser:
         #     return ofInt, value
         try:
             int(value)
-            #check that fractional values was not truncated
-            if isclose(int(value), value):
+            #check that fractional value was not truncated
+            if isclose(int(value), float(value)):
                 return ofInt, int(value)
         except (ValueError, TypeError):
             pass
