@@ -3668,15 +3668,27 @@ class DictFileParser:
         logger.debug(f"lineList[{self.i+1}]: {lineList}")
 
         openingChar = None
+        listLen = None
         if any([lineList[0].startswith(c) for c in ['(', '{']]):
             openingChar = lineList[0][0]
         elif (lineList[0] == name and
             any([lineList[1].startswith(c) for c in ['(', '{']])):
             openingChar = lineList[1][0]
         
+        #Capture lists with specified length.  e.g. '2((0 0) (500 1))'
+        try:
+            int(lineList[0])
+            openingChar = '('
+            listLen = int(lineList[0])
+            self.i+=1
+            lineList = self._getLinesList(self.lines[self.i])
+        except (TypeError, ValueError):
+            pass
+
         logger.debug(f'openingChar: {openingChar}')
 
         if openingChar is None:
+            userMsg(f"In 'parseListOrDict'...")
             userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
             f"file '{self.filepath}'.", level='ERROR')
                  
@@ -3810,6 +3822,9 @@ class DictFileParser:
         while self.i <= i_end:
             line = self.lines[self.i]
             if self.i == i_start:
+                #remove potential keyword:
+                line = line.strip().lstrip(name).strip()
+                userMsg(f'line: {line}')
                 #- Ignore first '('
                 #- If line contains key value, ignore as already saved as name.
                 # e.g.  fields      ( U p );
@@ -3849,6 +3864,8 @@ class DictFileParser:
             #             f"of file {self.filepath}.")
             #     while self.i <= i_end2:
             #         line+= 
+
+            userMsg(f'line: {line}')
 
             #- Try to parse whole line as single value:
             entry_ = self._parseListValues(line)
@@ -3898,7 +3915,8 @@ class DictFileParser:
         """
         convert a string value from file into the appropriate ofType.
         """
-
+        userMsg("in _parseListValues...")
+        userMsg(f"list values: {values}")
         logger.debug(f"list values: {values}")
         logger.debug(f"len list values: {len(values)}")
 
@@ -4020,6 +4038,7 @@ class DictFileParser:
         closingChar = BRACKET_CHARS[type][1]
 
         logger.debug(f"Search for close str: {string}")
+        userMsg(f"Search for close str: {string}")
 
         #- Check that the appropraite BRACKET_CHAR is actually in string
         if openingChar not in string:
@@ -4318,6 +4337,10 @@ class DictFileParser:
         if value is None:
             return None, None
 
+        #Check for list with specified number of entries.  e.g. 
+        #2((0 0) (500 1))
+        if re.match('[0-9]+\(.+', value):
+            return ofSplitList,
         if isinstance(value, _ofTypeBase):
             return type(value), value
 
@@ -4475,6 +4498,7 @@ class DictFileParser:
             entryName = lineList[0]
 
             valueStr = " ".join(lineList[1:])
+            userMsg(f"valueStr: {valueStr}")
             logger.debug(f"valueStr: {valueStr}")
             for char in valueStr:
                 if char == '(':
@@ -4548,6 +4572,7 @@ class DictFileParser:
                     break
 
             logger.debug(f"entryName: {entryName}")
+            userMsg(f"entryName: {entryName}")
 
             if entryName:
                 entryNameList = entryName.split()
@@ -4570,6 +4595,7 @@ class DictFileParser:
                 else:
                     #- remove entry name from line string
                     line_ = line.strip()[len(entryName):].strip()
+                    userMsg(f"line_: {line_}")
                     logger.debug(f"line_: {line_}")
                     value = self._parseListOrDict(entryName, line=line_)
                     return value
