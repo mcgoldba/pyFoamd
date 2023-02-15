@@ -1658,6 +1658,98 @@ class ofTable(ofList):
 #         return self.toString().rstrip(';\n')
 
 @dataclass
+class ofBoundBox(ofList):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, _comment=None):
+        super(ofBoundBox, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
+    _value = None
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        """
+        Ensure value is the proper format (list of 2 lists with 3 float entries)
+        e.g. [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]
+        """
+
+        if v is None:
+            self._value = None
+            return
+        
+        # logger.debug(f"value: {v}")
+
+        valid = True
+
+        try:
+            assert hasattr(v, '__iter__') # check if iterable
+            assert len(v) == 2
+            for w in v:
+                assert hasattr(w, '__iter__')
+        except AssertionError:
+            valid = False
+
+        for w in v:
+            for i in w:
+                try:
+                    float(i)
+                except ValueError:
+                    valid = False
+             
+
+        if not valid:
+            userMsg("Invalid value.  Value must be nd.array like of size (2,3) \
+            with numeric entries")            
+        self._value = v
+
+
+    def toString(self, ofRep=False) -> str:
+        # dStr = printNameStr(self.name)+' '
+        
+        # for v in self.value:
+        #     dStr+= ofList(v).toString(ofRep=False).strip()+' '
+        # dStr+= ";"
+
+        dStr = printNameStr(self.name)+" "+\
+            ofList(self.value[0]).toString(ofRep=False).strip()+" "+\
+            ofList(self.value[1]).toString(ofRep=False).strip()+";\n"
+
+
+        if ofRep:
+            dStr = dStr.rstrip(';')
+
+        return dStr
+    # def toString(self) -> str:
+    #     return self.valueStr
+    #def toString(self) -> str:
+    #    valueStr = '('
+    #    valueStr += str(self.value[0])
+    #    for i in range(1,len(self.value)):
+    #        valueStr += ' '+str(self.value[i])
+    #    valueStr += ')'
+    #    return printNameStr(self.name)+valueStr+";\n"
+
+    def __str__(self):
+        return self.toString().rstrip(';\n')
+
+# @dataclass
+# class ofNamedSplitList(ofList, _ofListBase):
+#     #- Same as ofList except entries are split on multiple lines according the
+#     #  OpenFoam Programmer's Style Guide
+
+#     def toString(self) -> str:
+#         printStr = self.name+'\n(\n'
+#         for v in self.value:
+#             printStr += TAB_STR+str(v)+'\n'
+#         printStr += ');\n'
+#         return printStr
+
+#     def __str__(self):
+#         return self.toString().rstrip(';\n')
+
+@dataclass
 class ofMultilineStatement(_ofNamedTypeBase):
     def __init__(self, *args, **kwargs):
         super(ofMultilineStatement, self).__init__(*args, **kwargs)
@@ -2071,13 +2163,13 @@ class ofDictFile(ofDict, _ofFolderItemBase):
     #       Currently need to initialize as ofDictFile(_name=..., _location=...)
     def __init__(self, *args, **kwargs):
         super(ofDictFile, self).__init__(*args, **kwargs)
-        self._location : str = kwargs.pop('_location', 
-                                str(Path.cwd() / self._name)) \
-                                    if self._name is not None else ""
+        # self._location : str = kwargs.pop('_location', 
+        #                         str(Path.cwd() / self._name)) \
+        #                             if self._name is not None else ""
         self._header : ofHeader = ofHeader()
         # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
         self._foamFile: ofFoamFile = None 
-        self._CLASS_VARS.append('_location')
+        # self._CLASS_VARS.append('_location')
         self._CLASS_VARS.append('_header')
         self._CLASS_VARS.append('_foamFile')
 
@@ -3365,8 +3457,8 @@ class DictFileParser:
             self.lines = f.readlines()
         self.status = None
         # logger.debug(f"Setting dictFile name to {Path(filepath).name}...")
-        self.dictFile = ofDictFile(_name=Path(filepath).name, 
-                            _location=Path(filepath).parent)
+        self.dictFile = ofDictFile(_name=Path(filepath).name) 
+                            #_location=Path(filepath).parent)
         self.i=0
         self.extraLine = []
         self.comment = []
@@ -4481,6 +4573,13 @@ class DictFileParser:
         if dimValue is not None:
             return dimValue
 
+        #- Check if value is a bounging box
+        #   (e.g. box     (0.0 0.0 0.0) (1.0 1.0 1.0);
+        boxValue = self._parseBoundBoxValue()
+        # logger.debug(f"dimValue: {dimValue}")
+        if boxValue is not None:
+            return boxValue
+
         #- check if the line value terminates in an open list or dict
         line_ = copy.deepcopy(line)
 
@@ -4985,6 +5084,60 @@ class DictFileParser:
             return dimValue
         except ValueError:
             return None
+
+    def _parseBoundBoxValue(self):
+        """ 
+        Check to see if the line contains key value entry for a ofBoundBox 
+        value.  If so, return the ofType, else return None.
+
+        Example syntax: 
+
+        box      (0.0 0.0 0.0) (1.0 1.0 1.0);
+
+        """
+
+        line = self.lines[self.i]
+
+        logger.debug(f"Parsing bound box: '{line}'")
+
+        lineList = self._getLinesList(line)
+        
+        try:
+            ofWord(lineList[0])
+        except:
+            logger.debug("Failed.  First entry not a valid key.")
+            return None  # first item is not valid key
+
+        #- determine if value has 6 entries
+        if len(lineList[1:]) != 6:
+            logger.debug("Failed.  Value does not contain 6 entries.")
+            return None # value does not contain 6 entries   
+
+        #- determine if entries are two lists of three
+        if not all([
+            lineList[1].strip()[0] == '(',
+            lineList[3].strip()[-1] == ')',
+            lineList[4].strip()[0] == '(',
+            lineList[6].strip(';')[-1] == ')',
+        ]):
+            logger.debug("Failed.  Value does not contain two lists of 3 items.")
+            return None
+
+        #- determine if all items are numeric:
+        bounds = []
+        for j in range(2): # for each list of three
+            bounds.append([])
+            for i in range(3): # for each item in list
+                try:
+                    v_ = float(lineList[3*j+i+1].strip('();'))
+                except ValueError:
+                    logger.debug("Failed.  Value entry is not numeric.")
+                    return None
+                bounds[-1].append(v_)
+        
+        logger.debug("Found bounding box.")
+        return ofBoundBox(name=lineList[0], value=bounds)
+
 
     def _findEndOfDict(self):
         """
