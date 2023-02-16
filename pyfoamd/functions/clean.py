@@ -1,4 +1,5 @@
 from pyfoamd.types import _ofTypeBase, ofComment, ofHeader
+import copy
 
 def clean(ofDict, keys=None):
     """
@@ -13,6 +14,8 @@ def clean(ofDict, keys=None):
     """
 
     #TODO:  Can this be implemented as a method the ofDict and ofDictFile classes?
+
+    ofDict_ = copy.deepcopy(ofDict)
 
     rmKeys = []
 
@@ -31,7 +34,7 @@ def clean(ofDict, keys=None):
     print(f'rmKeys: {rmKeys}')
 
     for key in rmKeys:
-        del ofDict.__dict__[key]
+        del ofDict_.__dict__[key]
         #ofDict.pop(key)
 
-    return ofDict
+    return ofDict_
