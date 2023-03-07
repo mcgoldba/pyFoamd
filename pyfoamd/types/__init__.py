@@ -3358,6 +3358,25 @@ class ofStudy:
         #TODO:  Implement this...
         pass
 
+@dataclass
+class ofStudyPre(ofStudy):
+    """
+    OpenFOAM study where each simulation requires a "precursor" simulation that 
+    is used to e.g. initialize the main simulation.  For each sample, this study 
+    will:
+        - copy the precusor template case
+        - update the precursor template based on the `preUpdateFunction`
+        - run the precursor case (e.g. execute the ./Allrun script)
+        - copy the template case
+        - update the template case based on the `updateFunction`
+        - run the main case (execute the `runCommand`)
+    
+    """
+    preTemplatePath : Path = None
+    preUpdateFunction : Callable = None
+
+    pass
+
 class DictFileParser:
     def __init__(self, filepath):
         self.filepath = filepath

@@ -20,7 +20,7 @@ plt.style.use('ggplot')
 
 def monitor(value='U', time='latestTime', supplement=None, 
     workingDir=Path.cwd(), title=None, filter=None, yrange = None,
-    logScale=False):
+    logScale=False, all=False):
 
     if title is None:
         title = Path(workingDir).name
