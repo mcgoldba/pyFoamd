@@ -955,6 +955,10 @@ class CaseParser:
                 if obj.name.startswith('.'):
                     #- ignore hidden directories.
                     continue
+                #- ignore large directories
+                if (obj.name.startswith('processor')
+                 or obj.name.startswith('postProcessing')):
+                    continue
                 fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
                 # if any([obj.name == field for field in fields]):
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
@@ -1712,9 +1716,14 @@ class ofBoundBox(ofList):
         #     dStr+= ofList(v).toString(ofRep=False).strip()+' '
         # dStr+= ";"
 
-        dStr = printNameStr(self.name)+" "+\
-            ofList(self.value[0]).toString(ofRep=False).strip()+" "+\
-            ofList(self.value[1]).toString(ofRep=False).strip()+";\n"
+        dStr = printNameStr(self.name)+" "
+
+        if self.value is not None:
+            dStr += ofList(self.value[0]).toString(ofRep=False).strip()+" "+\
+                ofList(self.value[1]).toString(ofRep=False).strip()+";\n"
+        else:
+            dStr += ofList([0, 0, 0]).toString(ofRep=False).strip()+" "+\
+                ofList([0, 0, 0]).toString(ofRep=False).strip()+";\n"
 
 
         if ofRep:
