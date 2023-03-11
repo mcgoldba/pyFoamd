@@ -1828,6 +1828,10 @@ class ofDict(dict, _ofTypeBase):
     def __getattr__(self, attr):
         return self.get(attr)
     
+    #def __getitem__(self, key):
+
+
+    
     def __setitem__(self, item, value=None):
         nameTag = None
 
@@ -3597,7 +3601,7 @@ class DictFileParser:
 
     def _parseLine(self):
     
-        # logger.debug("Parsing new line.")
+        logger.debug(f"Parsing line {self.i+1}.")
         # logger.debug(f"\tself.extraLine: {self.extraLine}")
 
         # logger.debug(f"\tline[{self.i+1}]: {self.lines[self.i].rstrip()}")
@@ -3752,6 +3756,8 @@ class DictFileParser:
         """
 
         #linesList = self._getLinesList(self.lines[self.i])
+
+        logger.debug(f"Parsing list {name}.")
 
         if name is not None:
             name = name.strip()
@@ -4567,12 +4573,14 @@ class DictFileParser:
         #- Check if commented line
         comment = self._parseComments()
         if comment:
+            logger.debug(f"Found comment on line {self.i}")
             return None
 
         #- Check if the line contains a dimensioned type
         dimType = self._parseDimensionedType()
         # logger.debug(f"dimType: {dimType}")
         if dimType is not None:
+            logger.debug(f"Found dimension on line {self.i}")
             return dimType
         
         #- Check if value is a dimension
@@ -4580,6 +4588,7 @@ class DictFileParser:
         dimValue = self._parseDimensionValue()
         # logger.debug(f"dimValue: {dimValue}")
         if dimValue is not None:
+            logger.debug(f"Found dimensioned vlaue on line {self.i}")
             return dimValue
 
         #- Check if value is a bounging box
@@ -4587,9 +4596,11 @@ class DictFileParser:
         boxValue = self._parseBoundBoxValue()
         # logger.debug(f"dimValue: {dimValue}")
         if boxValue is not None:
+            logger.debug(f"Found bound box on line {self.i}")
             return boxValue
 
         #- check if the line value terminates in an open list or dict
+        logger.debug("Checking for open list or dict")
         line_ = copy.deepcopy(line)
 
         while True:
@@ -5110,6 +5121,8 @@ class DictFileParser:
         logger.debug(f"Parsing bound box: '{line}'")
 
         lineList = self._getLinesList(line)
+
+        logger.debug(f"lineList: {lineList}")
         
         try:
             ofWord(lineList[0])
@@ -5117,35 +5130,67 @@ class DictFileParser:
             logger.debug("Failed.  First entry not a valid key.")
             return None  # first item is not valid key
 
-        #- determine if value has 6 entries
-        if len(lineList[1:]) != 6:
-            logger.debug("Failed.  Value does not contain 6 entries.")
-            return None # value does not contain 6 entries   
+        # #- determine if value has 6 numeric entries
+        # n = 0
+        # for v in lineList[1:]: 
+        #     if v.strip('();').isnumeric(): 
+        #         n+=1
+        # logger.debug(f"# numeric entries: {n}")
+        # if n != 6:
+        #     logger.debug("Failed.  Value does not contain 6 numeric entries.")
+        #     return None # value does not contain 6 entries   
 
-        #- determine if entries are two lists of three
-        if not all([
-            lineList[1].strip()[0] == '(',
-            lineList[3].strip()[-1] == ')',
-            lineList[4].strip()[0] == '(',
-            lineList[6].strip(';')[-1] == ')',
-        ]):
-            logger.debug("Failed.  Value does not contain two lists of 3 items.")
+        # #- determine if entries are two lists of three
+        # if not all([
+        #     lineList[1].strip()[0] == '(',
+        #     lineList[3].strip()[-1] == ')',
+        #     lineList[4].strip()[0] == '(',
+        #     lineList[6].strip(';')[-1] == ')',
+        # ]):
+        #     logger.debug("Failed.  Value does not contain two lists of 3 items.")
+        #     return None
+
+        # #- determine if all items are numeric:
+        # bounds = []
+        # for j in range(2): # for each list of three
+        #     bounds.append([])
+        #     for i in range(3): # for each item in list
+        #         try:
+        #             v_ = float(lineList[3*j+i+1].strip('();'))
+        #         except ValueError:
+        #             logger.debug("Failed.  Value entry is not numeric.")
+        #             return None
+        #         bounds[-1].append(v_)
+        
+        logger.debug(f"match string: {' '.join(lineList[1:])}")
+
+        matches = re.findall(r"(?<=\()[\s\d.-]+(?=\))", " ".join(lineList[1:]))
+
+        logger.debug(f"matches: {matches}")
+
+        if len(matches) != 2:
+            #- Value does not contain two lists
             return None
-
-        #- determine if all items are numeric:
-        bounds = []
-        for j in range(2): # for each list of three
+        bounds=[]
+        for match in matches:
             bounds.append([])
-            for i in range(3): # for each item in list
+            values = match.split()
+            if len(values) != 3:
+                #- List does not have 3 values
+                return None
+            for v in values:
                 try:
-                    v_ = float(lineList[3*j+i+1].strip('();'))
+                    v_ = float(v)
                 except ValueError:
-                    logger.debug("Failed.  Value entry is not numeric.")
+                    #- List values are not numeric
                     return None
                 bounds[-1].append(v_)
-        
+                
+
         logger.debug("Found bounding box.")
         return ofBoundBox(name=lineList[0], value=bounds)
+
+
 
 
     def _findEndOfDict(self):
