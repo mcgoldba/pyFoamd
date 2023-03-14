@@ -48,7 +48,7 @@ Description
     filesizeLimit = int(getPyFoamdConfig('dict_filesize_limit'))
 
     #- Skip large files
-    if os.path.getsize(file) > filesizeLimit:
+    if Path(file).stat().st_size > filesizeLimit:
         return isDictFile
 
 

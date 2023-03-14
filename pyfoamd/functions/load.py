@@ -147,8 +147,9 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif obj['_type'] == 'ofDictFile':
                     #TODO: simplify initialization
-                    obj_ = ofDictFile(_name= obj['_name'], 
-                                _location=obj['_location'])
+                    # obj_ = ofDictFile(_name= obj['_name'], 
+                    #             _location=obj['_location'])
+                    obj_ = ofDictFile(_name= obj['_name']) 
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif (obj['_type'] == 'ofList' 
                 or obj['_type'] == 'ofSplitList'

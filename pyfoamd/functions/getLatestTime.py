@@ -56,9 +56,13 @@ def getLatestTime(searchDir=Path.cwd()):
             directories = [f.name for f in os.scandir(p0) if f.is_dir()]
             for directory in directories:
                 name = directory.replace('/', '')
-                if name.isdigit() is True:
+                # if name.isdigit() is True:
+                try:
+                    float(name)
                     if float(name) > float(platestTime):
                         platestTime = name
+                except (ValueError, TypeError):
+                    pass
 
         if float(platestTime) > float(latestTime):
             latestTime = platestTime
