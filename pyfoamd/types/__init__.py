@@ -196,17 +196,17 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
     # def __init__(self, arg1=None, arg2=None, **kwargs):
     def __init__(self, arg1=None, arg2=None, name=None, value=None, 
         _comment=None):
-        logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
+        # logger.debug(f"Initializing _ofNamedType.  arg1: {arg1}; arg2: {arg2}")
         if arg1 == None and arg2 == None:
             self.value : str = value
-            logger.debug("Setting ofNamedType .name")
+            # logger.debug("Setting ofNamedType .name")
             self.name : str = name
         elif arg2 == None:
             self.value : str = arg1
-            logger.debug("Setting ofNamedType .name")
+            # logger.debug("Setting ofNamedType .name")
             self.name : str = name
         else:
-            logger.debug("Setting ofNamedType .name")
+            # logger.debug("Setting ofNamedType .name")
             self.name : str = arg1
             self.value : str = arg2
         # if 'name' in kwargs.keys():
@@ -235,9 +235,9 @@ class _ofNamedTypeBase(_ofUnnamedTypeBase):
     
     @name.setter
     def name(self, n):
-        logger.debug(f"name: {n}")
+        # logger.debug(f"name: {n}")
         if n is not None:
-            logger.debug(f"n.split(): {n.split()}")
+            # logger.debug(f"n.split(): {n.split()}")
             if len(n.split()) != 1:
                 raise ValueError("Name must be a single word.")
             #TODO: Keywords can accept optional values.
@@ -319,7 +319,7 @@ class ofHeader(_ofTypeBase):
 
         for i, line in enumerate(
             [self.line1, self.line2, self.line3, self.line4]):
-            logger.debug(f"line: {line}")
+            # logger.debug(f"line: {line}")
             if len(line) > 51:
                 userMsg(f"Header line length is too long.  Value will be \
                     truncated:\n {line[:51]}")
@@ -402,9 +402,9 @@ def _parseNameTag(itemName):
                 break
         if not found:
             name_ += c
-    if name_ != itemName:
-        logger.debug(f"Revised name string from '{itemName}' to "\
-            f"'{name_}'")
+    # if name_ != itemName:
+        # logger.debug(f"Revised name string from '{itemName}' to "\
+            # f"'{name_}'")
     return name_
 
 # @dataclass(frozen=True)
@@ -415,14 +415,14 @@ class _ofFolderBase(_ofFolderItemBase):
     _type: type = 'ofFolder'
 
     def __deepcopy__(self, memo=None):
-        logger.debug(f"self: {self}")
+        # logger.debug(f"self: {self}")
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
         return type(self)()
     
     def __iter__(self):
-        logger.debug(f"self: {self}")
-        logger.debug(f"vars(self).keys(): {vars(self).keys()}")
+        # logger.debug(f"self: {self}")
+        # logger.debug(f"vars(self).keys(): {vars(self).keys()}")
         for key in vars(self).keys(): 
             if isinstance(self.__getattribute__(key), ofDict):
                 yield (key, dict(self.__getattribute__(key)))
@@ -434,17 +434,17 @@ class _ofFolderBase(_ofFolderItemBase):
                 yield (key, self.__getattribute__(key))
 
     def __setattr__(self, key, value):
-        logger.debug(f"Setting ofFolder attribute: {key}: {value}")
+        # logger.debug(f"Setting ofFolder attribute: {key}: {value}")
         if isinstance(value, _ofFolderItemBase):
             value._name = key
             key_ = _parseNameTag(key)
-            logger.debug(f"ofFolder adding attribute {key_} as {value}")
+            # logger.debug(f"ofFolder adding attribute {key_} as {value}")
             # super(_ofFolderBase, self).__setitem__(key_, value)
             super(_ofFolderBase, self).__setattr__(key_, value)
             super(_ofFolderBase, self).__dict__[key_] =  value
 
         elif key.startswith('_'):
-            logger.debug(f"ofFolder adding attribute {key} as {value}")
+            # logger.debug(f"ofFolder adding attribute {key} as {value}")
             # super(_ofFolderBase, self).__setitem__(key, value)
             super(_ofFolderBase, self).__setattr__(key, value)
             super(_ofFolderBase, self).__dict__[key] =  value
@@ -495,7 +495,7 @@ class FolderParser:  # Class is required because 'default_factory' argument
         for obj in (Path(self.case) / self.path).iterdir():
         # for obj in Path(self.path).iterdir():
             #- Ignore polyMesh:
-            logger.debug(f"path.name: {Path(self.path).name}")
+            # logger.debug(f"path.name: {Path(self.path).name}")
             # if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
             if obj.name == 'polyMesh' and obj.is_dir():
                 continue
@@ -517,7 +517,7 @@ class FolderParser:  # Class is required because 'default_factory' argument
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
-                logger.debug(f"Check that {name_} == {obj.name}")
+                # logger.debug(f"Check that {name_} == {obj.name}")
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
                 
@@ -528,7 +528,7 @@ class FolderParser:  # Class is required because 'default_factory' argument
                         self.case, objPath).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
             if obj.is_file() and _isDictFile(obj):
-                logger.debug(f"Check that {name_} == {obj.name}")
+                # logger.debug(f"Check that {name_} == {obj.name}")
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
                
@@ -544,9 +544,9 @@ class FolderParser:  # Class is required because 'default_factory' argument
 
         #- Rest the ofFolder item _name attribute to be the true name with special characters.
         # TODO: Not sure why the revised name is stored as the _name attribute here.
-        logger.debug(f"dc_ dict: {dc_.__dict__}")
+        # logger.debug(f"dc_ dict: {dc_.__dict__}")
         for key, value in internalNames.items():
-            logger.debug(f"Modifying key: {key}")
+            # logger.debug(f"Modifying key: {key}")
             dc_.__dict__[key]._name = value
 
         # logger.debug(f"ofFolder dataclass: {dc_}")
@@ -629,7 +629,7 @@ class _ofCaseBase(_ofTypeBase):
 
     def __post_init__(self):
         #self._path = Path(self._location) / self._name
-        logger.debug(f"ofCase post init path: {self._path}")
+        # logger.debug(f"ofCase post init path: {self._path}")
         if not isinstance(self._path, Path):
             self._path = Path(self._path).resolve()
         if not _isCase(self._path):
@@ -682,7 +682,7 @@ class _ofCaseBase(_ofTypeBase):
         return str(self._path)
 
     def __deepcopy__(self, memo=None):
-        logger.debug(f"self: {self}")
+        # logger.debug(f"self: {self}")
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
 
@@ -709,7 +709,7 @@ class _ofCaseBase(_ofTypeBase):
     #     return result
 
     def __iter__(self):
-        logger.debug(f"vars(self).keys(): {vars(self).keys()}")
+        # logger.debug(f"vars(self).keys(): {vars(self).keys()}")
         for key in vars(self).keys(): 
             if isinstance(self.__getattribute__(key), _ofCaseBase):
                 logger.warning("Found ofCase "\
@@ -770,12 +770,12 @@ class _ofCaseBase(_ofTypeBase):
             #     return dict((key, _toDict(val)) for 
             #                     key, val in obj.attrDict().items())
             elif isinstance(obj, _ofTypeBase):
-                logger.debug(f"attrDict: {obj.attrDict()}")
+                # logger.debug(f"attrDict: {obj.attrDict()}")
                 return dict((key, _toDict(val)) for 
                                 key, val in obj.attrDict().items())
                 # return _toDict(obj.attrDict())
             elif isinstance(obj, _ofFolderBase):
-                logger.debug("Parsing ofFolder")
+                # logger.debug("Parsing ofFolder")
                 return dict((key, _toDict(val)) for 
                             key, val in obj.attrDict().items())
             elif isinstance(obj, pd.DataFrame):
@@ -813,23 +813,23 @@ class _ofCaseBase(_ofTypeBase):
         #TODO: Path is saved relative to directory originally called and results
         #       in error if loaded from a different directory
 
-        logger.debug(f"path: {path}")
+        # logger.debug(f"path: {path}")
 
         if _isCase(path):
-            logger.debug("save: Found case as path!")
+            # logger.debug("save: Found case as path!")
             filepath = Path(path) / '.pyfoamd' / '_case.json'
         else:
-            logger.debug("save: Did not find case as path!")
+            # logger.debug("save: Did not find case as path!")
             filepath = path
          
         if str(filepath)[-5:] != '.json':
             filepath = Path(str(filepath)+'.json')
 
-        logger.debug(f"case: {self}")
+        # logger.debug(f"case: {self}")
 
         case_ = self.toDict(self)
 
-        logger.debug(f"case_: {case_}")
+        # logger.debug(f"case_: {case_}")
 
        
         if not Path(filepath).parent.is_dir():
@@ -857,7 +857,7 @@ class _ofCaseBase(_ofTypeBase):
         """
 
 
-        logger.debug(f'self._path: {self._path}')
+        # logger.debug(f'self._path: {self._path}')
 
         #caseFromFile = CaseParser(self._path).makeOFCase()
 
@@ -879,7 +879,7 @@ class _ofCaseBase(_ofTypeBase):
         def _writeCaseObj(obj, loc=None):
             if loc is None:
                 loc = Path(self._path).parent
-            logger.debug(f"_writeCaseObj: parsing obj: {obj}")
+            # logger.debug(f"_writeCaseObj: parsing obj: {obj}")
             if any([isinstance(obj, t) for t in [_ofCaseBase, _ofFolderBase]]):
                 if isinstance(obj, _ofCaseBase):
                     loc_ = Path(loc) / obj._name
@@ -890,7 +890,7 @@ class _ofCaseBase(_ofTypeBase):
                         # loc_ = Path(loc) / name_ 
                         _writeCaseObj(item, loc_)
             elif isinstance(obj, ofDictFile):
-                logger.debug(f"ofDictFile obj: {obj}")
+                # logger.debug(f"ofDictFile obj: {obj}")
                 loc_ = self._path / loc / obj._name
                 userMsg(f"Writing dictionary {obj._name} to "\
                     f"{str(Path(self.name()) / loc)}.")
@@ -949,11 +949,15 @@ class CaseParser:
             if (obj.is_dir() and all(obj.name != default for default in
                                     ['constant', 'system'])):
                 # fields = [attr[0] for attr in attrList]
-                logger.debug(f"_ofCaseBase: \
-                    {_ofCaseBase}")
-                logger.debug(f"obj: {obj}")
+                # logger.debug(f"_ofCaseBase: \
+                    # {_ofCaseBase}")
+                # logger.debug(f"obj: {obj}")
                 if obj.name.startswith('.'):
                     #- ignore hidden directories.
+                    continue
+                #- ignore large directories
+                if (obj.name.startswith('processor')
+                 or obj.name.startswith('postProcessing')):
                     continue
                 fields = [attr[0] for attr in vars(_ofFolderBase).keys()]
                 # if any([obj.name == field for field in fields]):
@@ -962,7 +966,7 @@ class CaseParser:
                 #     continue
                 name_ = _checkReserved(obj.name.replace('.', '_'), fields)
                 
-                logger.debug(f"digit test value: {name_.split('_')[0]}")
+                # logger.debug(f"digit test value: {name_.split('_')[0]}")
 
                 if name_.split('_')[0].isdigit():
                     #- rename time directories to t_<tiime>
@@ -1407,7 +1411,7 @@ class ofList(_ofNamedTypeBase):
 
     @value.setter
     def value(self, v):
-        logger.debug(f"ofList setter value: {v}")
+        # logger.debug(f"ofList setter value: {v}")
         if v is not None:
             if isinstance(v, list):
                 self._value = v
@@ -1476,7 +1480,7 @@ class ofSplitList(ofList):
         if self.value is not None:
             for v in self.value:
                 if isinstance(v, ofDict):
-                    logger.debug("Found ofDict.")
+                    # logger.debug("Found ofDict.")
                     dStr2 = v.toString(ofRep=ofRep).split("\n")
                     for i in range(len(dStr2)):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
@@ -1517,7 +1521,7 @@ class ofTable(ofList):
             self._value = None
             return
         
-        logger.debug(f"value: {v}")
+        # logger.debug(f"value: {v}")
 
         if isinstance(v, dict):
             self._value = pd.DataFrame.from_dict(v)
@@ -1548,7 +1552,7 @@ class ofTable(ofList):
                 else:
                     listValue = []
                     for val_ in val:
-                        logger.debug("Found list input.")
+                        # logger.debug("Found list input.")
                         # list_ = [v.value if isinstance(v, _ofTypeBase) else v \
                         #     for v in val]
                         listValue.append(_listParser(val_))
@@ -1568,7 +1572,7 @@ class ofTable(ofList):
 
         list_ = _listParser(v)
 
-        logger.debug(f"list_: {list_}")
+        # logger.debug(f"list_: {list_}")
         #- check that value is a list of lists of equal length
         if (all([isinstance(l, list) for l in list_])
             and all([len(list_[0]) == len(l) for l in list_[1:]])):
@@ -1624,6 +1628,103 @@ class ofTable(ofList):
             else:
                 dStr += str(v)+" "
         dStr+= ");"
+
+        if ofRep:
+            dStr = dStr.rstrip(';')
+
+        return dStr
+    # def toString(self) -> str:
+    #     return self.valueStr
+    #def toString(self) -> str:
+    #    valueStr = '('
+    #    valueStr += str(self.value[0])
+    #    for i in range(1,len(self.value)):
+    #        valueStr += ' '+str(self.value[i])
+    #    valueStr += ')'
+    #    return printNameStr(self.name)+valueStr+";\n"
+
+    def __str__(self):
+        return self.toString().rstrip(';\n')
+
+# @dataclass
+# class ofNamedSplitList(ofList, _ofListBase):
+#     #- Same as ofList except entries are split on multiple lines according the
+#     #  OpenFoam Programmer's Style Guide
+
+#     def toString(self) -> str:
+#         printStr = self.name+'\n(\n'
+#         for v in self.value:
+#             printStr += TAB_STR+str(v)+'\n'
+#         printStr += ');\n'
+#         return printStr
+
+#     def __str__(self):
+#         return self.toString().rstrip(';\n')
+
+@dataclass
+class ofBoundBox(ofList):
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, _comment=None):
+        super(ofBoundBox, self).__init__(
+            arg1=arg1, arg2=arg2, name=name, value=value, _comment=_comment)
+    _value = None
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        """
+        Ensure value is the proper format (list of 2 lists with 3 float entries)
+        e.g. [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]
+        """
+
+        if v is None:
+            self._value = None
+            return
+        
+        # logger.debug(f"value: {v}")
+
+        valid = True
+
+        try:
+            assert hasattr(v, '__iter__') # check if iterable
+            assert len(v) == 2
+            for w in v:
+                assert hasattr(w, '__iter__')
+        except AssertionError:
+            valid = False
+
+        for w in v:
+            for i in w:
+                try:
+                    float(i)
+                except ValueError:
+                    valid = False
+             
+
+        if not valid:
+            userMsg("Invalid value.  Value must be nd.array like of size (2,3) \
+            with numeric entries")            
+        self._value = v
+
+
+    def toString(self, ofRep=False) -> str:
+        # dStr = printNameStr(self.name)+' '
+        
+        # for v in self.value:
+        #     dStr+= ofList(v).toString(ofRep=False).strip()+' '
+        # dStr+= ";"
+
+        dStr = printNameStr(self.name)+" "
+
+        if self.value is not None:
+            dStr += ofList(self.value[0]).toString(ofRep=False).strip()+" "+\
+                ofList(self.value[1]).toString(ofRep=False).strip()+";\n"
+        else:
+            dStr += ofList([0, 0, 0]).toString(ofRep=False).strip()+" "+\
+                ofList([0, 0, 0]).toString(ofRep=False).strip()+";\n"
+
 
         if ofRep:
             dStr = dStr.rstrip(';')
@@ -1727,11 +1828,15 @@ class ofDict(dict, _ofTypeBase):
     def __getattr__(self, attr):
         return self.get(attr)
     
+    #def __getitem__(self, key):
+
+
+    
     def __setitem__(self, item, value=None):
         nameTag = None
 
-        logger.debug(f"ofDict.__setitem__: {item}, {value}")
-        logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
+        # logger.debug(f"ofDict.__setitem__: {item}, {value}")
+        # logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
 
         if isinstance(item, ofDict):
             nameTag = '_name'
@@ -1745,8 +1850,8 @@ class ofDict(dict, _ofTypeBase):
             value._name = item
 
         if nameTag is not None:
-            logger.debug("****Processing ofDict entry name for specification as "\
-                "attribute.")
+            # logger.debug("****Processing ofDict entry name for specification as "\
+                # "attribute.")
             # itemName = item.__getattr__[nameTag]
 
             # itemName = item.__dict__[nameTag]
@@ -1781,7 +1886,7 @@ class ofDict(dict, _ofTypeBase):
 
     def __setattr__(self, key, value):
         key_ = _checkReserved(key)
-        logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
+        # logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
         super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
         super(ofDict, self).__setattr__(key_, value)
@@ -1801,7 +1906,7 @@ class ofDict(dict, _ofTypeBase):
                         ofType_.value.append(_parseList(v))
                     else:
                         type_, value_ = DictFileParser._parseValue(v)
-                        logger.debug(f"type, value: {type_}, {value_}")
+                        # logger.debug(f"type, value: {type_}, {value_}")
                         ofType_.value.append(type_(value=value_))
             return ofType_
         if not key.startswith('_'):  #TODO: filter based on self._CLASS_VARS
@@ -1811,15 +1916,15 @@ class ofDict(dict, _ofTypeBase):
                 ofType._name = key 
                 # ofType = [DictFileParser._parseValue(v) for v in value]    
             elif value is not None and not isinstance(value, _ofTypeBase):
-                logger.debug("finding ofType...")
+                # logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
-                logger.debug(f"type, value: {type_}, {value_}")
+                # logger.debug(f"type, value: {type_}, {value_}")
                 ofType = type_(name=key_, value=value_)
             else:
                 ofType = value
                 if hasattr(ofType, '_name') and ofType._name is None:
                     ofType._name = key
-            logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
+            # logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
             # self.__dict__[key] = ofType
             super(ofDict, self).__dict__[key_] = ofType
         else:
@@ -1860,14 +1965,14 @@ class ofDict(dict, _ofTypeBase):
     def update(self, iterable):
         #TODO:  Can this function be simplified since self.__setitem__ parses
         #          both ofTypes and built-in python types?
-        logger.debug(f"ofDict initalizer iterable type: {type(iterable)}")
-        logger.debug(f"ofDict initalizer iterable: {iterable}")
+        # logger.debug(f"ofDict initalizer iterable type: {type(iterable)}")
+        # logger.debug(f"ofDict initalizer iterable: {iterable}")
         if iterable is None:
             return
         # if (isinstance(iterable, _ofIntBase) 
         #    or isinstance(iterable, _ofNamedTypeBase)):
         if isinstance(iterable, _ofNamedTypeBase):
-            logger.debug(f"Setting item for _ofNamedType.")
+            # logger.debug(f"Setting item for _ofNamedType.")
             #self.__setitem__(iterable.name, iterable)
             self.__setitem__(iterable)
         elif isinstance(iterable, _ofUnnamedTypeBase):
@@ -1949,12 +2054,12 @@ class ofDict(dict, _ofTypeBase):
         # for k, v in zip(self.keys(), self.values()):
         for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
             k = k.rstrip('_') # remove possible "_" added in _checkReserved
-            logger.debug(f"dict entry: {k}: {v}")
+            # logger.debug(f"dict entry: {k}: {v}")
             if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
                 k=''
             if k not in self._CLASS_VARS:
                 if isinstance(v, ofDict):
-                    logger.debug("Found ofDict.")
+                    # logger.debug("Found ofDict.")
                     dStr2 = v.toString(ofRep=ofRep).split("\n")
                     for i in range(len(dStr2)):
                         dStr2[i] = TAB_STR+dStr2[i]+"\n"
@@ -1969,9 +2074,9 @@ class ofDict(dict, _ofTypeBase):
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
                     dStr += TAB_STR+v.toString(ofRep=ofRep)
-                    logger.debug("Found 'toString()' method.")
+                    # logger.debug("Found 'toString()' method.")
                 else:
-                    logger.debug("Could not find 'toString()' method.")
+                    # logger.debug("Could not find 'toString()' method.")
                     dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
 
             # logger.debug(f"dict string: {dStr}")
@@ -2010,7 +2115,7 @@ class ofFoamFile(ofDict):
             else:
                 dStr = "{\n"
             for k, v in zip(self.keys(), self.values()):
-                logger.debug(f"dict entry: {k}: {v}")
+                # logger.debug(f"dict entry: {k}: {v}")
                 if k is None:
                     k=''
                 if k not in self._CLASS_VARS:
@@ -2023,15 +2128,15 @@ class ofFoamFile(ofDict):
                     if (hasattr(v, 'toString') 
                         and callable(getattr(v, 'toString'))):
                         # dStr += printNameStr(TAB_STR+k)+v.toString()
-                        logger.debug(f"FoamFile entry string: "\
-                            f"{v.toString(ofRep=ofRep)}")
+                        # logger.debug(f"FoamFile entry string: "\
+                        #     f"{v.toString(ofRep=ofRep)}")
                         dStr += TAB_STR+v.toString(ofRep=ofRep)
-                        logger.debug("Found 'toString()' method.")
+                        # logger.debug("Found 'toString()' method.")
                     else:
-                        logger.debug("Could not find 'toString()' method.")
+                        # logger.debug("Could not find 'toString()' method.")
                         dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
 
-                logger.debug(f"dict string: {dStr}")
+                # logger.debug(f"dict string: {dStr}")
             dStr+= "}\n"
             # if not ofRep:
             #     dStr = dStr.replace(';', '')
@@ -2071,17 +2176,17 @@ class ofDictFile(ofDict, _ofFolderItemBase):
     #       Currently need to initialize as ofDictFile(_name=..., _location=...)
     def __init__(self, *args, **kwargs):
         super(ofDictFile, self).__init__(*args, **kwargs)
-        self._location : str = kwargs.pop('_location', 
-                                str(Path.cwd() / self._name)) \
-                                    if self._name is not None else ""
+        # self._location : str = kwargs.pop('_location', 
+        #                         str(Path.cwd() / self._name)) \
+        #                             if self._name is not None else ""
         self._header : ofHeader = ofHeader()
         # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
         self._foamFile: ofFoamFile = None 
-        self._CLASS_VARS.append('_location')
+        # self._CLASS_VARS.append('_location')
         self._CLASS_VARS.append('_header')
         self._CLASS_VARS.append('_foamFile')
 
-        logger.debug(f"location: {self._location}")
+        # logger.debug(f"location: {self._location}")
 
     #- ref: https://stackoverflow.com/a/27472354/10592330
     # def __init__(self, *args, **kwargs):
@@ -2120,7 +2225,7 @@ class ofDictFile(ofDict, _ofFolderItemBase):
             hasattr(self._foamFile, 'toString') else ''
         # str_ += super(ofDictFile, self).toString(ofRep=ofRep)
         for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
-            logger.debug(f"dict entry: {k}: {v}")
+            # logger.debug(f"dict entry: {k}: {v}")
             if k is None:
                 k=''
             if k not in self._CLASS_VARS:
@@ -2133,12 +2238,12 @@ class ofDictFile(ofDict, _ofFolderItemBase):
                 if hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     # dStr += printNameStr(TAB_STR+k)+v.toString()
                     str_ += v.toString(ofRep=ofRep)
-                    logger.debug("Found 'toString()' method.")
+                    # logger.debug("Found 'toString()' method.")
                 else:
-                    logger.debug("Could not find 'toString()' method.")
+                    # logger.debug("Could not find 'toString()' method.")
                     str_ += printNameStr(k)+str(v)+'\n'
                 str_ += '\n'
-            logger.debug(f"dict string: {str_}")
+            # logger.debug(f"dict string: {str_}")
         
         if not ofRep:
             str_ = str_.replace(';', '')
@@ -2168,9 +2273,9 @@ class ofDictFile(ofDict, _ofFolderItemBase):
                     or item._name=='FoamFile'):
                     rmKeys.append(key)
 
-        print(self.__dict__)
-        print(self.items())
-        print(f'rmKeys: {rmKeys}')
+        # print(self.__dict__)
+        # print(self.items())
+        # print(f'rmKeys: {rmKeys}')
 
         for key in rmKeys:
             # del self.__dict__[key]
@@ -2228,9 +2333,9 @@ class ofNamedDimension(ofDimension):
     
     @name.setter
     def name(self, n):
-        logger.debug(f"name: {n}")
+        # logger.debug(f"name: {n}")
         if n is not None:
-            logger.debug(f"n.split(): {n.split()}")
+            # logger.debug(f"n.split(): {n.split()}")
             if len(n.split()) != 1:
                 raise ValueError("Name must be a single word.")
             #TODO: Keywords can accept optional values.
@@ -2409,7 +2514,7 @@ class ofUniformField(_ofNamedTypeBase):
     @name.setter
     def name(self, n):
         if n is not None:
-            logger.debug(f"name: {n}")
+            # logger.debug(f"name: {n}")
             n=str(n)
             if len(n.split()) == 2 and n.split()[1] == 'uniform':
                 n_ = n.split()[0]
@@ -2642,7 +2747,7 @@ class _ofMonitorBase:
 
         path = self._dataPath
 
-        logger.debug(f"datapath: {path}")
+        # logger.debug(f"datapath: {path}")
 
         if Path(path).is_file():
             self._dataPath = Path(path)
@@ -2700,7 +2805,7 @@ class _ofMonitorBase:
             if line.startswith('#'):
                 continue
     
-            logger.debug(f"parsedColumnLabels: {parsedColumnLabels}")            
+            # logger.debug(f"parsedColumnLabels: {parsedColumnLabels}")            
 
             data_, parsedColumnLabels, columns = \
                 self._parseLine(line, linei, data_, 
@@ -2723,7 +2828,7 @@ class _ofMonitorBase:
         if parsedLabels is None:
             parsedLabels = self._columns
 
-        logger.debug(f"parsedLabels: {parsedLabels}")
+        # logger.debug(f"parsedLabels: {parsedLabels}")
 
         values = re.split(r'\s{2,}|\t', line.strip())
         values = [v.strip() for v in values]
@@ -2756,8 +2861,8 @@ class _ofMonitorBase:
         # if found additional data values in middle of file, parse
         # header again
         if data_ is not None:
-            logger.debug(f"nValues > data_.shape[1]: {nValues} > {data_.shape[1]}")
-            logger.debug(f"parsedLabels: {parsedLabels}")
+            # logger.debug(f"nValues > data_.shape[1]: {nValues} > {data_.shape[1]}")
+            # logger.debug(f"parsedLabels: {parsedLabels}")
             if nValues > data_.shape[1]:
                 parsedLabels = [self._columns[0]]
                 parsedColumnLabels = False
@@ -2806,8 +2911,8 @@ class _ofMonitorBase:
                 if not parsedColumnLabels:
                     parsedLabels.append(self._columns[i+1])
         
-        logger.debug("len(parsedValues) == len(parsedLabels): "
-            f"{len(parsedValues)} == {len(parsedLabels)}")
+        # logger.debug("len(parsedValues) == len(parsedLabels): "
+            # f"{len(parsedValues)} == {len(parsedLabels)}")
         if len(parsedValues) == len(parsedLabels):
             if not parsedColumnLabels:
                 columns = parsedLabels
@@ -2869,7 +2974,7 @@ class _ofMonitorBase:
             columns = [self.data.index.name]
             for v in self.data.columns:
                 columns.append(v)
-            logger.debug(f"columns: {columns}")
+            # logger.debug(f"columns: {columns}")
             lines = file.readlines()
             while True:
                 if i >= len(lines):
@@ -2922,7 +3027,7 @@ class MonitorParser:
                     lineList = [v.strip() for v in lineList]
                     key = _parseNameTag(lineList[0].strip())
                     value = ':'.join(lineList[1:])
-                    logger.debug(f"monitor file key: {key}")
+                    # logger.debug(f"monitor file key: {key}")
                     #TODO:  What types should be acceptable here?
                     type_ = str
                     try:
@@ -3022,7 +3127,7 @@ class ofProbe(_ofMonitorBase):
 
         path = self._dataPath
 
-        logger.debug(f"datapath: {path}")
+        # logger.debug(f"datapath: {path}")
 
         if Path(path).is_file():
             self._dataPath = Path(path)
@@ -3039,7 +3144,7 @@ class ofProbe(_ofMonitorBase):
                 self._columns = ['Time']
                 while True:
                     line = file.readline()
-                    logger.debug(f"line: {line}")
+                    # logger.debug(f"line: {line}")
                     if not line.startswith("# Probe"):
                         break
                     self._columns.append(f"Probe {i}")
@@ -3047,7 +3152,7 @@ class ofProbe(_ofMonitorBase):
                         ofVector([float(v) for v in 
                             line.split('(')[1].split(')')[0].split()]))
                     i+=1
-                logger.debug(f"columns: {self._columns}")
+                # logger.debug(f"columns: {self._columns}")
                 #- read data after header
                 self._readData(file)
 
@@ -3358,34 +3463,15 @@ class ofStudy:
         #TODO:  Implement this...
         pass
 
-@dataclass
-class ofStudyPre(ofStudy):
-    """
-    OpenFOAM study where each simulation requires a "precursor" simulation that 
-    is used to e.g. initialize the main simulation.  For each sample, this study 
-    will:
-        - copy the precusor template case
-        - update the precursor template based on the `preUpdateFunction`
-        - run the precursor case (e.g. execute the ./Allrun script)
-        - copy the template case
-        - update the template case based on the `updateFunction`
-        - run the main case (execute the `runCommand`)
-    
-    """
-    preTemplatePath : Path = None
-    preUpdateFunction : Callable = None
-
-    pass
-
 class DictFileParser:
     def __init__(self, filepath):
         self.filepath = filepath
         with open(filepath, 'r') as f:
             self.lines = f.readlines()
         self.status = None
-        logger.debug(f"Setting dictFile name to {Path(filepath).name}...")
-        self.dictFile = ofDictFile(_name=Path(filepath).name, 
-                            _location=Path(filepath).parent)
+        # logger.debug(f"Setting dictFile name to {Path(filepath).name}...")
+        self.dictFile = ofDictFile(_name=Path(filepath).name) 
+                            #_location=Path(filepath).parent)
         self.i=0
         self.extraLine = []
         self.comment = []
@@ -3399,7 +3485,7 @@ class DictFileParser:
         #     raise Exception
         # else:
         if line != "":
-            logger.debug(f"Adding extra text:  {line}")
+            # logger.debug(f"Adding extra text:  {line}")
             self.extraLine.append(line)
     
 
@@ -3444,11 +3530,11 @@ class DictFileParser:
 
         self.i = self._findEndOfHeader()
 
-        logger.debug(f"End of header at line {self.i+1}.")
+        # logger.debug(f"End of header at line {self.i+1}.")
 
         self.dictFile._header = ofHeader(self.lines[:self.i])
 
-        logger.debug(f"ofDictFile: {self.dictFile}")
+        # logger.debug(f"ofDictFile: {self.dictFile}")
 
         while self.lines[self.i].strip() == "":
             self.i+=1
@@ -3471,13 +3557,13 @@ class DictFileParser:
             if self.i >= len(self.lines):
                 break
             
-            logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
+            # logger.debug(f"Parsing line {self.i+1} of file {self.filepath}")
             
             value = self._parseLine()
 
-            logger.debug(f"** FINAL VALUE: {value}")
+            # logger.debug(f"** FINAL VALUE: {value}")
 
-            logger.debug(f"dictFile name = {self.dictFile._name} ")
+            # logger.debug(f"dictFile name = {self.dictFile._name} ")
 
             if value is not None:
             #     self.entryList.append(value)
@@ -3485,12 +3571,12 @@ class DictFileParser:
                     and not isinstance(value, ofComment)):
                     #- rename key if already in dict:
                     if value._name in self.dictFile.keys():
-                        logger.debug("Renaming duplicate key.")
+                        # logger.debug("Renaming duplicate key.")
                         key = value._name+'_1'
                     else:
                         key = value._name
                     if hasattr(value, '_name'):
-                        logger.debug(f"_parseLine: setting {key}: {value}")
+                        # logger.debug(f"_parseLine: setting {key}: {value}")
                         self.dictFile.update({key: value})
                     elif hasattr(value, 'name'):
                         self.dictFile.update({key: value})
@@ -3509,16 +3595,16 @@ class DictFileParser:
         #                 #filename=Path(file).name
         #                 )
         
-        logger.debug(f"dictFile name = {self.dictFile._name} ")
+        # logger.debug(f"dictFile name = {self.dictFile._name} ")
 
         return self.dictFile
 
     def _parseLine(self):
     
-        logger.debug("Parsing new line.")
-        logger.debug(f"\tself.extraLine: {self.extraLine}")
+        logger.debug(f"Parsing line {self.i+1}.")
+        # logger.debug(f"\tself.extraLine: {self.extraLine}")
 
-        logger.debug(f"\tline[{self.i+1}]: {self.lines[self.i].rstrip()}")
+        # logger.debug(f"\tline[{self.i+1}]: {self.lines[self.i].rstrip()}")
 
         parsingExtraLine = False
 
@@ -3532,7 +3618,7 @@ class DictFileParser:
             lineList = self._getLinesList(self.extraLine[0])
             parsingExtraLine = True
 
-        logger.debug(f"\tlineList: {lineList}")
+        logger.debug(f"filepath: {self.filepath}; lineList: {lineList}")
 
         try:
             parsedComment = self._parseComments()
@@ -3549,7 +3635,7 @@ class DictFileParser:
                 if match is not None:
                     # Found variable reference
                     name_ = match.group(1)
-                    logger.debug(f"Found variable: {name_}.")
+                    # logger.debug(f"Found variable: {name_}.")
                     return ofVar(name_)
                 if lineList[0].strip()[-1] == ';':
                     #- found non-keyword value
@@ -3569,12 +3655,12 @@ class DictFileParser:
                 #     logger.debug(f"_parseLine list or dict:\n{value}")
                 #     return value
                 listOrDictName = self.lines[self.i].lstrip().rstrip()
-                logger.debug(f"listOrDictName: {listOrDictName}")                
+                # logger.debug(f"listOrDictName: {listOrDictName}")                
                 if any([listOrDictName is char for char in ['(', '{']]):
-                    logger.debug("Parsing unnamed list or dictionary.")
+                    # logger.debug("Parsing unnamed list or dictionary.")
                     value = self._parseListOrDict(None)
 
-                    logger.debug(f"_parseLine list or dict:\n{value}")
+                    # logger.debug(f"_parseLine list or dict:\n{value}")
 
                     return value
                 
@@ -3582,7 +3668,7 @@ class DictFileParser:
                     self.i += 1
                     value = self._parseListOrDict(listOrDictName)
 
-                    logger.debug(f"_parseLine list or dict:\n{value}")
+                    # logger.debug(f"_parseLine list or dict:\n{value}")
 
                     return value
             elif len(lineList) == 2:
@@ -3599,7 +3685,7 @@ class DictFileParser:
                 self.i += 1
 
     def _parseLineLenTwo(self):
-        logger.debug("Parsing line of length 2.")
+        # logger.debug("Parsing line of length 2.")
 
         # lineList = self.lines[self.i].strip().split()
         lineList = self._getLinesList(self.lines[self.i])
@@ -3633,13 +3719,13 @@ class DictFileParser:
             - ofFloat, ofInt, ofBool, ofStr
         """
 
-        logger.debug("Parsing a single line entry")
+        # logger.debug("Parsing a single line entry")
 
-        logger.debug(f"key: {key}, value: {value}")
+        # logger.debug(f"key: {key}, value: {value}")
 
         type_, value_ = self._parseValue(value)
 
-        logger.debug(f"{type_} signature: {signature(type_)}")
+        # logger.debug(f"{type_} signature: {signature(type_)}")
 
         if hasattr(type_, 'name'):
             return type_(key, value_, _comment=self._getComment())
@@ -3671,6 +3757,8 @@ class DictFileParser:
 
         #linesList = self._getLinesList(self.lines[self.i])
 
+        logger.debug(f"Parsing list {name}.")
+
         if name is not None:
             name = name.strip()
 
@@ -3681,25 +3769,37 @@ class DictFileParser:
             # lineList = self.lines[self.i].strip().split()
             lineList = self._getLinesList(self.lines[self.i])
 
-        logger.debug(f"parseListOrDict name: {name}")
+        # logger.debug(f"parseListOrDict name: {name}")
 
-        logger.debug(f"line[{self.i+1}]: {line or self.lines[self.i]}")
-        logger.debug(f"lineList[{self.i+1}]: {lineList}")
+        # logger.debug(f"line[{self.i+1}]: {line or self.lines[self.i]}")
+        # logger.debug(f"lineList[{self.i+1}]: {lineList}")
 
         openingChar = None
-        if any([lineList[0].startswith(c) for c in ['(', '{']]):
+        listLen = None
+        if (len(lineList) > 0 
+        and any([lineList[0].startswith(c) for c in ['(', '{']])):
             openingChar = lineList[0][0]
         elif (lineList[0] == name and
             any([lineList[1].startswith(c) for c in ['(', '{']])):
             openingChar = lineList[1][0]
         
-        logger.debug(f'openingChar: {openingChar}')
+        #Capture lists with specified length.  e.g. '2((0 0) (500 1))'
+        try:
+            int(lineList[0])
+            openingChar = '('
+            listLen = int(lineList[0])
+            self.i+=1
+            lineList = self._getLinesList(self.lines[self.i])
+        except (TypeError, ValueError):
+            pass
+
+        # logger.debug(f'openingChar: {openingChar}')
 
         if openingChar is None:
             userMsg(f"Invalid syntax on line {self.i+1} of dictionary "
             f"file '{self.filepath}'.", level='ERROR')
                  
-        logger.debug(f"Opening char: {openingChar}")
+        # logger.debug(f"Opening char: {openingChar}")
 
         if openingChar == '(':
             self.needSemicolon = False
@@ -3756,11 +3856,11 @@ class DictFileParser:
             # if name == 'FoamFile':
             #     dict_ = self._parseFoamFile()
             # else:
-            logger.debug(f"Parsing {name} dictionary.")
+            # logger.debug(f"Parsing {name} dictionary.")
             # return ofDict(self._parseDict(name))
             dict_ = self._parseDict(name)
 
-            logger.debug(f"dict_: {dict_}")
+            # logger.debug(f"dict_: {dict_}")
 
             return dict_
         else:
@@ -3786,9 +3886,9 @@ class DictFileParser:
         # - Find the end of dictionary        
         i_end = self._findDictOrListEndLine('list')
 
-        logger.debug(f"i_end: {i_end}")
+        # logger.debug(f"i_end: {i_end}")
 
-        logger.debug(f"name: {name}")
+        # logger.debug(f"name: {name}")
 
 
         if split:
@@ -3798,17 +3898,17 @@ class DictFileParser:
 
         #- check to see if list contains dictionaries:
         contentStr = ' '.join(self.lines[self.i:i_end+1])
-        logger.debug(f"content string:\n{contentStr}")
+        # logger.debug(f"content string:\n{contentStr}")
 
         if '{' in contentStr and '}' in contentStr:
             #- found dictionary, parse recursively
-            logger.debug("Found dictionaries within list, parsing recursively...")
+            # logger.debug("Found dictionaries within list, parsing recursively...")
             
             #- Skip current line (with '('), and store any additional text as 
             #  extra line.
             extraLine = ''.join(self.lines[self.i].strip().split('(')[1:])
             if extraLine != '':
-                logger.debug(f"extraLine: {extraLine}")
+                # logger.debug(f"extraLine: {extraLine}")
                 self._addExtraLine(extraLine)
 
             self.i+=1
@@ -3818,17 +3918,19 @@ class DictFileParser:
                 if value_ is not None:
                     list_.value.append(value_)
 
-            logger.debug(f"list_:\n{list_}")
+            # logger.debug(f"list_:\n{list_}")
 
             return list_
 
-        logger.debug("Parsing list without dictionary values...")
+        # logger.debug("Parsing list without dictionary values...")
 
         entryList = []
 
         while self.i <= i_end:
             line = self.lines[self.i]
             if self.i == i_start:
+                #remove potential keyword:
+                line = line.strip().lstrip(name).strip()
                 #- Ignore first '('
                 #- If line contains key value, ignore as already saved as name.
                 # e.g.  fields      ( U p );
@@ -3851,7 +3953,7 @@ class DictFileParser:
                 if line.endswith(');'):
                     line = line[:-2] 
 
-            logger.debug(f"line[{self.i+1}]: {line}")
+            # logger.debug(f"line[{self.i+1}]: {line}")
 
             # #- Parse comment
             # comment = self._parseComments()
@@ -3868,6 +3970,7 @@ class DictFileParser:
             #             f"of file {self.filepath}.")
             #     while self.i <= i_end2:
             #         line+= 
+
 
             #- Try to parse whole line as single value:
             entry_ = self._parseListValues(line)
@@ -3917,9 +4020,8 @@ class DictFileParser:
         """
         convert a string value from file into the appropriate ofType.
         """
-
-        logger.debug(f"list values: {values}")
-        logger.debug(f"len list values: {len(values)}")
+        # logger.debug(f"list values: {values}")
+        # logger.debug(f"len list values: {len(values)}")
 
         #- Get expressions between parenthesis as list:
         #valuesList = [p.split(')')[0] for p in values.split('(') if ')' in p]
@@ -3959,7 +4061,7 @@ class DictFileParser:
             if values[i] == '(':
                 #- add value as list
                 #- find end of list:
-                logger.debug(f"line list searchStr: {values[i:]}")
+                # logger.debug(f"line list searchStr: {values[i:]}")
                 j=self._findDictOrListEndIndex(values[i:])
                 if j is None:
                     # logger.error("Could not find end of list on a single "\
@@ -3972,7 +4074,7 @@ class DictFileParser:
                     self.i+=1
                     return self._parseListValues(values+" "+self.lines[self.i])
                 subStr = values[i+1:i+j]
-                logger.debug(f"subStr: {subStr}")
+                # logger.debug(f"subStr: {subStr}")
                 # if j != len(values)-1:
                 #     #- Add extra text to self.extraLine
                 #     self.extraLine.append(values[j:])
@@ -3990,27 +4092,27 @@ class DictFileParser:
                     listValues.append(listValue_)
 
                 i=j+i
-                logger.debug(f"i: {i}")
-                logger.debug(f"j: {j}")
+                # logger.debug(f"i: {i}")
+                # logger.debug(f"j: {j}")
             else:
                 value_ = ''
                 while not any([values[i] == char for char in delimiters]):
                     value_+=values[i]
                     if i == len(values)-1:
                         break
-                    logger.debug(f"value_: {value_}")
+                    # logger.debug(f"value_: {value_}")
                     i+=1
                 if value_ != '':
                     type_, v = self._parseValue(value_)
                     if type_ is not None:
                         listValues.append(type_(value=v)) # TODO: save as ofType?
                     # listValues.append(v)
-            logger.debug("list values during parsing: "\
-                f"{listValues}")
+            # logger.debug("list values during parsing: "\
+                # f"{listValues}")
             i+=1
-            logger.debug(f"i: {i}")
+            # logger.debug(f"i: {i}")
 
-        logger.debug(f"listValues: {listValues}")
+        # logger.debug(f"listValues: {listValues}")
 
         # #- add comment to last list value
         # if len(listValues) != 0:
@@ -4038,7 +4140,7 @@ class DictFileParser:
         openingChar = BRACKET_CHARS[type][0]
         closingChar = BRACKET_CHARS[type][1]
 
-        logger.debug(f"Search for close str: {string}")
+        # logger.debug(f"Search for close str: {string}")
 
         #- Check that the appropraite BRACKET_CHAR is actually in string
         if openingChar not in string:
@@ -4055,7 +4157,7 @@ class DictFileParser:
             i+=1
         i+=1
 
-        logger.debug(f"Search for close str: {string[i:]}")
+        # logger.debug(f"Search for close str: {string[i:]}")
 
         level = 1
         while True: # Find matching parenthesis
@@ -4074,7 +4176,7 @@ class DictFileParser:
             i+=1
 
 
-        logger.debug(f"list ended at index {i} at char '{string[i]}'.")
+        # logger.debug(f"list ended at index {i} at char '{string[i]}'.")
 
         return i
             
@@ -4087,8 +4189,8 @@ class DictFileParser:
         # - Find the end of dictionary        
         i_end = self._findDictOrListEndLine('dict')
 
-        logger.debug(f"Parsing dictionary '{name}'.")
-        logger.debug(f"line[{self.i+1}] '{self.lines[self.i].strip()}'.")
+        # logger.debug(f"Parsing dictionary '{name}'.")
+        # logger.debug(f"line[{self.i+1}] '{self.lines[self.i].strip()}'.")
 
         #TODO:  Store FoamFile as ofFoamFile type rather than dict 
         # if name == 'FoamFile':
@@ -4125,11 +4227,11 @@ class DictFileParser:
                 # logger.debug(f"{type(value_)} attributes: {vars(value_).keys()}")
                 # dict_.update({value_.__getattribute__(name_): value_})
 
-        logger.debug(f"dict_:\n{dict_}")
+        # logger.debug(f"dict_:\n{dict_}")
 
         self.i-=1 # Reset line index since it will increment in _parseLine
 
-        logger.debug(f"Finished parsing dict {name} on line {self.i+1}")
+        # logger.debug(f"Finished parsing dict {name} on line {self.i+1}")
 
 
         return dict_
@@ -4151,14 +4253,14 @@ class DictFileParser:
             for char in line:
                 if char == BRACKET_CHARS[type][0]:
                     level += 1
-                    logger.debug(f'found char: {BRACKET_CHARS[type][0]}')
-                    logger.debug(f"level: {level}")
-                    logger.debug(f"line: {i}")
+                    # logger.debug(f'found char: {BRACKET_CHARS[type][0]}')
+                    # logger.debug(f"level: {level}")
+                    # logger.debug(f"line: {i}")
                 if char == BRACKET_CHARS[type][1]:
                     level -= 1 
-                    logger.debug(f'found char: {BRACKET_CHARS[type][1]}')
-                    logger.debug(f"level: {level}")
-                    logger.debug(f"line: {i}")
+                    # logger.debug(f'found char: {BRACKET_CHARS[type][1]}')
+                    # logger.debug(f"level: {level}")
+                    # logger.debug(f"line: {i}")
             return level
 
         # check if list begins and ends on single line
@@ -4181,29 +4283,29 @@ class DictFileParser:
             level = searchLine(level, i_)
             i_+=1
 
-        logger.debug("End of initialization loop.")
+        # logger.debug("End of initialization loop.")
 
         while level > 0:
             if i_ >= len(self.lines):
                 userMsg(f'Invalid syntax.  Could not locate end of '\
                     f'{type} starting on line {self.i+1}.', 'ERROR')
             line = self.lines[i_]
-            logger.debug(f"i: {i_}")
-            logger.debug(f"line: {line}")
+            # logger.debug(f"i: {i_}")
+            # logger.debug(f"line: {line}")
             for char in line:
                 if char == BRACKET_CHARS[type][0]:
                     level += 1
-                    logger.debug(f'found char: {BRACKET_CHARS[type][0]}')
-                    logger.debug(f"level: {level}")
-                    logger.debug(f"line: {i_+1}")
+                    # logger.debug(f'found char: {BRACKET_CHARS[type][0]}')
+                    # logger.debug(f"level: {level}")
+                    # logger.debug(f"line: {i_+1}")
                 if char == BRACKET_CHARS[type][1]:
                     level -= 1 
-                    logger.debug(f'found char: {BRACKET_CHARS[type][1]}')
-                    logger.debug(f"level: {level}")
-                    logger.debug(f"line: {i_+1}")
+                    # logger.debug(f'found char: {BRACKET_CHARS[type][1]}')
+                    # logger.debug(f"level: {level}")
+                    # logger.debug(f"line: {i_+1}")
             i_+=1
 
-        logger.debug(f"Found {type} entry from lines {self.i+1} to {i_}.")
+        # logger.debug(f"Found {type} entry from lines {self.i+1} to {i_}.")
 
         return i_-1
             
@@ -4211,13 +4313,13 @@ class DictFileParser:
     def _parseFoamFile(self):
         foamFile = ofFoamFile()
         while self.lines[self.i].strip() != '}':
-            logger.debug(f"Parsing FoamFile line {self.i+1}")
+            # logger.debug(f"Parsing FoamFile line {self.i+1}")
             if self.i == len(self.lines):
                 userMsg("Could not find end of 'FoamFile'.", "ERROR")
             # value_ = self._parseLine()
             # foamFile.update({value_.name: value_})
             foamFile.update(self._parseLine())
-            logger.debug(f"FoamFile dict keys: {foamFile.keys()}")
+            # logger.debug(f"FoamFile dict keys: {foamFile.keys()}")
         
         return foamFile
 
@@ -4251,7 +4353,7 @@ class DictFileParser:
 
         if string is not None: # parse string 
             line = string.strip(';')
-            logger.debug(f"parseTable string: {string}")
+            # logger.debug(f"parseTable string: {string}")
             if line.split()[1] == 'table': # whole line is passed as input
                 # lineList = line.split()[2:] # Remove the 'table' designation
                 lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
@@ -4286,7 +4388,7 @@ class DictFileParser:
             line = string.strip(';')
         else:
             line = self.lines[self.i].strip(';')
-        logger.debug(f"parseUniformField string: {line}")
+        # logger.debug(f"parseUniformField string: {line}")
         if line == "":
             return None
         if line.split()[1] == 'uniform': # whole line is passed as input
@@ -4297,10 +4399,10 @@ class DictFileParser:
             # userMsg(f"Unhandled syntax for ofUniformField found on line "\
             #     f"{self.i+1} of {self.filepath}.", "ERROR")
         valueStr_ = line.split('uniform')[-1].strip()
-        logger.debug(f"valueStr: {valueStr_}")
-        logger.debug(f"name: {name}")
+        # logger.debug(f"valueStr: {valueStr_}")
+        # logger.debug(f"name: {name}")
         type_, value_ = self._parseValue(valueStr_)
-        logger.debug(f"type: {type_}")
+        # logger.debug(f"type: {type_}")
         # logger.debug(f"value: {type_(value=value_)}")
         value__ = type_(value=value_)
         return ofUniformField(name=name, value=value__) 
@@ -4323,8 +4425,8 @@ class DictFileParser:
         #     return ofInt, value
         try:
             int(value)
-            #check that fractional values was not truncated
-            if isclose(int(value), value):
+            #check that fractional value was not truncated
+            if isclose(int(value), float(value)):
                 return ofInt, int(value)
         except (ValueError, TypeError):
             pass
@@ -4337,6 +4439,10 @@ class DictFileParser:
         if value is None:
             return None, None
 
+        #Check for list with specified number of entries.  e.g. 
+        #2((0 0) (500 1))
+        if re.match('[0-9]+\(.+', value):
+            return ofSplitList,
         if isinstance(value, _ofTypeBase):
             return type(value), value
 
@@ -4375,11 +4481,11 @@ class DictFileParser:
                 value_ = []
                 for v in value.strip('()').split():
                     value_.append(float(v))
-                logger.debug(f"value_: {value_}")
+                # logger.debug(f"value_: {value_}")
             except ValueError:
                 pass
             else:
-                logger.debug("finding list field type...")
+                # logger.debug("finding list field type...")
                 try:
                     ofSphericalTensor(value=value_)
                     return ofSphericalTensor, value_
@@ -4388,7 +4494,7 @@ class DictFileParser:
 
                 try:
                     ofVector(value=value_)
-                    logger.debug("found ofVector.")
+                    # logger.debug("found ofVector.")
                     return ofVector, value_
                 except:
                     pass
@@ -4458,7 +4564,7 @@ class DictFileParser:
         Parse a line that has more than two words.
         """
 
-        logger.debug("Parsing line of length greater than two...")
+        # logger.debug("Parsing line of length greater than two...")
 
         #TODO:  Does this need to check self.extraLine as well?
         line = self.lines[self.i]
@@ -4467,22 +4573,34 @@ class DictFileParser:
         #- Check if commented line
         comment = self._parseComments()
         if comment:
+            logger.debug(f"Found comment on line {self.i}")
             return None
 
         #- Check if the line contains a dimensioned type
         dimType = self._parseDimensionedType()
-        logger.debug(f"dimType: {dimType}")
+        # logger.debug(f"dimType: {dimType}")
         if dimType is not None:
+            logger.debug(f"Found dimension on line {self.i}")
             return dimType
         
         #- Check if value is a dimension
         #   (e.g. dimension     [0 2 -2 0 0 0 0];)
         dimValue = self._parseDimensionValue()
-        logger.debug(f"dimValue: {dimValue}")
+        # logger.debug(f"dimValue: {dimValue}")
         if dimValue is not None:
+            logger.debug(f"Found dimensioned vlaue on line {self.i}")
             return dimValue
 
+        #- Check if value is a bounging box
+        #   (e.g. box     (0.0 0.0 0.0) (1.0 1.0 1.0);
+        boxValue = self._parseBoundBoxValue()
+        # logger.debug(f"dimValue: {dimValue}")
+        if boxValue is not None:
+            logger.debug(f"Found bound box on line {self.i}")
+            return boxValue
+
         #- check if the line value terminates in an open list or dict
+        logger.debug("Checking for open list or dict")
         line_ = copy.deepcopy(line)
 
         while True:
@@ -4494,7 +4612,7 @@ class DictFileParser:
             entryName = lineList[0]
 
             valueStr = " ".join(lineList[1:])
-            logger.debug(f"valueStr: {valueStr}")
+            # logger.debug(f"valueStr: {valueStr}")
             for char in valueStr:
                 if char == '(':
                     nl+=1
@@ -4505,17 +4623,17 @@ class DictFileParser:
                 if char == '}':
                     nd-=1
 
-            logger.debug(f"nl / nd: {nl} / {nd}")
+            # logger.debug(f"nl / nd: {nl} / {nd}")
             
             if nl <= 0 and nd <= 0:
                 break
 
             if nl > 0:
-                logger.debug("Found open list..")
+                # logger.debug("Found open list..")
                 self.i += 1
                 line_ += self.lines[self.i]
             if nd > 0:
-                logger.debug("Found open dictionary...")
+                # logger.debug("Found open dictionary...")
                 self.i += 1
                 line_ += self.lines[self.i]
 
@@ -4529,8 +4647,8 @@ class DictFileParser:
         if lineList[1] == 'table':
             entryName = " ".join(lineList[:2])
             valueStr = " ".join(lineList[2:]).strip()
-            logger.debug(f"entryName: {entryName}")
-            logger.debug(f"valueStr: {valueStr}")
+            # logger.debug(f"entryName: {entryName}")
+            # logger.debug(f"valueStr: {valueStr}")
         else:
             entryName = lineList[0]
             valueStr = " ".join(lineList[1:]).strip()
@@ -4540,33 +4658,33 @@ class DictFileParser:
             #- Remove ';'.  Assuming within list or dict.  Other possibilities 
             # (e.g dimensioned types) should be handled prior to this point in 
             # the method.
-            logger.debug(f"line[{self.i+1}]: {line}")
+            # logger.debug(f"line[{self.i+1}]: {line}")
             extraText = ''.join(line.split(';')[1:]).replace('\n', '')
             self._addExtraLine(extraText)
             #line = line.split(';')[0][:-1] 
             line = line.split(';')[0]+';' # do not remove last ')' or '}'
-            logger.debug(f"line[{self.i+1}]: {line}")
+            # logger.debug(f"line[{self.i+1}]: {line}")
 
 
-        logger.debug(f"valueStr: {valueStr}")
+        # logger.debug(f"valueStr: {valueStr}")
 
         # if '(' in valueStr or '{' in valueStr:
         if valueStr.startswith('(') or valueStr.startswith('{'):
             #- Found list or dict
             # - find the entry type
-            logger.debug(f"valueStr: {valueStr}")
+            # logger.debug(f"valueStr: {valueStr}")
             for i, char in enumerate(valueStr):
-                logger.debug(f"i: {i}")
+                # logger.debug(f"i: {i}")
                 if char == '{' or char == '(':
                     # reevaluate entry name to be everything before opening list
                     line_ = entryName+" "+valueStr
-                    logger.debug(f"line_: {line_}")
+                    # logger.debug(f"line_: {line_}")
                     entryName = line_[:len(entryName)+i].lstrip().rstrip()
 
                     # valueList = line[i:].split(" ").rstrip(char+';')
                     break
 
-            logger.debug(f"entryName: {entryName}")
+            # logger.debug(f"entryName: {entryName}")
 
             if entryName:
                 entryNameList = entryName.split()
@@ -4589,7 +4707,7 @@ class DictFileParser:
                 else:
                     #- remove entry name from line string
                     line_ = line.strip()[len(entryName):].strip()
-                    logger.debug(f"line_: {line_}")
+                    # logger.debug(f"line_: {line_}")
                     value = self._parseListOrDict(entryName, line=line_)
                     return value
             else:
@@ -4622,7 +4740,7 @@ class DictFileParser:
         calling this method
         """
 
-        logger.debug("Parsing multiline statement.")
+        # logger.debug("Parsing multiline statement.")
 
         def _parseVal(values):
             """
@@ -4630,7 +4748,7 @@ class DictFileParser:
             """
             foundComment = False
 
-            logger.debug(f"values line: {values}")
+            # logger.debug(f"values line: {values}")
 
             #- Parse comment 
             comment = self._parseComments(values)
@@ -4643,9 +4761,9 @@ class DictFileParser:
                 values = values.split('//')[0]
             type_, value_ = self._parseValue(values)
 
-            logger.debug(f"type values: {type_}: {value_}")
-            logger.debug(f"found comment: {foundComment}")
-            logger.debug(f"self.comment: {self.comment}")
+            # logger.debug(f"type values: {type_}: {value_}")
+            # logger.debug(f"found comment: {foundComment}")
+            # logger.debug(f"self.comment: {self.comment}")
 
             if type_ is not None:
                 return type_(value_, 
@@ -4715,7 +4833,7 @@ class DictFileParser:
 
         if '//' in line:
             self.comment.append('//'.join(line.split('//')[1:]))
-            logger.debug(f"comment: {self.comment}")
+            # logger.debug(f"comment: {self.comment}")
 
         return None
 
@@ -4768,7 +4886,7 @@ class DictFileParser:
             return None #- Dimensioned quantity is not an int
 
         for i, d in enumerate(lineList[2:10]):
-            logger.debug(f"i: {i}")
+            # logger.debug(f"i: {i}")
             try:
                 d_ = int(d.strip(']'))
                 dims.append(d_)
@@ -4781,8 +4899,8 @@ class DictFileParser:
         strValue = " ".join(lineList[i+3:]).strip(';')
         type_ , value = self._parseValue(strValue)
 
-        logger.debug(f'type_: {type_}')
-        logger.debug(f'value: {value}')
+        # logger.debug(f'type_: {type_}')
+        # logger.debug(f'value: {value}')
 
         returnType = None
         if type_ is ofInt or type_ is ofFloat:
@@ -4979,13 +5097,101 @@ class DictFileParser:
                 dimList.append(v)
             except ValueError:
                 pass
-        logger.debug(f"dimList: {dimList}")
+        # logger.debug(f"dimList: {dimList}")
         try:
             dimValue = ofNamedDimension(name=lineList[0], 
                                         dimensions=dimList)
             return dimValue
         except ValueError:
             return None
+
+    def _parseBoundBoxValue(self):
+        """ 
+        Check to see if the line contains key value entry for a ofBoundBox 
+        value.  If so, return the ofType, else return None.
+
+        Example syntax: 
+
+        box      (0.0 0.0 0.0) (1.0 1.0 1.0);
+
+        """
+
+        line = self.lines[self.i]
+
+        logger.debug(f"Parsing bound box: '{line}'")
+
+        lineList = self._getLinesList(line)
+
+        logger.debug(f"lineList: {lineList}")
+        
+        try:
+            ofWord(lineList[0])
+        except:
+            logger.debug("Failed.  First entry not a valid key.")
+            return None  # first item is not valid key
+
+        # #- determine if value has 6 numeric entries
+        # n = 0
+        # for v in lineList[1:]: 
+        #     if v.strip('();').isnumeric(): 
+        #         n+=1
+        # logger.debug(f"# numeric entries: {n}")
+        # if n != 6:
+        #     logger.debug("Failed.  Value does not contain 6 numeric entries.")
+        #     return None # value does not contain 6 entries   
+
+        # #- determine if entries are two lists of three
+        # if not all([
+        #     lineList[1].strip()[0] == '(',
+        #     lineList[3].strip()[-1] == ')',
+        #     lineList[4].strip()[0] == '(',
+        #     lineList[6].strip(';')[-1] == ')',
+        # ]):
+        #     logger.debug("Failed.  Value does not contain two lists of 3 items.")
+        #     return None
+
+        # #- determine if all items are numeric:
+        # bounds = []
+        # for j in range(2): # for each list of three
+        #     bounds.append([])
+        #     for i in range(3): # for each item in list
+        #         try:
+        #             v_ = float(lineList[3*j+i+1].strip('();'))
+        #         except ValueError:
+        #             logger.debug("Failed.  Value entry is not numeric.")
+        #             return None
+        #         bounds[-1].append(v_)
+        
+        logger.debug(f"match string: {' '.join(lineList[1:])}")
+
+        matches = re.findall(r"(?<=\()[\s\d.-]+(?=\))", " ".join(lineList[1:]))
+
+        logger.debug(f"matches: {matches}")
+
+        if len(matches) != 2:
+            #- Value does not contain two lists
+            return None
+        bounds=[]
+        for match in matches:
+            bounds.append([])
+            values = match.split()
+            if len(values) != 3:
+                #- List does not have 3 values
+                return None
+            for v in values:
+                try:
+                    v_ = float(v)
+                except ValueError:
+                    #- List values are not numeric
+                    return None
+                bounds[-1].append(v_)
+                
+
+        logger.debug("Found bounding box.")
+        return ofBoundBox(name=lineList[0], value=bounds)
+
+
+
 
     def _findEndOfDict(self):
         """
@@ -5009,7 +5215,7 @@ class DictFileParser:
         if endOfDict is None:
             endOfDict = self._findEndOfHeader()
 
-        logger.debug('endofDict: '+str(endOfDict))
+        # logger.debug('endofDict: '+str(endOfDict))
 
         return endOfDict
 

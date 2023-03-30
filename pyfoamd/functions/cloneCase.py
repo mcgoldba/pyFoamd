@@ -20,6 +20,7 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
     The excluded directories are:
         - time directories other than '0/'
         - processor directories
+        - postProcessing directories
         - 'constant/polyMesh'
         - 'constant/extendedFeatureEdgeMesh'
     In addition, any file with size greater than the pyfoamd file size limit is 
@@ -64,6 +65,8 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
             if obj.is_dir():
                 if top and obj.name.startswith('processor'):
                     continue
+                if top and obj.name == 'postProcessing':
+                    continue
                 if top: # ignore time directories
                     try:
                         float(obj.name)
@@ -78,7 +81,7 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
                         if obj_.is_dir():
                             logger.debug(f"{tabStr}Parsing object name {obj_.name}")
                             if (obj_.name == 'polyMesh' or
-                            obj_.name == 'extendedFeatureEdgeMesh'
+                            obj_.name == 'extendedFeatureEdgeMesh' 
                             ):
                                 continue
                             logger.debug(f"{tabStr}Making directory: {(dest / 'constant' / obj_.name)}")
