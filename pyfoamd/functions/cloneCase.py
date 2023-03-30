@@ -36,9 +36,11 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
                 for the remote host in sh format (e.g. 'marc@my.remote.com')
 
     """
+    #- Note the sshSrc option currently isnt working because the src files need to
+    # be accessed for more than just the subprocess command 
 
     if not isCase(srcPath):
-        userMsg("Specified src is not a vlaid OpenFOAM case", 'ERROR')
+        userMsg("Specified src is not a valid OpenFOAM case", 'ERROR')
     
     #-Copy all cloned files to temporary directory to allow for a single call to 
     # 'subprocess'
