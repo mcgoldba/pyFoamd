@@ -9,8 +9,6 @@ import subprocess
 
 logger = logging.getLogger('pyfoamd')
 
-logger.setLevel(logging.DEBUG)
-
 
 def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
     """
@@ -38,6 +36,8 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
     """
     #- Note the sshSrc option currently isnt working because the src files need to
     # be accessed for more than just the subprocess command 
+
+    # logger.setLevel(logging.DEBUG)
 
     if not isCase(srcPath):
         userMsg("Specified src is not a valid OpenFOAM case", 'ERROR')
@@ -102,19 +102,21 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
     cmd = 'cp'
 
     if sshSrc:
-        fromStr = f'{ssh}:{str(tmpPath)}'
-        cmd = 'scp'
+        fromStr = f'{sshSrc}:{str(tmpPath)}/*'
+        cmd = 'ssh'
     else:
-        fromStr = str(tmpPath)
+        fromStr = str(tmpPath)+'/*'
         
     if sshDest:
-        toStr = f'{ssh}:{str(destPath)}'
-        cmd = 'scp'
+        toStr = f'{sshDest}:{str(destPath)}'
+        cmd = 'ssh'
     else:
         toStr = str(destPath)
 
-    cmdStr = [cmd,  '-r',  fromStr,  toStr]
+    cmdStr = f'{cmd} -r {fromStr} {toStr}'
     
-    subprocess.check_call(cmdStr)
+    logger.info(f"Copy case from {srcPath} to {toStr}")
+
+    subprocess.check_call(cmdStr, shell=True)
     
     shutil.rmtree(tmpPath)

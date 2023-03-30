@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger('pyfoamd')
 
+
 def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None):
     """
     Clone all cases found in the srcPath to the destPath.
@@ -16,15 +17,20 @@ def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None):
     sshDest [str]:  If copying to a remote location, the string of login details  
             for the remote host in sh format (e.g. 'marc@my.remote.com')
     """
-    
+        
     #- Note the sshSrc option currently isnt working because the src files need to
     # be accessed for more than just the subprocess command 
+
+    # logger.setLevel(logging.DEBUG)
 
     cases = listCases(srcPath)
 
     for casePath in cases:
         logger.debug(f"Cloning case directory: {casePath}")
-        cloneCase(casePath, 
-            destPath / casePath.relative_to(srcPath),
+
+        (destPath / casePath).mkdir(parents=True)
+
+        cloneCase(srcPath / casePath, 
+            destPath / casePath,
             sshSrc=sshSrc,
             sshDest=sshDest)
