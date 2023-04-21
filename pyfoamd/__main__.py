@@ -37,7 +37,7 @@ def main():
 
     version = pkg_resources.require("pyfoamd")[0].version
 
-    intro = main.__doc__+"version "+version + \
+    intro = "\n"+main.__doc__.strip()+"\nversion "+version + \
             " on Python "+str(sys.version_info.major)+"."+\
                     str(sys.version_info.minor)+"."+\
                     str(sys.version_info.micro)+'\n'
@@ -61,7 +61,8 @@ def main():
     #- Argument parser
     parser = argparse.ArgumentParser(
         prog = 'pf',
-        formatter_class=argparse.RawTextHelpFormatter,
+        # description=main.__doc__
+        # formatter_class=argparse.RawTextHelpFormatter,
     )
 
     #subparsers = parser.add_subparsers()
@@ -72,7 +73,9 @@ def main():
         'setConfig': None,
         'write': None,
         'plot': None,
-        'monitor': None
+        'monitor': None,
+        'cloneCase': None,
+        'cloneCases': None
     }
 
     # commandsStr = ''
@@ -115,6 +118,8 @@ def main():
     commands['write'] = cl.write
     commands['plot'] = cl.plot
     commands['monitor'] = cl.monitor
+    commands['cloneCase'] = cl.cloneCase
+    commands['cloneCases'] = cl.cloneCases
 
     commandsStr = ''
 
@@ -128,9 +133,10 @@ def main():
 
     parser.add_argument(
         'command',
-        metavar='command',
-        help=textwrap.dedent("The command to be executed.  Valid commands are:\n\n"+commandsStr),
-        choices=commands
+        # metavar='command',
+        # help=textwrap.dedent("The command to be executed.  Valid commands are:\n\n"+commandsStr),
+        help=textwrap.dedent("The command to be executed."),
+        choices=commands.keys()
     )
 
     #- Global [<options>] arguments

@@ -48,7 +48,7 @@ def readConfig(key=None, file="pyfoamd.json", caseDir=Path.cwd()):
                 for k in config.keys():
                     keyStr+= k+', '
                 keyStr = keyStr[:-2]+"."
-                log.warning("Key '"+str(key)+"' not found in file.  Found keys "/
+                log.warning("Key '"+str(key)+"' not found in file.  Found keys "
                 "are: "+keyStr)
         else:
             return config

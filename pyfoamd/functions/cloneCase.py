@@ -7,10 +7,10 @@ import logging
 import tempfile
 import subprocess
 
-logger = logging.getLogger('pyfoamd')
+logger = logging.getLogger('pf')
 
 
-def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
+def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=False):
     """
     Clone the setup files of an OpenFOAM case to a new directory.
 
@@ -30,9 +30,9 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
         src [str or Path]:  The location of the source case.
         dest [str or Path]:  The destination to copy case files to.
         sshSrc [str]:  If copying from a remote location, the string of login details  
-                for the remote host in sh format (e.g. 'marc@my.remote.com')
+                for the remote host in ssh format (e.g. 'marc@my.remote.com')
         sshDest [str]:  If copying to a remote location, the string of login details  
-                for the remote host in sh format (e.g. 'marc@my.remote.com')
+                for the remote host in ssh format (e.g. 'marc@my.remote.com')
 
     """
     #- Note the sshSrc option currently isnt working because the src files need to
@@ -41,13 +41,14 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
     # logger.setLevel(logging.DEBUG)
 
     if not isCase(srcPath):
-        userMsg("Specified src is not a valid OpenFOAM case", 'ERROR')
+        userMsg("Specified source is not a valid OpenFOAM case", 'ERROR')
     
     #-Copy all cloned files to temporary directory to allow for a single call to 
     # 'subprocess'
 
 
     srcPath = Path(srcPath)
+    destPath=Path(destPath)
 
     tmpPath = Path(tempfile.mkdtemp())
     # tmpPath = srcPath.parent / (srcPath.name+"_tmp")
@@ -84,6 +85,9 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
                             obj_.name == 'extendedFeatureEdgeMesh' 
                             ):
                                 continue
+                            if (obj_.name == 'triSurface' 
+                                and includeTriSurface == False):
+                                continue
                             logger.debug(f"{tabStr}Making directory: {(dest / 'constant' / obj_.name)}")
                             (dest / 'constant' / obj_.name).mkdir()
                             _copyObj(obj_, (dest / 'constant' /obj_.name), tabStr=tabStr)
@@ -95,8 +99,8 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
                     (dest / obj.name).mkdir()
                     _copyObj(obj, (dest / obj.name), tabStr=tabStr)
             else:
-                if obj.stat().st_size > int(getPyFoamdConfig('dict_filesize_limit')):
-                    continue
+                # if obj.stat().st_size > int(getPyFoamdConfig('dict_filesize_limit')):
+                #     continue
                 logger.debug(f"{tabStr}Copying {obj} to {dest}")
                 shutil.copy(obj, dest)
     
@@ -108,7 +112,7 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
         fromStr = f'{sshSrc}:{str(tmpPath)}/*'
         cmd = 'ssh'
     else:
-        fromStr = str(tmpPath)+'/*'
+        fromStr = str(tmpPath)+'/.'
         
     if sshDest:
         toStr = f'{sshDest}:{str(destPath)}'
@@ -117,9 +121,12 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None):
         toStr = str(destPath)
 
     cmdStr = f'{cmd} -r {fromStr} {toStr}'
-    
-    logger.info(f"Copy case from {srcPath} to {toStr}")
+
+    logger.info(f"Copying case from {srcPath} to {toStr}...")
+
+    if not destPath.is_dir():
+        destPath.mkdir(parents=True)
 
     subprocess.check_call(cmdStr, shell=True)
     
-    shutil.rmtree(tmpPath)
+    # shutil.rmtree(tmpPath)
