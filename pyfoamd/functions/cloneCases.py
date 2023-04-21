@@ -1,4 +1,4 @@
-from pyfoamd.functions import cloneCase, listCases
+from pyfoamd.functions import cloneCase, listCases, isCase
 from pyfoamd import userMsg
 import subprocess
 import shutil
@@ -30,14 +30,12 @@ def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=F
 
     cases = listCases(srcPath)
 
-    if not Path(destPath).is_dir():
-        Path(destPath).mkdir()
-    else:
-        userMsg('Destintion directory is existing.', 'ERROR')
-        sys.exit()
+    # if not Path(destPath).is_dir():
+    #     Path(destPath).mkdir()
+    # else:
+    #     userMsg('Destintion directory is existing.', 'ERROR')
+    #     sys.exit()
 
-#     subprocess.check_call(f"cp -r {srcPath.rstrip('/')}/.pyfoamd/ {destPath)}")
-    shutil.copytree(f"{srcPath.rstrip('/')}/.pyfoamd/", f"{destPath.rstrip('/')}/.pyfoamd/", dirs_exist_ok=True)
 
     for casePath in cases:
         logger.debug(f"Cloning case directory: {casePath}")
@@ -51,3 +49,21 @@ def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=F
             sshSrc=sshSrc,
             sshDest=sshDest,
             includeTriSurface=includeTriSurface)
+
+    #- Copy the .pyfoamd directory
+#     subprocess.check_call(f"cp -r {srcPath.rstrip('/')}/.pyfoamd/ {destPath)}")
+    shutil.copytree(f"{srcPath.rstrip('/')}/.pyfoamd/", f"{destPath.rstrip('/')}/.pyfoamd/", dirs_exist_ok=True)
+
+
+    #- copy all 'studySamplePoint.txt' files
+    def _parseObj(obj):
+        for obj_ in Path(obj).iterdir():
+            if isCase(obj_):
+                continue
+            if obj_.is_dir():
+                _parseObj(obj_)
+                continue
+            if obj_.is_file() and obj_.name == 'studySamplePoints.txt':
+                shutil.copy(obj_, Path(destPath) / obj_.relative_to(srcPath))
+
+    _parseObj(srcPath)
