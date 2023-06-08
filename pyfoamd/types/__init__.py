@@ -697,7 +697,8 @@ class _ofCaseBase(_ofTypeBase):
         # registry = copy.deepcopy(self._registry)
 
         copy_ = CaseParser(self._path).initOFCase()
-        copy_.__dict__ = copy.deepcopy(self.__dict__)
+        # copy_.__dict__ = copy.deepcopy(self.__dict__)
+        copy_.__dict__ = self.__dict__
         return copy_
 
     # def __deepcopy__(self, memo=None):
@@ -3438,8 +3439,8 @@ class ofStudy:
                     pass
                 else:
                     shutil.copytree(self.templateCase._path, newPath)
-                # case_ = copy.deepcopy(self.templateCase)
-                case_ = copy.copy(self.templateCase)
+                case_ = copy.deepcopy(self.templateCase)
+                # case_ = copy.copy(self.templateCase)
                 # case_ = self.templateCase
                 case_.setName(name)
                 case_ = self.updateFunction(case_, row.values.flatten().tolist())

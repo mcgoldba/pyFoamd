@@ -65,6 +65,9 @@ from .getMonitor import getMonitor
 from .foamVersion import foamVersion
 from .parseNameTag import parseNameTag
 from .clean import clean
+from .cloneCase import cloneCase
+from .cloneCases import cloneCases
+
 #import logging
 
 #Define padding for blockMeshDict

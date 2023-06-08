@@ -249,4 +249,72 @@ class CommandLine:
                     filter=args.filter, yrange=args.yrange, 
                     logScale = args.log, time = args.time)
 
+    def cloneCase(self):
+        self.prog+=' cloneCase'
+
+        parser = argparse.ArgumentParser(prog=self.prog)
+
+        parser.add_argument('src', type=str,
+                            help='The case to clone.')
+
+        parser.add_argument('dest', type=str,
+                            help='The loction to clone the case to.')
+
+        parser.add_argument('-sshSrc',type=str, nargs='?',
+                            default = None,
+                            help="If copying from a remote location, the string "
+                            "of login details for the remote host in ssh format "
+                            "(e.g. 'marc@my.remote.com')")
+        
+        parser.add_argument('-sshDest',type=str, nargs='?',
+                    default = None,
+                    help="If copying to a remote location, the string "
+                    "of login details for the remote host in ssh format "
+                    "(e.g. 'marc@my.remote.com')")
+        
+        parser.add_argument('-includeTriSurface',
+            action='store_true',
+            help="Copy files located in the '<case>/constant/triSurface' directory."                    
+            )
+
+        args = parser.parse_args(self.addArgs)
+
+        pf.cloneCase(args.src, args.dest, sshSrc=args.sshSrc, 
+            sshDest=args.sshDest, includeTriSurface=args.includeTriSurface)
+    
+    def cloneCases(self):
+        self.prog += ' cloneCases'
+
+        parser = argparse.ArgumentParser(
+            prog=self.prog,
+            description="Clone all cases found in the srcPath to destPath"
+            )
+
+        parser.add_argument('src', type=str,
+                            help='The case to clone.')
+
+        parser.add_argument('dest', type=str,
+                            help='The loction to clone the case to.')
+
+        parser.add_argument('-sshSrc',type=str, nargs='?',
+                            default = None,
+                            help="If copying from a remote location, the string "
+                            "of login details for the remote host in ssh format "
+                            "(e.g. 'marc@my.remote.com')")
+        
+        parser.add_argument('-sshDest',type=str, nargs='?',
+                    default = None,
+                    help="If copying to a remote location, the string "
+                    "of login details for the remote host in ssh format "
+                    "(e.g. 'marc@my.remote.com')")
+
+        parser.add_argument('-includeTriSurface',
+            action='store_true',
+            help="Copy files located in the '<case>/constant/triSurface' directory."                    
+            )
+
+        args = parser.parse_args(self.addArgs)
+
+        pf.cloneCases(args.src, args.dest, sshSrc=args.sshSrc, 
+            sshDest=args.sshDest, includeTriSurface=args.includeTriSurface)
 
