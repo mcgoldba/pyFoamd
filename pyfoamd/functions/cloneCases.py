@@ -63,7 +63,8 @@ def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=F
             if obj_.is_dir():
                 _parseObj(obj_)
                 continue
-            if obj_.is_file() and obj_.name == 'studySamplePoints.txt':
-                shutil.copy(obj_, Path(destPath) / obj_.relative_to(srcPath))
+            if (obj_.is_file() and obj_.name == 'studySamplePoints.txt'
+                and (Path(destPath) / obj_.relative_to(srcPath)).parent.is_dir()):
+                shutil.copy(obj_, (Path(destPath) / obj_.relative_to(srcPath)))
 
     _parseObj(srcPath)

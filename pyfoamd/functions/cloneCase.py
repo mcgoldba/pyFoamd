@@ -7,6 +7,7 @@ import logging
 import tempfile
 import subprocess
 
+
 logger = logging.getLogger('pf')
 
 
@@ -100,7 +101,9 @@ def cloneCase(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=Fa
                     _copyObj(obj, (dest / obj.name), tabStr=tabStr)
             else:
                 # if obj.stat().st_size > int(getPyFoamdConfig('dict_filesize_limit')):
-                #     continue
+                # if obj.stat().st_size > 50000000: #500MB
+                if obj.stat().st_size > int(getPyFoamdConfig('dict_filesize_limit')):
+                    continue
                 logger.debug(f"{tabStr}Copying {obj} to {dest}")
                 shutil.copy(obj, dest)
     
