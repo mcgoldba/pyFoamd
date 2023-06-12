@@ -108,6 +108,14 @@ class _ofTypeBase:
         return str(self.__class__).split()[-1].strip("'<> ").split('.')[-1]
         #return type(self)
 
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+        return result
+
 
     def attrDict(self):
         """
@@ -418,7 +426,12 @@ class _ofFolderBase(_ofFolderItemBase):
         # logger.debug(f"self: {self}")
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
-        return type(self)()
+        # return type(self)()
+
+        copy_ = FolderParser(None, self._path).initOFFolder()
+        for k,v in self.__dict__.items():
+            setattr(copy_, k, copy.deepcopy(v,memo))
+        return copy_
     
     def __iter__(self):
         # logger.debug(f"self: {self}")
@@ -681,7 +694,7 @@ class _ofCaseBase(_ofTypeBase):
     def __str__(self):
         return str(self._path)
 
-    def __deepcopy__(self, memo=None):
+    def __deepcopy__(self, memo):
         # logger.debug(f"self: {self}")
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
@@ -696,18 +709,30 @@ class _ofCaseBase(_ofTypeBase):
         
         # registry = copy.deepcopy(self._registry)
 
+
         copy_ = CaseParser(self._path).initOFCase()
         # copy_.__dict__ = copy.deepcopy(self.__dict__)
-        copy_.__dict__ = self.__dict__
+
+        # ref: https://stackoverflow.com/a/15774013/10592330 
+        # memo[id(copy_)] = copy_
+        for k,v in self.__dict__.items():
+            setattr(copy_, k, copy.deepcopy(v,memo))
+            # copy_[k] = copy.deepcopy(v,memo)
+        # dictCopy = copy.deepcopy(self.__dict__)
+
+        # logger.debug(f"dictCopy:\n{dictCopy}")
+
+        # copy_.__dict__.update(dictCopy)
+        # copy_.__dict__ = self.__dict__
+
         return copy_
 
-    # def __deepcopy__(self, memo=None):
-    #     cls = self.__class__
-    #     result = cls.__new__(cls)
-    #     memo[id(self)] = result
-    #     for k, v in self.__dict__.items():
-    #         setattr(result, k, copy.deepcopy(v, memo))
-    #     return result
+    # def __deepcopy__(self, memo):
+    #     return type(self)(
+    #         _times=self._times,
+    #         constant = self.constant,
+    #         system = self.system
+    #         )
 
     def __iter__(self):
         # logger.debug(f"vars(self).keys(): {vars(self).keys()}")
@@ -1892,6 +1917,7 @@ class ofDict(dict, _ofTypeBase):
     def __setattr__(self, key, value):
         key_ = _checkReserved(key)
         # logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
+        # print(f"ofDict.__setattr__ key value: {key_}, {value}")
         super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
         super(ofDict, self).__setattr__(key_, value)
@@ -1930,12 +1956,13 @@ class ofDict(dict, _ofTypeBase):
                 if hasattr(ofType, '_name') and ofType._name is None:
                     ofType._name = key
             # logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
-            # self.__dict__[key] = ofType
-            super(ofDict, self).__dict__[key_] = ofType
+            self.__dict__[key] = ofType
+            # super(ofDict, self).__dict__[key_] = ofType
         else:
-            # self.__dict__[key] = value
+            # print(f"setting {key}: {value}")
+            self.__dict__[key] = value
             # key_ = _parseNameTag(key_)
-            super(ofDict, self).__dict__[key_] = value
+            # super(ofDict, self).__dict__[key_] = value
 
     # def __delattr__(self, name):
     #     super(ofDict, self).__delitem__(self, name)
@@ -1954,12 +1981,21 @@ class ofDict(dict, _ofTypeBase):
     #     for item in vars(self).items():
     #         yield item
 
-    def __deepcopy__(self, memo=None):
-        # print("__deepcopy__ type(self):", type(self))
-        new_ = ofDict()
-        for key in self.keys():
-            new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
-        return new_
+    # def __deepcopy__(self, memo=None):
+    #     # print("__deepcopy__ type(self):", type(self))
+    #     new_ = ofDict()
+    #     for key in self.keys():
+    #         new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
+    #     return new_
+
+    # def __deepcopy__(self, memo):
+    #     cls = self.__class__
+    #     result = cls.__new__(cls)
+    #     memo[id(self)] = result
+    #     for k, v in self.__dict__.items():
+    #         print(f"copying {k}: {v}")
+    #         setattr(result, k, deepcopy(v, memo))
+    #     return result
 
     # _update = dict.update
 
@@ -2103,6 +2139,7 @@ class ofFoamFile(ofDict):
     def __post_init__(self, *args, **kwargs):
         super(ofFoamFile, self).__init__(*args, **kwargs)
         self._name = 'FoamFile'
+        
 
 
 
@@ -2185,8 +2222,9 @@ class ofDictFile(ofDict, _ofFolderItemBase):
         #                         str(Path.cwd() / self._name)) \
         #                             if self._name is not None else ""
         self._header : ofHeader = ofHeader()
-        # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
-        self._foamFile: ofFoamFile = None 
+        # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile)
+        self._foamFile: ofFoamFile = None  
+        # self._foamFile: ofFoamFile = ofFoamFile() 
         # self._CLASS_VARS.append('_location')
         self._CLASS_VARS.append('_header')
         self._CLASS_VARS.append('_foamFile')
