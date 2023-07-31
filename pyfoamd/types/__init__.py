@@ -3862,6 +3862,7 @@ class DictFileParser:
                     self.nComments += 1
                 elif isinstance(value, _ofFunctionEntry):
                     name_ = value.feType+str(self.nFeTypes[value.feType])
+                    self.dictFile.update({name_: value})
                     self.nFeTypes[value.feType]+= 1
                 else:
                     logger.error(f"Invalid value type: {type(value)}.")
@@ -3909,6 +3910,7 @@ class DictFileParser:
             elif lineList[0][0] == '#':
                 if len(lineList) == 2 and 'include' in lineList[0]:
                     value = self._parseIncludes(lineList[0], lineList[1])
+                    logger.debug(f"includeValue: {value}")
                 else:
                     value = self._parseFunctionEntry(lineList=lineList)
                 return value
@@ -4625,6 +4627,7 @@ class DictFileParser:
         """
         Extract value as the appropriate include type
         """
+        logger.debug(f"parsing key '{key}', and value '{value}'.")
 
         if key == '#includeEtc':
             return ofIncludeEtc(value)
