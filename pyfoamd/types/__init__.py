@@ -52,7 +52,12 @@ for _ in range(TAB_SIZE): TAB_STR+= " "
 
 BRACKET_CHARS = {
     'dict': ['{', '}'],
-    'list': ['(', ')']
+    'list': ['(', ')'],
+    'functionEntry': [
+        ['"', '"'],
+        ['{', '}'],
+        ['#{', '#}']
+    ]
 }
 
 COMMENT_TAG = "_comment_"
@@ -1188,16 +1193,6 @@ class _ofIntBase(_ofNamedTypeBase):
 class _ofFloatBase(_ofIntBase):
     name: str = None
     value: float = None
-
-@dataclass
-class _ofStrBase(_ofIntBase):
-    name: str = None
-    value: str = None
-
-@dataclass
-class _ofIncludeBase(_ofTypeBase):
-    _name: str="#include"
-    value: str = None
 
 # @dataclass
 # class _ofBoolBase(_ofIntBase):
@@ -2739,47 +2734,6 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
     def __str__(self):
         return self.toString().rstrip(';\n')
 
-@dataclass
-class ofInclude(_ofUnnamedTypeBase):
-    _name: str = field(init=False, default="#include")
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, v):
-        if v is not None:
-            if isinstance(v, str):
-                self._value = v.strip('"')
-            else:
-                raise ValueError(f"The 'include' value must be a string.  Got "\
-                    f"'{v}'.")
-        else:
-            self._value = v
-
-
-    def toString(self, ofRep=False) -> str:
-        return printNameStr(self._name)+'"'+str(self.value)+'"\n\n'
-
-    def __str__(self):
-        return self.toString().rstrip('\n')
-
-TYPE_REGISTRY.append(ofInclude)
-
-@dataclass
-class ofIncludeEtc(ofInclude):
-    # _name: str = "#includeEtc"
-    _name: str = field(init=False, default="#includeEtc")
-
-TYPE_REGISTRY.append(ofIncludeEtc)
-
-@dataclass
-class ofIncludeFunc(ofInclude):
-    # _name: str = "#includeFunc"
-    _name: str = field(init=False, default="#includeFunc")
-
-TYPE_REGISTRY.append(ofIncludeFunc)
 
 # def _parseProbeValues(logPath):
 #     """
@@ -2823,6 +2777,199 @@ TYPE_REGISTRY.append(ofIncludeFunc)
 #     # data = np.loadtxt(logPath, delimiter='\t')
 
 #     # logger.debug(data)
+
+#- Define functionEntries types
+
+# @dataclass
+# class _ofFunctionEntry(_ofNamedTypeBase)
+    # def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+    #     _comment=None):
+    #     super(_ofFunctionEntry, self).__init__(arg1, arg2, name, value, _comment)
+
+@dataclass
+class _ofFunctionEntry(_ofUnnamedTypeBase):
+    _feType: str = None
+    _feBracketType: int = None
+
+    @property
+    def feType(self) -> str:
+        return self._feType
+
+    @feType.setter
+    def feType(self, v: str) -> None:
+        self._feType = v
+
+
+    @property
+    def feBracketType(self) -> int:
+        return self._feBracketType
+
+    @feBracketType.setter
+    def feBracketType(self, v: int) -> None:
+        self._feType = v
+
+    def toString(self, ofRep=False) -> str:
+        pstr = f'#{printNameStr(self.feType)}'
+        pstr += BRACKET_CHARS[2][self._feBracketType][0]
+        pstr+= self.value
+        pstr += BRACKET_CHARS[2][self._feBracketType][1]
+
+
+        if ofRep:
+            pStr+=';'
+        
+        if self._comment is not None:
+            pStr+= f" {str(self._comment)}"
+
+        return pStr+'\n'
+
+@dataclass
+class ofInclude(_ofFunctionEntry):
+
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'include'
+    @_ofFunctionEntry.feBracketType.getter
+    def feBracketType(self):
+        return 0
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            if isinstance(v, str):
+                self._value = v.strip('"')
+            else:
+                raise ValueError(f"The 'include' value must be a string.  Got "\
+                    f"'{v}'.")
+        else:
+            self._value = v
+
+
+    def toString(self, ofRep=False) -> str:
+        return printNameStr(self._name)+'"'+str(self.value)+'"\n\n'
+
+    def __str__(self):
+        return self.toString().rstrip('\n')
+
+@dataclass
+class ofIncludeEtc(ofInclude):
+    
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'includeEtc'
+
+@dataclass
+class ofIncludeFunc(ofInclude):
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'includeFunc'
+
+@dataclass
+class ofEval(_ofNamedTypeBase, _ofFunctionEntry):
+    code: str = None
+
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofEval, self).__init__(arg1, arg2, name, value, _comment)
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'eval'
+
+@dataclass
+class ofCalc(_ofFunctionEntry):
+    code: str = None
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'calc'
+    
+@dataclass #TODO:  toString argument needs modified to allow if else syntax
+class ofIf(_ofFunctionEntry):
+    code: str = None
+
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'if'
+
+@dataclass
+class ofRemove(_ofFunctionEntry):
+    code: str = None
+
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'remove'
+
+
+@dataclass  #TODO:  Should this be a named type
+class ofCodeStream(ofEval):
+    include: List = None
+    options: List = None
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'codeStream'
+
+    def toString(self, ofRep=False) -> str:
+        """ 
+        Convert to a string representation.  If ofRep is `True` prints  a string
+        conforming to an OpenFOAM dictionry. 
+        """
+        # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+        if self._name:
+            dStr = self._name+" #"+self.feType+"\n{\n"
+        else:
+            dStr = "#"+self.feType+"\n{\n"
+        # for k, v in zip(self.keys(), self.values()):
+        for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
+            k = k.rstrip('_') # remove possible "_" added in _checkReserved
+            # logger.debug(f"dict entry: {k}: {v}")
+            if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
+                k=''
+            if k not in self._CLASS_VARS:
+                if isinstance(v, ofDict):
+                    # logger.debug("Found ofDict.")
+                    dStr2 = v.toString(ofRep=ofRep).split("\n")
+                    for i in range(len(dStr2)):
+                        dStr2[i] = TAB_STR+dStr2[i]+"\n"
+                        dStr += dStr2[i]
+                elif isinstance(v, ofList):
+                    vList = v.toString(ofRep=ofRep).split('\n')
+                    for v_ in vList:
+                        dStr+= TAB_STR+v_+'\n'
+                    # dStr = dStr.rstrip()
+                    # dStr+=';'
+                    dStr += '\n'
+                elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+                    # dStr += printNameStr(TAB_STR+k)+v.toString()
+                    dStr += TAB_STR+v.toString(ofRep=ofRep)
+                    # logger.debug("Found 'toString()' method.")
+                else:
+                    # logger.debug("Could not find 'toString()' method.")
+                    dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
+
+            # logger.debug(f"dict string: {dStr}")
+        dStr+= "}\n\n"
+        # if not ofRep:
+        #     dStr = dStr.replace(';', '')
+        return dStr
+
+#- Create the list of OF_FUNCTION_OBJECTS
+OF_FUNCTION_ENTRIES = {}
+def createFunctionEntryRegistrty(func):
+    for dc in func.__subclasses__():
+        OF_FUNCTION_ENTRIES.update({dc().feType: dc})
+        createFunctionEntryRegistrty(dc)
+createFunctionEntryRegistrty(_ofFunctionEntry)
+
 
 @dataclass
 class _ofMonitorBase:
@@ -3728,10 +3875,20 @@ class DictFileParser:
         try:
             parsedComment = self._parseComments()
             if parsedComment is not None:
-                return parsedComment  
+                return parsedComment
             elif len(lineList) == 0:
                 # Line is blank
                 return None
+            elif lineList[0][0] == '#':
+                if len(lineList) == 2 and 'include' in lineList[0]:
+                    value = self._parseIncludes(lineList[0], lineList[1])
+                else:
+                    value = self._parseFunctionEntry(lineList=lineList)
+                return value
+            elif len(lineList) >= 2:
+                if lineList[1][0] == '#':
+                    value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+                    return value
             elif len(lineList) == 1:
                 if lineList[0].strip() == '};' or lineList[0] == ');':
                     #- ending list or dict
@@ -3797,10 +3954,10 @@ class DictFileParser:
         
         #logger.debug(f"lineList: {lineList}")
         
-        if lineList[0].startswith('#include'):
-            # Found include statement 
-            return self._parseIncludes(lineList[0], lineList[1].rstrip(';'))
-        elif lineList[1][-1] == ';':
+        # if lineList[0].startswith('#include'):
+        #     # Found include statement 
+        #     return self._parseIncludes(lineList[0], lineList[1].rstrip(';'))
+        if lineList[1][-1] == ';':
             # Found single line entry
             return self._parseSingleLineEntry(lineList[0], 
                 lineList[1].rstrip(';'))
@@ -4659,7 +4816,8 @@ class DictFileParser:
         if any([value == b for b in OF_BOOL_VALUES.keys()]):
             return ofBool, value
 
-        if value != ';' or value != '': 
+        if value != ';' or value != '':
+
             return ofStr, value.strip(';')
         else:
             return None, None
@@ -4899,6 +5057,80 @@ class DictFileParser:
             logger.warning("Parsing single line as 'ofMultilineStatement'.")
 
         return ofMultilineStatement(name=key, value=value)
+
+    def _parseFunctionEntry(self, lineList=None, name=None):
+        """
+        Parse a functionEntry type.  e.g. evalEntry, codeStream, ifEntry, etc.
+
+        Anything that starts with the '#'
+        """
+        if lineList is None:
+            lineList = self._getLinesList(self.lines[self.i])
+
+
+        if lineList[0].strip()[0] != '#':
+            userMsg(f"Unhandled Pattern:  String found on line {self.i} of " \
+                    f"file {self.filepath} cannot be parsed.", 'ERROR')
+
+        feType = lineList[0].strip('#')
+
+        #- Determine which type of bracket character is used ('{', '"' or '#{')
+        if feType[-1] == '{':
+            bCharType = 1
+            feType=feType[:-1] #- remove the '{' from the name
+        elif lineList[1][0] == '"':
+            bCharType = 0
+        elif lineList[1][:1] == '#{':
+            bCharType = 2
+
+        openingChar = BRACKET_CHARS['functionEntry'][bCharType][0]
+        closingChar = BRACKET_CHARS['functionEntry'][bCharType][1]
+
+        #- Check if single line entry
+        valueList = ' '.join(lineList[1:]).lstrip(openingChar).split(';')
+        if closingChar in ''.join(lineList[1:])[1:]:
+
+            value = valueList[0].rstrip(closingChar)
+            if len(valueList) > 1:
+                self.extraLine = ' '.join(valueList[1:])
+        else:
+            value = ' '.join(valueList)+"\n"
+            self.i += 1
+            print(f"closingChar: {closingChar}")
+            line_= self.lines[self.i]
+            while closingChar not in line_:
+                value += self.lines[self.i]+"\n"
+                self.i += 1
+                if self.i > len(self.lines):
+                    userMsg("Unhandled Pattern:  Could not find end of "\
+                            "function entry", "ERROR")
+                line_= self.lines[self.i]
+        #- Add last line
+        comment = None
+        if self.lines[self.i].startswith(closingChar):
+            #check for trailing comment
+            extraLineList = self.lines[self.i].split(closingChar)
+            if len(valueList) > 0:
+                line = ''.join(extraLineList).strip()
+                if line.startswith('//'):
+                    comment = line.lstrip('//')
+        else:
+            valueList = self.lines[self.i].split(closingChar)
+            value += valueList[0]+'\n'
+            if len(valueList) >= 1: 
+                extraLine = "".join(valueList[1:])
+                if extraLine.startswith('//'):
+                    comment = extraLine.lstrip('//')
+
+
+        rv = OF_FUNCTION_ENTRIES[feType](
+            value, name=name, _comment=comment
+            )
+        rv.feBracketType = bCharType
+        return rv
+
+
+
 
     def _parseComments(self, line=None):
         """
