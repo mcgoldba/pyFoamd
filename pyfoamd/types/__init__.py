@@ -5123,10 +5123,11 @@ class DictFileParser:
         closingChar = BRACKET_CHARS['functionEntry'][bCharType][1]
 
         #- Check if single line entry
-        valueList = ' '.join(lineList[1:]).lstrip(openingChar).split(';')
+        valueList = ' '.join(lineList[1:]).split(';')
+        #TODO:   Does this capture anything after the ';'?
         if closingChar in ''.join(lineList[1:])[1:]:
-
-            value = valueList[0].rstrip(closingChar)
+            value = valueList[0].rstrip(closingChar).strip()
+            logger.debug(f"valueList: {valueList}")
             if len(valueList) > 1:
                 self.extraLine = ' '.join(valueList[1:])
         else:
@@ -5158,7 +5159,9 @@ class DictFileParser:
                 foundClosing = re.search(f"(?<!\#)\{closingChar}",line_) if \
                     closingChar == '}' else (closingChar in line_)
                 # line_= self.lines[self.i]
-        #- Add last line
+            #- Add last line
+            value += line_+"\n"
+        #- Add comment
         comment = None
         if self.lines[self.i].startswith(closingChar):
             #check for trailing comment
@@ -5168,8 +5171,8 @@ class DictFileParser:
                 if line.startswith('//'):
                     comment = line.lstrip('//')
         else:
-            valueList = self.lines[self.i].split(closingChar)
-            value += valueList[0]+'\n'
+            # valueList = self.lines[self.i].split(closingChar)
+            # value += valueList[0]+'\n'
             if len(valueList) >= 1: 
                 extraLine = "".join(valueList[1:])
                 if extraLine.startswith('//'):
