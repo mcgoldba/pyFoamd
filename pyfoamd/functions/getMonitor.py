@@ -26,7 +26,8 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
         startTime [str]:  The start time from which to read the log 
             data.  Accepts a string value as either `latestTime` or a numerical 
             value indicating the start time.  If `latestTime` data will be read 
-            from last time in the `field` directory.
+            from last time in the `field` directory.  If 'all' collects data
+            from all start times available for monitor.
         logPath [str]: The path of the log file to read.  If specified, the
             `field` argument is ignored.
 
@@ -37,8 +38,13 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
 
     # logging.getLogger('pf').setLevel(logging.DEBUG)
 
+    if startTime == 'all':
+        allTimes = True
+    else:
+        allTimes = False
+
     if logPath is None:
-        if startTime == 'latestTime':
+        if startTime == 'latestTime' or startTime == 'all':
             timePath = Path(workingDir) / 'postProcessing' / name
             startTime = 0
             for time in timePath.iterdir():
