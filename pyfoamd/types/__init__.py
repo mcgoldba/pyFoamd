@@ -2789,7 +2789,7 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
 @dataclass
 class _ofFunctionEntry(_ofUnnamedTypeBase):
     _feType: str = None
-    _feBracketType: int = None
+    _feBracketType: int = 1
 
     @property
     def feType(self) -> str:
@@ -2809,10 +2809,10 @@ class _ofFunctionEntry(_ofUnnamedTypeBase):
         self._feType = v
 
     def toString(self, ofRep=False) -> str:
-        pstr = f'#{printNameStr(self.feType)}'
-        pstr += BRACKET_CHARS[2][self._feBracketType][0]
-        pstr+= self.value
-        pstr += BRACKET_CHARS[2][self._feBracketType][1]
+        pStr = f'#{printNameStr(self.feType)}'
+        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]
+        pStr+= self.value
+        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][1]
 
 
         if ofRep:
@@ -2870,16 +2870,33 @@ class ofIncludeFunc(ofInclude):
         return 'includeFunc'
 
 @dataclass
-class ofEval(_ofNamedTypeBase, _ofFunctionEntry):
+class ofEval(_ofFunctionEntry, _ofNamedTypeBase):
     code: str = None
 
     def __init__(self, arg1=None, arg2=None, name=None, value=None, 
         _comment=None):
-        super(ofEval, self).__init__(arg1, arg2, name, value, _comment)
+        # super(ofEval, self).__init__(arg1, arg2, name, value, _comment)
+        _ofNamedTypeBase.__init__(self, arg1, arg2, name, value, _comment)
 
     @_ofFunctionEntry.feType.getter
     def feType(self):
         return 'eval'
+
+    def toString(self, ofRep=False) -> str:
+        pStr = f'{printNameStr(self.name)}' if self.nane is not None else ''
+        pStr += f'#{self.feType}'
+        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]
+        pStr+= self.value
+        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][1]
+
+
+        if ofRep:
+            pStr+=';'
+        
+        if self._comment is not None:
+            pStr+= f" {str(self._comment)}"
+
+        return pStr+'\n'
 
 @dataclass
 class ofCalc(_ofFunctionEntry):
