@@ -2851,7 +2851,7 @@ class ofInclude(_ofFunctionEntry):
 
 
     def toString(self, ofRep=False) -> str:
-        return printNameStr(self._name)+'"'+str(self.value)+'"\n\n'
+        return printNameStr(f"#{self.feType}")+'"'+str(self.value)+'"\n\n'
 
     def __str__(self):
         return self.toString().rstrip('\n')
@@ -2913,54 +2913,58 @@ class ofCodeStream(ofEval):
     include: List = None
     options: List = None
 
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofCodeStream, self).__init__(arg1, arg2, name, value, _comment)
+
     @_ofFunctionEntry.feType.getter
     def feType(self):
         return 'codeStream'
 
-    def toString(self, ofRep=False) -> str:
-        """ 
-        Convert to a string representation.  If ofRep is `True` prints  a string
-        conforming to an OpenFOAM dictionry. 
-        """
-        # logging.getLogger('pf').setLevel(logging.DEBUG)
+    # def toString(self, ofRep=False) -> str:
+    #     """ 
+    #     Convert to a string representation.  If ofRep is `True` prints  a string
+    #     conforming to an OpenFOAM dictionry. 
+    #     """
+    #     # logging.getLogger('pf').setLevel(logging.DEBUG)
 
-        if self._name:
-            dStr = self._name+" #"+self.feType+"\n{\n"
-        else:
-            dStr = "#"+self.feType+"\n{\n"
-        # for k, v in zip(self.keys(), self.values()):
-        for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
-            k = k.rstrip('_') # remove possible "_" added in _checkReserved
-            # logger.debug(f"dict entry: {k}: {v}")
-            if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
-                k=''
-            if k not in self._CLASS_VARS:
-                if isinstance(v, ofDict):
-                    # logger.debug("Found ofDict.")
-                    dStr2 = v.toString(ofRep=ofRep).split("\n")
-                    for i in range(len(dStr2)):
-                        dStr2[i] = TAB_STR+dStr2[i]+"\n"
-                        dStr += dStr2[i]
-                elif isinstance(v, ofList):
-                    vList = v.toString(ofRep=ofRep).split('\n')
-                    for v_ in vList:
-                        dStr+= TAB_STR+v_+'\n'
-                    # dStr = dStr.rstrip()
-                    # dStr+=';'
-                    dStr += '\n'
-                elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
-                    # dStr += printNameStr(TAB_STR+k)+v.toString()
-                    dStr += TAB_STR+v.toString(ofRep=ofRep)
-                    # logger.debug("Found 'toString()' method.")
-                else:
-                    # logger.debug("Could not find 'toString()' method.")
-                    dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
+    #     if self._name:
+    #         dStr = self._name+" #"+self.feType+"\n{\n"
+    #     else:
+    #         dStr = "#"+self.feType+"\n{\n"
+    #     # for k, v in zip(self.keys(), self.values()):
+    #     for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
+    #         k = k.rstrip('_') # remove possible "_" added in _checkReserved
+    #         # logger.debug(f"dict entry: {k}: {v}")
+    #         if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
+    #             k=''
+    #         if k not in self._CLASS_VARS:
+    #             if isinstance(v, ofDict):
+    #                 # logger.debug("Found ofDict.")
+    #                 dStr2 = v.toString(ofRep=ofRep).split("\n")
+    #                 for i in range(len(dStr2)):
+    #                     dStr2[i] = TAB_STR+dStr2[i]+"\n"
+    #                     dStr += dStr2[i]
+    #             elif isinstance(v, ofList):
+    #                 vList = v.toString(ofRep=ofRep).split('\n')
+    #                 for v_ in vList:
+    #                     dStr+= TAB_STR+v_+'\n'
+    #                 # dStr = dStr.rstrip()
+    #                 # dStr+=';'
+    #                 dStr += '\n'
+    #             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+    #                 # dStr += printNameStr(TAB_STR+k)+v.toString()
+    #                 dStr += TAB_STR+v.toString(ofRep=ofRep)
+    #                 # logger.debug("Found 'toString()' method.")
+    #             else:
+    #                 # logger.debug("Could not find 'toString()' method.")
+    #                 dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
 
-            # logger.debug(f"dict string: {dStr}")
-        dStr+= "}\n\n"
-        # if not ofRep:
-        #     dStr = dStr.replace(';', '')
-        return dStr
+    #         # logger.debug(f"dict string: {dStr}")
+    #     dStr+= "}\n\n"
+    #     # if not ofRep:
+    #     #     dStr = dStr.replace(';', '')
+    #     return dStr
 
 #- Create the list of OF_FUNCTION_OBJECTS
 OF_FUNCTION_ENTRIES = {}
@@ -3728,6 +3732,7 @@ class DictFileParser:
         self.extraLine = []
         self.comment = []
         self.nComments = 0
+        self.nFeTypes = {t: 0 for t in OF_FUNCTION_ENTRIES.keys()}
         self.needSemicolon = True
 
 
@@ -3818,9 +3823,11 @@ class DictFileParser:
             # logger.debug(f"dictFile name = {self.dictFile._name} ")
 
             if value is not None:
+                logger.debug(f"adding value: {value}")
             #     self.entryList.append(value)
                 if (isinstance(value, _ofTypeBase) 
-                    and not isinstance(value, ofComment)):
+                    and not isinstance(value, ofComment)
+                    and not isinstance(value, _ofFunctionEntry)):
                     #- rename key if already in dict:
                     if value._name in self.dictFile.keys():
                         # logger.debug("Renaming duplicate key.")
@@ -3836,6 +3843,9 @@ class DictFileParser:
                     name_ = COMMENT_TAG+str(self.nComments)
                     self.dictFile.update({name_: value})
                     self.nComments += 1
+                elif isinstance(value, _ofFunctionEntry):
+                    name_ = value.feType+str(self.nFeTypes[value.feType])
+                    self.nFeTypes[value.feType]+= 1
                 else:
                     logger.error(f"Invalid value type: {type(value)}.")
                     sys.exit()
@@ -3885,10 +3895,10 @@ class DictFileParser:
                 else:
                     value = self._parseFunctionEntry(lineList=lineList)
                 return value
-            elif len(lineList) >= 2:
-                if lineList[1][0] == '#':
-                    value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
-                    return value
+            # elif len(lineList) >= 2:
+            #     if lineList[1][0] == '#':
+            #         value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+            #         return value
             elif len(lineList) == 1:
                 if lineList[0].strip() == '};' or lineList[0] == ');':
                     #- ending list or dict
@@ -3934,9 +3944,17 @@ class DictFileParser:
 
                     return value
             elif len(lineList) == 2:
-                return self._parseLineLenTwo()
+                if lineList[1][0] == '#':
+                    value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+                    return value
+                else:
+                    return self._parseLineLenTwo() 
             else:  # Multiple value entry
-                return self._parseLineLenGreaterThanTwo()
+                if lineList[1][0] == '#':
+                    value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+                    return value
+                else:
+                    return self._parseLineLenGreaterThanTwo()
         except Exception as e:
             raise e
         finally:
@@ -5075,13 +5093,31 @@ class DictFileParser:
         feType = lineList[0].strip('#')
 
         #- Determine which type of bracket character is used ('{', '"' or '#{')
+        bi = 0 if len(lineList) == 1 else 1
+        bCharType = None
         if feType[-1] == '{':
             bCharType = 1
-            feType=feType[:-1] #- remove the '{' from the name
-        elif lineList[1][0] == '"':
+            feType=feType[:-1] #- remove the '{' from the name    
+        elif lineList[bi][0] == '"':
             bCharType = 0
-        elif lineList[1][:1] == '#{':
+        elif lineList[bi][:1] == '#{':
             bCharType = 2
+        else:
+            #- Search the next lines
+            while bCharType is None:            
+                self.i +=1
+                lineList = lineList = self._getLinesList(self.lines[self.i])
+                if len(lineList) > 0:
+                    logger.debug(f"lineList[0][0]: {lineList[0][0]}")
+                    if lineList[0][0] == '{':
+                        bCharType = 1
+                    elif lineList[0][0] == '"':
+                        bCharType = 0
+                    elif lineList[0][:1] == '#{':
+                        bCharType = 2
+                    else:
+                        logger.error(f"Could not find functionEntry bracket type.")
+                        sys.exit()
 
         openingChar = BRACKET_CHARS['functionEntry'][bCharType][0]
         closingChar = BRACKET_CHARS['functionEntry'][bCharType][1]
@@ -5096,15 +5132,32 @@ class DictFileParser:
         else:
             value = ' '.join(valueList)+"\n"
             self.i += 1
-            print(f"closingChar: {closingChar}")
+            logger.debug(f"closingChar: {closingChar}")
             line_= self.lines[self.i]
-            while closingChar not in line_:
-                value += self.lines[self.i]+"\n"
+            foundClosing = False
+            while not foundClosing:
+                logger.debug(f"line_: {line_}")
+                # prevChar=None
+                # for c in range(len(line_)):
+                #     if line_[c] == closingChar:
+                #         logger.debug("found closingChar.")
+                #         #make sure '}' is not part of '#}'
+                #         if closingChar == '}' and prevChar == '#':
+                #             pass
+                #         else:
+                #             break
+                #     value += line_[c]
+                #     prevChar = line_[c]
+                # value += "\n"
+                value += line_+"\n"
                 self.i += 1
                 if self.i > len(self.lines):
                     userMsg("Unhandled Pattern:  Could not find end of "\
                             "function entry", "ERROR")
                 line_= self.lines[self.i]
+                foundClosing = re.search(f"(?<!\#)\{closingChar}",line_) if \
+                    closingChar == '}' else (closingChar in line_)
+                # line_= self.lines[self.i]
         #- Add last line
         comment = None
         if self.lines[self.i].startswith(closingChar):
