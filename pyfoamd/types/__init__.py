@@ -114,8 +114,8 @@ class _ofTypeBase:
         memo[id(self)] = result
         for k, v in self.__dict__.items():
             setattr(result, k, copy.deepcopy(v, memo))
-        if hasattr(result, '_name'):
-            print(f"ofTypeBase updated {result._name}.")
+        # if hasattr(result, '_name'):
+        #     print(f"ofTypeBase updated {result._name}.")
         # else:
         #     print(f"ofTypeBase updated {type(result)}.")
         
@@ -435,14 +435,14 @@ class _ofFolderBase(_ofFolderItemBase):
 
         copy_ = FolderParser(None, self._path).initOFFolder()
         for k,v in self.__dict__.items():
-            if hasattr(v, '_name'):
-                print(f"FolderParser copying {k}: {v._name}")
-            else:
-                print(f"FolderParser copying {k}: {v}")
+            # if hasattr(v, '_name'):
+            #     print(f"FolderParser copying {k}: {v._name}")
+            # else:
+            #     print(f"FolderParser copying {k}: {v}")
 
             setattr(copy_, k, copy.deepcopy(v,memo))
-            if hasattr(v, '_name'):
-                print(f"FolderParser after setattr {k}: {copy_[k]._name}")
+            # if hasattr(v, '_name'):
+            #     print(f"FolderParser after setattr {k}: {copy_[k]._name}")
 
         return copy_
     
@@ -462,14 +462,14 @@ class _ofFolderBase(_ofFolderItemBase):
     def __setattr__(self, key, value):
         # logger.debug(f"Setting ofFolder attribute: {key}: {value}")
         if isinstance(value, _ofFolderItemBase):
-            print(f"value._type: {value._type}")
+            # print(f"value._type: {value._type}")
             if hasattr(value, "_name"):  # ofFolders do not have a "_name" attribute
-                print(f"value._name: {value._name}")
+                # print(f"value._name: {value._name}")
                 # value._name = key
                 value.update({'_name': value._name})
                 # key_ = _parseNameTag(key_)
                 # key_ = key
-                print(f"value._name: {value._name}")
+                # print(f"value._name: {value._name}")
             # logger.debug(f"ofFolder adding attribute {key_} as {value}")
             # super(_ofFolderBase, self).__setitem__(key_, value)
             super(_ofFolderBase, self).__setattr__(key, value)
@@ -1876,7 +1876,7 @@ class ofDict(dict, _ofTypeBase):
         self._CLASS_VARS = ['_CLASS_VARS', '_name', 
                             '_entryTypes', '_nUnnamed']
 
-        print(f"ofDict args: {args}")
+        # print(f"ofDict args: {args}")
 
         if (len(args) == 1 and isinstance(args[0], list)
             and  all([isinstance(v, _ofTypeBase) for v in args[0]])):
@@ -1885,8 +1885,8 @@ class ofDict(dict, _ofTypeBase):
             self.update(args[0])
         else:
             super(ofDict, self).__init__(*args, **kwargs)
-        print(f"self.__dict__.keys(): {self.__dict__.keys()}")
-        print(f"self._name: {self._name}")
+        # print(f"self.__dict__.keys(): {self.__dict__.keys()}")
+        # print(f"self._name: {self._name}")
 
 
 
@@ -1901,8 +1901,8 @@ class ofDict(dict, _ofTypeBase):
     def __setitem__(self, item, value=None):
         nameTag = None
 
-        if item == "_name":
-            print(f"***ofDict __setitem__ value: {value}")
+        # if item == "_name":
+            # print(f"***ofDict __setitem__ value: {value}")
 
         # logger.debug(f"ofDict.__setitem__: {item}, {value}")
         # logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
@@ -1951,8 +1951,8 @@ class ofDict(dict, _ofTypeBase):
             else:
                 item_ = _parseNameTag(item)
                 # item_ = item
-            if item_ == "_name":
-                print(f"***ofDict __setitem__ value: {value}")
+            # if item_ == "_name":
+                # print(f"***ofDict __setitem__ value: {value}")
             self.__setattr__(item_, value)
 
 
@@ -1961,14 +1961,14 @@ class ofDict(dict, _ofTypeBase):
         key_ = _checkReserved(key)
         # logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
         # print(f"ofDict.__setattr__ key value: {key_}, {value}")
-        if key == "_name":
-            print(f"ofDict values before super() calls: {self._name}")
-            print(f"ofDict values before super() calls: {value}")
+        # if key == "_name":
+        #     print(f"ofDict values before super() calls: {self._name}")
+        #     print(f"ofDict values before super() calls: {value}")
         super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
-        if key == "_name":
-            print(f"ofDict values after super().__setitem__: {self._name}")
-            print(f"ofDict values after super().__setitem__: {value}")
+        # if key == "_name":
+        #     print(f"ofDict values after super().__setitem__: {self._name}")
+        #     print(f"ofDict values after super().__setitem__: {value}")
         # super(ofDict, self).__setattr__(key_, value)
         # if key == "_name":
         #     print(f"ofDict values after super().__setattr__: {self._name}")
@@ -2010,11 +2010,11 @@ class ofDict(dict, _ofTypeBase):
             self.__dict__[key] = ofType
             # super(ofDict, self).__dict__[key_] = ofType
         else:
-            if key == '_name':
-                print(f"setting {key}: {value}")
+            # if key == '_name':
+                # print(f"setting {key}: {value}")
             self.__dict__[key] = value
-            if key == '_name':
-                print(f"{key} after setting: {value}")
+            # if key == '_name':
+                # print(f"{key} after setting: {value}")
             # key_ = _parseNameTag(key_)
             # super(ofDict, self).__dict__[key_] = value
 
@@ -2052,11 +2052,11 @@ class ofDict(dict, _ofTypeBase):
             #     print(f"ofDict copying {k}: {v._name}")
             # else:
             #     print(f"ofDict copying {k}: {v}")
-            if k == '_name':
-                print(f"ofDict copying {v}")
+            # if k == '_name':
+                # print(f"ofDict copying {v}")
             setattr(result, k, copy.deepcopy(v, memo))
-            if k == '_name':
-                print(f"values after setattr: {result[k]}")
+            # if k == '_name':
+                # print(f"values after setattr: {result[k]}")
         return result
 
     # _update = dict.update
