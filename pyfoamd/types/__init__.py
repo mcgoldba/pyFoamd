@@ -2883,7 +2883,7 @@ class ofEval(_ofFunctionEntry, _ofNamedTypeBase):
         return 'eval'
 
     def toString(self, ofRep=False) -> str:
-        pStr = f'{printNameStr(self.name)}' if self.nane is not None else ''
+        pStr = f'{printNameStr(self.name)}' if self.name is not None else ''
         pStr += f'#{self.feType}'
         pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]
         pStr+= self.value
@@ -5180,7 +5180,9 @@ class DictFileParser:
                     closingChar == '}' else (closingChar in line_)
                 # line_= self.lines[self.i]
             #- Add last line
-            value += line_+"\n"
+            print(f"last line: {line_}")
+            if line_.strip().strip(closingChar+';\n') != '':
+                value += line_.strip(closingChar+';')+"\n"
         #- Add comment
         comment = None
         if self.lines[self.i].startswith(closingChar):
