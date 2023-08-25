@@ -2885,9 +2885,9 @@ class ofEval(_ofFunctionEntry, _ofNamedTypeBase):
     def toString(self, ofRep=False) -> str:
         pStr = f'{printNameStr(self.name)}' if self.name is not None else ''
         pStr += f'#{self.feType}'
-        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]
+        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]+" "
         pStr+= self.value
-        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][1]
+        pStr += " "+BRACKET_CHARS['functionEntry'][self.feBracketType][1]
 
 
         if ofRep:
@@ -5149,7 +5149,7 @@ class DictFileParser:
             value = valueList[0].rstrip(closingChar).strip()
             logger.debug(f"valueList: {valueList}")
             if len(valueList) > 1:
-                self.extraLine = ' '.join(valueList[1:])
+                self._addExtraLine(' '.join(valueList[1:]))
         else:
             value = ' '.join(valueList)+"\n"
             self.i += 1
