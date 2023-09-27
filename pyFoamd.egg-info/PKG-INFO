@@ -680,8 +680,12 @@ License:                     GNU GENERAL PUBLIC LICENSE
         Public License instead of this License.  But first, please read
         <https://www.gnu.org/licenses/why-not-lgpl.html>.
         
+Platform: UNKNOWN
 Requires-Python: >=3.7
+Description-Content-Type: text/markdown
 License-File: LICENSE
 
 # pyFoamd
 Pythonic modification of OpenFOAM dictionaries and case files.
+
+

@@ -16,6 +16,7 @@ setup(
         ]
     },
     long_description=readme,
+    long_description_content_type='text/markdown',
     author='Marc Goldbach',
     author_email='mcgoldba@gmail.com',
     url='https://github.com/mcgoldba/pyFoamd',
@@ -25,6 +26,7 @@ setup(
     install_requires=[
         'pint',
         'pandas',
-        'rich'
+        'rich',
+        'ipython'
     ]
 )
