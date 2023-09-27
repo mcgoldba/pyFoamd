@@ -52,7 +52,12 @@ for _ in range(TAB_SIZE): TAB_STR+= " "
 
 BRACKET_CHARS = {
     'dict': ['{', '}'],
-    'list': ['(', ')']
+    'list': ['(', ')'],
+    'verbatim': [
+        ['"', '"'],
+        ['{', '}'],
+        ['#{', '#}']
+    ]
 }
 
 COMMENT_TAG = "_comment_"
@@ -108,6 +113,19 @@ class _ofTypeBase:
         return str(self.__class__).split()[-1].strip("'<> ").split('.')[-1]
         #return type(self)
 
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+        # if hasattr(result, '_name'):
+        #     print(f"ofTypeBase updated {result._name}.")
+        # else:
+        #     print(f"ofTypeBase updated {type(result)}.")
+        
+        return result
+
 
     def attrDict(self):
         """
@@ -153,6 +171,18 @@ class ofWord(_ofUnnamedTypeBase):
     """
     # TODO: Update to property with setter.  THis does not parse modifications
     #       of an existing ofWord object
+
+    @property
+    def value(self):
+        return self._value
+    
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            self._value = str(v).strip()
+        else:
+            self._value = None
+
     def __post_init__(self):
         FORBIDDEN_VALUES = ['"', "'", '\\', '/', ";", '{', '}']
         if (self.value is not None 
@@ -160,6 +190,23 @@ class ofWord(_ofUnnamedTypeBase):
             or any([c in self.value for c in string.whitespace]))):
             raise ValueError("String cannot be converted to a word.")
 
+    def toString(self, ofRep=False, indent=True) -> str:
+        if indent:
+            str_ =  printNameStr(self.value.strip())
+        else:
+            str_ = str(self.value.strip())
+
+        if ofRep:
+            str_ += "; "
+        
+        if self._comment is not None:
+            str_ += " //"+str(self._comment)
+
+        str_ += "\n"
+
+        return str_
+
+    
 
 @dataclass 
 class _ofNamedTypeBase(_ofUnnamedTypeBase):
@@ -418,7 +465,20 @@ class _ofFolderBase(_ofFolderItemBase):
         # logger.debug(f"self: {self}")
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
-        return type(self)()
+        # return type(self)()
+
+        copy_ = FolderParser(None, self._path).initOFFolder()
+        for k,v in self.__dict__.items():
+            # if hasattr(v, '_name'):
+            #     print(f"FolderParser copying {k}: {v._name}")
+            # else:
+            #     print(f"FolderParser copying {k}: {v}")
+
+            setattr(copy_, k, copy.deepcopy(v,memo))
+            # if hasattr(v, '_name'):
+            #     print(f"FolderParser after setattr {k}: {copy_[k]._name}")
+
+        return copy_
     
     def __iter__(self):
         # logger.debug(f"self: {self}")
@@ -436,12 +496,18 @@ class _ofFolderBase(_ofFolderItemBase):
     def __setattr__(self, key, value):
         # logger.debug(f"Setting ofFolder attribute: {key}: {value}")
         if isinstance(value, _ofFolderItemBase):
-            value._name = key
-            key_ = _parseNameTag(key)
+            # print(f"value._type: {value._type}")
+            if hasattr(value, "_name"):  # ofFolders do not have a "_name" attribute
+                # print(f"value._name: {value._name}")
+                # value._name = key
+                value.update({'_name': value._name})
+                # key_ = _parseNameTag(key_)
+                # key_ = key
+                # print(f"value._name: {value._name}")
             # logger.debug(f"ofFolder adding attribute {key_} as {value}")
             # super(_ofFolderBase, self).__setitem__(key_, value)
-            super(_ofFolderBase, self).__setattr__(key_, value)
-            super(_ofFolderBase, self).__dict__[key_] =  value
+            super(_ofFolderBase, self).__setattr__(key, value)
+            super(_ofFolderBase, self).__dict__[key] =  value
 
         elif key.startswith('_'):
             # logger.debug(f"ofFolder adding attribute {key} as {value}")
@@ -517,7 +583,7 @@ class FolderParser:  # Class is required because 'default_factory' argument
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
-                # logger.debug(f"Check that {name_} == {obj.name}")
+                # print(f"Check that {name_} == {obj.name}")
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
                 
@@ -528,7 +594,7 @@ class FolderParser:  # Class is required because 'default_factory' argument
                         self.case, objPath).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
             if obj.is_file() and _isDictFile(obj):
-                # logger.debug(f"Check that {name_} == {obj.name}")
+                # print(f"Check that {name_} == {obj.name}")
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
                
@@ -537,19 +603,30 @@ class FolderParser:  # Class is required because 'default_factory' argument
                                 field(default_factory=
                                     DictFileParser(obj).readDictFile) )
                 )
+
+        # print(f"attribute list: {attrList}")
+        
         dc = make_dataclass('ofFolder', 
                             attrList, bases=(_ofFolderBase, )) #, frozen=True)
 
         dc_ = dc()
 
-        #- Rest the ofFolder item _name attribute to be the true name with special characters.
+        #- Reset the ofFolder item _name attribute to be the true name with special characters.
         # TODO: Not sure why the revised name is stored as the _name attribute here.
         # logger.debug(f"dc_ dict: {dc_.__dict__}")
         for key, value in internalNames.items():
+            # print(f"Reseting name to {value}...")
             # logger.debug(f"Modifying key: {key}")
             dc_.__dict__[key]._name = value
+            # print(f"dc_[{key}]._name: {dc_[key]._name}")
 
-        # logger.debug(f"ofFolder dataclass: {dc_}")
+
+        # for key, value in dc_.__dict__.items():
+        #     if hasattr(dc_[key], '_name'):
+        #         print(f"dc_[{key}]._name: {dc_[key]._name}")
+
+        # print(f"ofFolder dataclass: {dc_}")
+        # print(f"ofFolder dataclass __dict__: {dc_.__dict__}")
         # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
 
         return dc_
@@ -681,7 +758,7 @@ class _ofCaseBase(_ofTypeBase):
     def __str__(self):
         return str(self._path)
 
-    def __deepcopy__(self, memo=None):
+    def __deepcopy__(self, memo):
         # logger.debug(f"self: {self}")
         # logger.debug(f"self.__dict__: {self.__dict__}")
         # logger.debug(f"vars(self): {vars(self)}")
@@ -696,18 +773,30 @@ class _ofCaseBase(_ofTypeBase):
         
         # registry = copy.deepcopy(self._registry)
 
+
         copy_ = CaseParser(self._path).initOFCase()
         # copy_.__dict__ = copy.deepcopy(self.__dict__)
-        copy_.__dict__ = self.__dict__
+
+        # ref: https://stackoverflow.com/a/15774013/10592330 
+        # memo[id(copy_)] = copy_
+        for k,v in self.__dict__.items():
+            setattr(copy_, k, copy.deepcopy(v,memo))
+            # copy_[k] = copy.deepcopy(v,memo)
+        # dictCopy = copy.deepcopy(self.__dict__)
+
+        # logger.debug(f"dictCopy:\n{dictCopy}")
+
+        # copy_.__dict__.update(dictCopy)
+        # copy_.__dict__ = self.__dict__
+
         return copy_
 
-    # def __deepcopy__(self, memo=None):
-    #     cls = self.__class__
-    #     result = cls.__new__(cls)
-    #     memo[id(self)] = result
-    #     for k, v in self.__dict__.items():
-    #         setattr(result, k, copy.deepcopy(v, memo))
-    #     return result
+    # def __deepcopy__(self, memo):
+    #     return type(self)(
+    #         _times=self._times,
+    #         constant = self.constant,
+    #         system = self.system
+    #         )
 
     def __iter__(self):
         # logger.debug(f"vars(self).keys(): {vars(self).keys()}")
@@ -899,6 +988,7 @@ class _ofCaseBase(_ofTypeBase):
                 loc_.write_text(obj.toString())
 
         _writeCaseObj(self)
+
 
     def allRun(self, cmd='Allrun'):
         """
@@ -1133,16 +1223,6 @@ class _ofIntBase(_ofNamedTypeBase):
 class _ofFloatBase(_ofIntBase):
     name: str = None
     value: float = None
-
-@dataclass
-class _ofStrBase(_ofIntBase):
-    name: str = None
-    value: str = None
-
-@dataclass
-class _ofIncludeBase(_ofTypeBase):
-    _name: str="#include"
-    value: str = None
 
 # @dataclass
 # class _ofBoolBase(_ofIntBase):
@@ -1428,7 +1508,7 @@ class ofList(_ofNamedTypeBase):
             else:
                 dStr = f"{self.name}("
         else:
-            dStr = "( "
+            dStr = "("
         if self.value is not None:
             indentStr = TAB_STR if indent else ''
             for v in self.value:
@@ -1444,11 +1524,12 @@ class ofList(_ofNamedTypeBase):
                     dStr += indentStr+ofList(value=v).toString(indent=False).strip()
                 elif isinstance(v, ofStr):
                     # dStr += f'"{v}"'
-                    dStr+= v.toString(indent=False, ofRep=False).rstrip('\n')
+                    dStr+= v.toString(indent=False, ofRep=False).rstrip('\n')+" "
                 elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
                     dStr += v.toString(ofRep=False, indent=False).strip()+" "
                 else:
                     dStr += str(v).strip()+" "
+        dStr = dStr.rstrip()
         if ofRep:
             dStr+= ");\n"
         else:
@@ -1820,6 +1901,8 @@ class ofDict(dict, _ofTypeBase):
         self._CLASS_VARS = ['_CLASS_VARS', '_name', 
                             '_entryTypes', '_nUnnamed']
 
+        # print(f"ofDict args: {args}")
+
         if (len(args) == 1 and isinstance(args[0], list)
             and  all([isinstance(v, _ofTypeBase) for v in args[0]])):
             #- Parse list of ofTypes with ofDict().update function
@@ -1827,6 +1910,9 @@ class ofDict(dict, _ofTypeBase):
             self.update(args[0])
         else:
             super(ofDict, self).__init__(*args, **kwargs)
+        # print(f"self.__dict__.keys(): {self.__dict__.keys()}")
+        # print(f"self._name: {self._name}")
+
 
 
     # ref: https://stackoverflow.com/questions/2352181/how-to-use-a-dot-to-access-members-of-dictionary
@@ -1839,6 +1925,9 @@ class ofDict(dict, _ofTypeBase):
     
     def __setitem__(self, item, value=None):
         nameTag = None
+
+        # if item == "_name":
+            # print(f"***ofDict __setitem__ value: {value}")
 
         # logger.debug(f"ofDict.__setitem__: {item}, {value}")
         # logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
@@ -1872,7 +1961,8 @@ class ofDict(dict, _ofTypeBase):
                 name_ =_parseNameTag(itemName)
 
             else:
-                name_ = item.name
+                # name_ = item.name
+                name_ = itemName
             self.__setattr__(name_, item)
 
         else:
@@ -1886,15 +1976,27 @@ class ofDict(dict, _ofTypeBase):
             else:
                 item_ = _parseNameTag(item)
                 # item_ = item
+            # if item_ == "_name":
+                # print(f"***ofDict __setitem__ value: {value}")
             self.__setattr__(item_, value)
 
 
     def __setattr__(self, key, value):
+
         key_ = _checkReserved(key)
         # logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
+        # print(f"ofDict.__setattr__ key value: {key_}, {value}")
+        # if key == "_name":
+        #     print(f"ofDict values before super() calls: {self._name}")
+        #     print(f"ofDict values before super() calls: {value}")
         super(ofDict, self).__setitem__(key_, value)
         # self.__setitem__(key, value)
-        super(ofDict, self).__setattr__(key_, value)
+        # if key == "_name":
+        #     print(f"ofDict values after super().__setitem__: {self._name}")
+        #     print(f"ofDict values after super().__setitem__: {value}")
+        # super(ofDict, self).__setattr__(key_, value)
+        # if key == "_name":
+        #     print(f"ofDict values after super().__setattr__: {self._name}")
         # self.__setattr__(key, value)
         # if key not in self._CLASS_VARS:
         def _parseList(obj):
@@ -1930,12 +2032,16 @@ class ofDict(dict, _ofTypeBase):
                 if hasattr(ofType, '_name') and ofType._name is None:
                     ofType._name = key
             # logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
-            # self.__dict__[key] = ofType
-            super(ofDict, self).__dict__[key_] = ofType
+            self.__dict__[key] = ofType
+            # super(ofDict, self).__dict__[key_] = ofType
         else:
-            # self.__dict__[key] = value
+            # if key == '_name':
+                # print(f"setting {key}: {value}")
+            self.__dict__[key] = value
+            # if key == '_name':
+                # print(f"{key} after setting: {value}")
             # key_ = _parseNameTag(key_)
-            super(ofDict, self).__dict__[key_] = value
+            # super(ofDict, self).__dict__[key_] = value
 
     # def __delattr__(self, name):
     #     super(ofDict, self).__delitem__(self, name)
@@ -1954,12 +2060,29 @@ class ofDict(dict, _ofTypeBase):
     #     for item in vars(self).items():
     #         yield item
 
-    def __deepcopy__(self, memo=None):
-        # print("__deepcopy__ type(self):", type(self))
-        new_ = ofDict()
-        for key in self.keys():
-            new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
-        return new_
+    # def __deepcopy__(self, memo=None):
+    #     # print("__deepcopy__ type(self):", type(self))
+    #     new_ = ofDict()
+    #     for key in self.keys():
+    #         new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
+    #     return new_
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        # result = cls.__new__(cls)
+        result = cls()
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            # if hasattr(v, '_name'):
+            #     print(f"ofDict copying {k}: {v._name}")
+            # else:
+            #     print(f"ofDict copying {k}: {v}")
+            # if k == '_name':
+                # print(f"ofDict copying {v}")
+            setattr(result, k, copy.deepcopy(v, memo))
+            # if k == '_name':
+                # print(f"values after setattr: {result[k]}")
+        return result
 
     # _update = dict.update
 
@@ -2103,6 +2226,7 @@ class ofFoamFile(ofDict):
     def __post_init__(self, *args, **kwargs):
         super(ofFoamFile, self).__init__(*args, **kwargs)
         self._name = 'FoamFile'
+        
 
 
 
@@ -2185,8 +2309,9 @@ class ofDictFile(ofDict, _ofFolderItemBase):
         #                         str(Path.cwd() / self._name)) \
         #                             if self._name is not None else ""
         self._header : ofHeader = ofHeader()
-        # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile) 
-        self._foamFile: ofFoamFile = None 
+        # self._foamFile: ofFoamFile = field(default_factory=ofFoamFile)
+        self._foamFile: ofFoamFile = None  
+        # self._foamFile: ofFoamFile = ofFoamFile() 
         # self._CLASS_VARS.append('_location')
         self._CLASS_VARS.append('_header')
         self._CLASS_VARS.append('_foamFile')
@@ -2639,47 +2764,6 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
     def __str__(self):
         return self.toString().rstrip(';\n')
 
-@dataclass
-class ofInclude(_ofUnnamedTypeBase):
-    _name: str = field(init=False, default="#include")
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, v):
-        if v is not None:
-            if isinstance(v, str):
-                self._value = v.strip('"')
-            else:
-                raise ValueError(f"The 'include' value must be a string.  Got "\
-                    f"'{v}'.")
-        else:
-            self._value = v
-
-
-    def toString(self, ofRep=False) -> str:
-        return printNameStr(self._name)+'"'+str(self.value)+'"\n\n'
-
-    def __str__(self):
-        return self.toString().rstrip('\n')
-
-TYPE_REGISTRY.append(ofInclude)
-
-@dataclass
-class ofIncludeEtc(ofInclude):
-    # _name: str = "#includeEtc"
-    _name: str = field(init=False, default="#includeEtc")
-
-TYPE_REGISTRY.append(ofIncludeEtc)
-
-@dataclass
-class ofIncludeFunc(ofInclude):
-    # _name: str = "#includeFunc"
-    _name: str = field(init=False, default="#includeFunc")
-
-TYPE_REGISTRY.append(ofIncludeFunc)
 
 # def _parseProbeValues(logPath):
 #     """
@@ -2723,6 +2807,356 @@ TYPE_REGISTRY.append(ofIncludeFunc)
 #     # data = np.loadtxt(logPath, delimiter='\t')
 
 #     # logger.debug(data)
+
+#- Define functionEntries types
+
+# @dataclass
+# class _ofFunctionEntry(_ofNamedTypeBase)
+    # def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+    #     _comment=None):
+    #     super(_ofFunctionEntry, self).__init__(arg1, arg2, name, value, _comment)
+
+@dataclass
+class _ofFunctionEntry(_ofUnnamedTypeBase):
+    _feType: str = None
+    _vBracketType: int = 1
+
+    @property
+    def feType(self) -> str:
+        return self._feType
+
+    @feType.setter
+    def feType(self, v: str) -> None:
+        self._feType = v
+
+
+    @property
+    def vBracketType(self) -> int:
+        return self._vBracketType
+
+    @vBracketType.setter
+    def vBracketType(self, v: int) -> None:
+        self._feType = v
+
+    def toString(self, ofRep=False) -> str:
+        pStr = f'#{printNameStr(self.feType)}'
+        pStr += BRACKET_CHARS['verbatim'][self.vBracketType][0]
+        pStr+= self.value
+        pStr += BRACKET_CHARS['verbatim'][self.vBracketType][1]
+
+
+        if ofRep:
+            pStr+=';'
+        
+        if self._comment is not None:
+            pStr+= f" {str(self._comment)}"
+
+        return pStr+'\n'
+
+@dataclass
+class ofInclude(_ofFunctionEntry):
+
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'include'
+    @_ofFunctionEntry.vBracketType.getter
+    def vBracketType(self):
+        return 0
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            if isinstance(v, str):
+                self._value = v.strip('"')
+            else:
+                raise ValueError(f"The 'include' value must be a string.  Got "\
+                    f"'{v}'.")
+        else:
+            self._value = v
+
+
+    def toString(self, ofRep=False) -> str:
+        return printNameStr(f"#{self.feType}")+'"'+str(self.value)+'"\n\n'
+
+    def __str__(self):
+        return self.toString().rstrip('\n')
+
+@dataclass
+class ofIncludeEtc(ofInclude):
+    
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'includeEtc'
+
+@dataclass
+class ofIncludeFunc(ofInclude):
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'includeFunc'
+
+@dataclass
+class ofEval(_ofFunctionEntry, _ofNamedTypeBase):
+    code: str = None
+
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        # super(ofEval, self).__init__(arg1, arg2, name, value, _comment)
+        _ofNamedTypeBase.__init__(self, arg1, arg2, name, value, _comment)
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'eval'
+
+    def toString(self, ofRep=False) -> str:
+        pStr = f'{printNameStr(self.name)}' if self.name is not None else ''
+        pStr += f'#{self.feType}'
+        pStr += BRACKET_CHARS['verbatim'][self.vBracketType][0]+" "
+        pStr+= self.value
+        pStr += " "+BRACKET_CHARS['verbatim'][self.vBracketType][1]
+
+
+        if ofRep:
+            pStr+=';'
+        
+        if self._comment is not None:
+            pStr+= f" {str(self._comment)}"
+
+        return pStr+'\n'
+
+@dataclass
+class ofCalc(_ofFunctionEntry):
+    code: str = None
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'calc'
+    
+@dataclass #TODO:  toString argument needs modified to allow if else syntax
+class ofIf(_ofFunctionEntry):
+    code: str = None
+
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'if'
+
+@dataclass
+class ofRemove(_ofFunctionEntry):
+    code: str = None
+
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'remove'
+
+
+@dataclass  #TODO:  Should this be a named type
+class ofCodeStream(ofEval):
+    include: List = None
+    options: List = None
+
+    def __init__(self, arg1=None, arg2=None, name=None, value=None, 
+        _comment=None):
+        super(ofCodeStream, self).__init__(arg1, arg2, name, value, _comment)
+
+    @_ofFunctionEntry.feType.getter
+    def feType(self):
+        return 'codeStream'
+
+    # def toString(self, ofRep=False) -> str:
+    #     """ 
+    #     Convert to a string representation.  If ofRep is `True` prints  a string
+    #     conforming to an OpenFOAM dictionry. 
+    #     """
+    #     # logging.getLogger('pf').setLevel(logging.DEBUG)
+
+    #     if self._name:
+    #         dStr = self._name+" #"+self.feType+"\n{\n"
+    #     else:
+    #         dStr = "#"+self.feType+"\n{\n"
+    #     # for k, v in zip(self.keys(), self.values()):
+    #     for k, v in zip(self.__dict__.keys(), self.__dict__.values()):
+    #         k = k.rstrip('_') # remove possible "_" added in _checkReserved
+    #         # logger.debug(f"dict entry: {k}: {v}")
+    #         if k is None or re.match(UNNAMED_TAG+'_[0-9]+$', k):
+    #             k=''
+    #         if k not in self._CLASS_VARS:
+    #             if isinstance(v, ofDict):
+    #                 # logger.debug("Found ofDict.")
+    #                 dStr2 = v.toString(ofRep=ofRep).split("\n")
+    #                 for i in range(len(dStr2)):
+    #                     dStr2[i] = TAB_STR+dStr2[i]+"\n"
+    #                     dStr += dStr2[i]
+    #             elif isinstance(v, ofList):
+    #                 vList = v.toString(ofRep=ofRep).split('\n')
+    #                 for v_ in vList:
+    #                     dStr+= TAB_STR+v_+'\n'
+    #                 # dStr = dStr.rstrip()
+    #                 # dStr+=';'
+    #                 dStr += '\n'
+    #             elif hasattr(v, 'toString') and callable(getattr(v, 'toString')):
+    #                 # dStr += printNameStr(TAB_STR+k)+v.toString()
+    #                 dStr += TAB_STR+v.toString(ofRep=ofRep)
+    #                 # logger.debug("Found 'toString()' method.")
+    #             else:
+    #                 # logger.debug("Could not find 'toString()' method.")
+    #                 dStr += printNameStr(TAB_STR+k)+str(v)+';\n'
+
+    #         # logger.debug(f"dict string: {dStr}")
+    #     dStr+= "}\n\n"
+    #     # if not ofRep:
+    #     #     dStr = dStr.replace(';', '')
+    #     return dStr
+
+#- Create the list of OF_FUNCTION_OBJECTS
+OF_FUNCTION_ENTRIES = {}
+def createFunctionEntryRegistry(func):
+    for dc in func.__subclasses__():
+        OF_FUNCTION_ENTRIES.update({dc().feType: dc})
+        createFunctionEntryRegistry(dc)
+createFunctionEntryRegistry(_ofFunctionEntry)
+
+@dataclass
+class _ofVerbatimCode(_ofUnnamedTypeBase):
+    _vcType: str = None
+    _vBracketType: int = 2
+
+    @property
+    def vcType(self) -> str:
+        return self._feType
+
+    @vcType.setter
+    def vcType(self, v: str) -> None:
+        self._vcType = v
+
+
+    @property
+    def vBracketType(self) -> int:
+        return self._vBracketType
+
+    @vBracketType.setter
+    def vBracketType(self, v: int) -> None:
+        self._feType = 2
+        userMsg("Bracket type cannot be changed for verbatim code.", "WARNING")
+
+    def toString(self, ofRep=False) -> str:
+        pStr = f'{printNameStr(self.vcType)}\n'
+        pStr += printNameStr(BRACKET_CHARS['verbatim'][self.vBracketType][0])
+        pStr += self.value
+        pStr += printNameStr(TAB_STR+BRACKET_CHARS['verbatim'][self.vBracketType][1])
+
+
+        if ofRep:
+            pStr+=';'
+        
+        if self._comment is not None:
+            pStr+= f" {str(self._comment)}"
+
+        return pStr+'\n'
+
+
+@dataclass
+class ofCodeInclude(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeInclude'
+
+@dataclass
+class ofCodeOptions(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeOptions'
+
+@dataclass
+class ofCodeLibs(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeLibs'
+
+@dataclass
+class ofCodeData(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeData'
+
+@dataclass
+class oflocalCode(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'localCode'
+
+@dataclass
+class ofCodeRead(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeRead'
+
+@dataclass 
+class ofCodeExecute(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeExecute'
+
+@dataclass
+class ofCodeWrite(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeWrite'
+
+@dataclass
+class ofCodeEnd(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeEnd'
+
+@dataclass
+class ofCodeContext(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeContext'
+
+#- Create the list of OF_VERBATIM_CODE_ENTRIES
+OF_VERBATIM_CODE_ENTRIES = {}
+def createVerbatimCodeRegistry(func):
+    for dc in func.__subclasses__():
+        OF_VERBATIM_CODE_ENTRIES.update({dc().vcType: dc})
+        createVerbatimCodeRegistry(dc)
+createVerbatimCodeRegistry(_ofVerbatimCode)
 
 @dataclass
 class _ofMonitorBase:
@@ -3481,6 +3915,7 @@ class DictFileParser:
         self.extraLine = []
         self.comment = []
         self.nComments = 0
+        self.nFeTypes = {t: 0 for t in OF_FUNCTION_ENTRIES.keys()}
         self.needSemicolon = True
 
 
@@ -3571,9 +4006,11 @@ class DictFileParser:
             # logger.debug(f"dictFile name = {self.dictFile._name} ")
 
             if value is not None:
+                logger.debug(f"adding value: {value}")
             #     self.entryList.append(value)
                 if (isinstance(value, _ofTypeBase) 
-                    and not isinstance(value, ofComment)):
+                    and not isinstance(value, ofComment)
+                    and not isinstance(value, _ofFunctionEntry)):
                     #- rename key if already in dict:
                     if value._name in self.dictFile.keys():
                         # logger.debug("Renaming duplicate key.")
@@ -3589,6 +4026,10 @@ class DictFileParser:
                     name_ = COMMENT_TAG+str(self.nComments)
                     self.dictFile.update({name_: value})
                     self.nComments += 1
+                elif isinstance(value, _ofFunctionEntry):
+                    name_ = value.feType+str(self.nFeTypes[value.feType])
+                    self.dictFile.update({name_: value})
+                    self.nFeTypes[value.feType]+= 1
                 else:
                     logger.error(f"Invalid value type: {type(value)}.")
                     sys.exit()
@@ -3628,10 +4069,21 @@ class DictFileParser:
         try:
             parsedComment = self._parseComments()
             if parsedComment is not None:
-                return parsedComment  
+                return parsedComment
             elif len(lineList) == 0:
                 # Line is blank
                 return None
+            elif lineList[0][0] == '#':
+                if len(lineList) == 2 and 'include' in lineList[0]:
+                    value = self._parseIncludes(lineList[0], lineList[1])
+                    logger.debug(f"includeValue: {value}")
+                else:
+                    value = self._parseVerbatimEntry(lineList=lineList)
+                return value
+            # elif len(lineList) >= 2:
+            #     if lineList[1][0] == '#':
+            #         value = self._parseVerbatimEntry(lineList=lineList[1:],name=lineList[0])
+            #         return value
             elif len(lineList) == 1:
                 if lineList[0].strip() == '};' or lineList[0] == ');':
                     #- ending list or dict
@@ -3677,9 +4129,17 @@ class DictFileParser:
 
                     return value
             elif len(lineList) == 2:
-                return self._parseLineLenTwo()
+                if lineList[1][0] == '#':
+                    value = self._parseVerbatimEntry(lineList=lineList[1:],name=lineList[0])
+                    return value
+                else:
+                    return self._parseLineLenTwo() 
             else:  # Multiple value entry
-                return self._parseLineLenGreaterThanTwo()
+                if lineList[1][0] == '#':
+                    value = self._parseVerbatimEntry(lineList=lineList[1:],name=lineList[0])
+                    return value
+                else:
+                    return self._parseLineLenGreaterThanTwo()
         except Exception as e:
             raise e
         finally:
@@ -3697,10 +4157,10 @@ class DictFileParser:
         
         #logger.debug(f"lineList: {lineList}")
         
-        if lineList[0].startswith('#include'):
-            # Found include statement 
-            return self._parseIncludes(lineList[0], lineList[1].rstrip(';'))
-        elif lineList[1][-1] == ';':
+        # if lineList[0].startswith('#include'):
+        #     # Found include statement 
+        #     return self._parseIncludes(lineList[0], lineList[1].rstrip(';'))
+        if lineList[1][-1] == ';':
             # Found single line entry
             return self._parseSingleLineEntry(lineList[0], 
                 lineList[1].rstrip(';'))
@@ -3745,7 +4205,8 @@ class DictFileParser:
         """
         Parse a list or dictionary with name `name`, starting from the opening 
         parenthesis `(` in the case of a list or opening bracket '{' in the case of 
-        a dict
+        a dict.  Also can return a ofFunctionEntry if name is an feType and the opening 
+        bracket is a function entry bracket type.
 
         Parameters:
             name [str or None]:  The name of the list or dict;  None if an unnamed 
@@ -3773,6 +4234,14 @@ class DictFileParser:
         else:
             # lineList = self.lines[self.i].strip().split()
             lineList = self._getLinesList(self.lines[self.i])
+
+        logger.debug(f"name: {name}")
+        logger.debug(f"lineList: {lineList}")
+
+        if (name in list(OF_FUNCTION_ENTRIES.keys())+list(OF_VERBATIM_CODE_ENTRIES.keys()) 
+            and lineList[0] in [c[0] for c in BRACKET_CHARS['verbatim']]):
+            lineList.insert(0,name)
+            return self._parseVerbatimEntry(lineList=lineList)
 
         # logger.debug(f"parseListOrDict name: {name}")
 
@@ -4333,6 +4802,7 @@ class DictFileParser:
         """
         Extract value as the appropriate include type
         """
+        logger.debug(f"parsing key '{key}', and value '{value}'.")
 
         if key == '#includeEtc':
             return ofIncludeEtc(value)
@@ -4559,7 +5029,8 @@ class DictFileParser:
         if any([value == b for b in OF_BOOL_VALUES.keys()]):
             return ofBool, value
 
-        if value != ';' or value != '': 
+        if value != ';' or value != '':
+
             return ofStr, value.strip(';')
         else:
             return None, None
@@ -4799,6 +5270,139 @@ class DictFileParser:
             logger.warning("Parsing single line as 'ofMultilineStatement'.")
 
         return ofMultilineStatement(name=key, value=value)
+
+    def _parseVerbatimEntry(self, lineList=None, name=None):
+        """
+        Parse entries that contain a (potentially) multiline verbatim string as 
+        the value
+        
+        These include functionEntry types (e.g. evalEntry, codeStream, ifEntry, 
+        etc.), and verbatimCode types used in the coded function object 
+        (e.g. codeExecute, codeWrite, etc.)
+
+        """
+        if lineList is None:
+            lineList = self._getLinesList(self.lines[self.i])
+
+        logger.debug(f"lineList: {lineList}")
+
+        if (lineList[0].strip()[0] != '#' 
+            and lineList[0] not in OF_VERBATIM_CODE_ENTRIES.keys()):
+            userMsg(f"Unhandled Pattern:  String found on line {self.i} of " \
+                    f"file {self.filepath} cannot be parsed.", 'ERROR')
+
+        vType = lineList[0].strip('#')
+
+        #- Determine which type of bracket character is used ('{', '"' or '#{')
+        bi = 0 if len(lineList) == 1 else 1
+        bCharType = None
+        if vType[-1] == '{':
+            bCharType = 1
+            vType=vType[:-1] #- remove the '{' from the name
+        # elif vType == 'codeExecute':
+        elif vType in OF_VERBATIM_CODE_ENTRIES.keys():
+            bCharType = 2
+        elif lineList[bi][0] == '"':
+            bCharType = 0
+        elif lineList[bi][:1] == '#{':
+            bCharType = 2
+        else:
+            #- Search the next lines
+            while bCharType is None:            
+                self.i +=1
+                # lineList = lineList = self._getLinesList(self.lines[self.i])
+                lineList = self._getLinesList(self.lines[self.i])
+                if len(lineList) > 0:
+                    logger.debug(f"lineList[0][0]: {lineList[0][0]}")
+                    if lineList[0][0] == '{':
+                        bCharType = 1
+                    elif lineList[0][0] == '"':
+                        bCharType = 0
+                    elif lineList[0][:1] == '#{':
+                        bCharType = 2
+                    else:
+                        logger.error(f"Could not find functionEntry bracket type.")
+                        sys.exit()
+
+        openingChar = BRACKET_CHARS['verbatim'][bCharType][0]
+        closingChar = BRACKET_CHARS['verbatim'][bCharType][1]
+
+        #- Check if single line entry
+        valueList = ' '.join(lineList[1:]).split(';')
+        #TODO:   Does this capture anything after the ';'?
+        if closingChar in ''.join(lineList[1:])[1:]:
+            value = valueList[0].rstrip(closingChar).strip()
+            logger.debug(f"valueList: {valueList}")
+            if len(valueList) > 1:
+                self._addExtraLine(' '.join(valueList[1:]))
+        else:
+            value = ' '.join(valueList)+"\n"
+            value = value.lstrip(openingChar)
+            self.i += 1
+            logger.debug(f"closingChar: {closingChar}")
+            line_= self.lines[self.i]
+            foundClosing = False
+            while not foundClosing:
+                logger.debug(f"line_: {line_}")
+                # prevChar=None
+                # for c in range(len(line_)):
+                #     if line_[c] == closingChar:
+                #         logger.debug("found closingChar.")
+                #         #make sure '}' is not part of '#}'
+                #         if closingChar == '}' and prevChar == '#':
+                #             pass
+                #         else:
+                #             break
+                #     value += line_[c]
+                #     prevChar = line_[c]
+                # value += "\n"
+                value += line_+"\n"
+                self.i += 1
+                if self.i > len(self.lines):
+                    userMsg("Unhandled Pattern:  Could not find end of "\
+                            "function entry", "ERROR")
+                line_= self.lines[self.i]
+                foundClosing = re.search(f"(?<!\#)\{closingChar}",line_) if \
+                    closingChar == '}' else (closingChar in line_)
+                # line_= self.lines[self.i]
+            #- Add last line
+            if line_.strip().strip(closingChar+';\n') != '':
+                value += line_.strip(closingChar+';')+"\n"
+        #- Add comment
+        comment = None
+        if self.lines[self.i].startswith(closingChar):
+            #check for trailing comment
+            extraLineList = self.lines[self.i].split(closingChar)
+            if len(valueList) > 0:
+                line = ''.join(extraLineList).strip()
+                if line.startswith('//'):
+                    comment = line.lstrip('//')
+        else:
+            # valueList = self.lines[self.i].split(closingChar)
+            # value += valueList[0]+'\n'
+            if len(valueList) >= 1: 
+                extraLine = "".join(valueList[1:])
+                if extraLine.startswith('//'):
+                    comment = extraLine.lstrip('//')
+
+
+        logger.debug(f"OF_FUNCTION_ENTRIES: {OF_FUNCTION_ENTRIES.keys()}")
+        logger.debug(f"vType: {vType}")
+
+        if vType in OF_FUNCTION_ENTRIES.keys():
+            rv = OF_FUNCTION_ENTRIES[vType](
+                value, name=name, _comment=comment
+                )
+            rv.vBracketType = bCharType
+        else:
+            rv = OF_VERBATIM_CODE_ENTRIES[vType](
+                value,_comment=comment
+                )
+        
+        return rv
+
+
+
 
     def _parseComments(self, line=None):
         """
