@@ -53,7 +53,7 @@ for _ in range(TAB_SIZE): TAB_STR+= " "
 BRACKET_CHARS = {
     'dict': ['{', '}'],
     'list': ['(', ')'],
-    'functionEntry': [
+    'verbatim': [
         ['"', '"'],
         ['{', '}'],
         ['#{', '#}']
@@ -171,6 +171,18 @@ class ofWord(_ofUnnamedTypeBase):
     """
     # TODO: Update to property with setter.  THis does not parse modifications
     #       of an existing ofWord object
+
+    @property
+    def value(self):
+        return self._value
+    
+    @value.setter
+    def value(self, v):
+        if v is not None:
+            self._value = str(v).strip()
+        else:
+            self._value = None
+
     def __post_init__(self):
         FORBIDDEN_VALUES = ['"', "'", '\\', '/', ";", '{', '}']
         if (self.value is not None 
@@ -178,6 +190,23 @@ class ofWord(_ofUnnamedTypeBase):
             or any([c in self.value for c in string.whitespace]))):
             raise ValueError("String cannot be converted to a word.")
 
+    def toString(self, ofRep=False, indent=True) -> str:
+        if indent:
+            str_ =  printNameStr(self.value.strip())
+        else:
+            str_ = str(self.value.strip())
+
+        if ofRep:
+            str_ += "; "
+        
+        if self._comment is not None:
+            str_ += " //"+str(self._comment)
+
+        str_ += "\n"
+
+        return str_
+
+    
 
 @dataclass 
 class _ofNamedTypeBase(_ofUnnamedTypeBase):
@@ -959,6 +988,7 @@ class _ofCaseBase(_ofTypeBase):
                 loc_.write_text(obj.toString())
 
         _writeCaseObj(self)
+
 
     def allRun(self, cmd='Allrun'):
         """
@@ -2789,7 +2819,7 @@ class ofDimensionedVector(ofDimensionedScalar, _ofDimensionedVectorBase):
 @dataclass
 class _ofFunctionEntry(_ofUnnamedTypeBase):
     _feType: str = None
-    _feBracketType: int = 1
+    _vBracketType: int = 1
 
     @property
     def feType(self) -> str:
@@ -2801,18 +2831,18 @@ class _ofFunctionEntry(_ofUnnamedTypeBase):
 
 
     @property
-    def feBracketType(self) -> int:
-        return self._feBracketType
+    def vBracketType(self) -> int:
+        return self._vBracketType
 
-    @feBracketType.setter
-    def feBracketType(self, v: int) -> None:
+    @vBracketType.setter
+    def vBracketType(self, v: int) -> None:
         self._feType = v
 
     def toString(self, ofRep=False) -> str:
         pStr = f'#{printNameStr(self.feType)}'
-        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]
+        pStr += BRACKET_CHARS['verbatim'][self.vBracketType][0]
         pStr+= self.value
-        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][1]
+        pStr += BRACKET_CHARS['verbatim'][self.vBracketType][1]
 
 
         if ofRep:
@@ -2830,8 +2860,8 @@ class ofInclude(_ofFunctionEntry):
     @_ofFunctionEntry.feType.getter
     def feType(self):
         return 'include'
-    @_ofFunctionEntry.feBracketType.getter
-    def feBracketType(self):
+    @_ofFunctionEntry.vBracketType.getter
+    def vBracketType(self):
         return 0
 
     @property
@@ -2885,9 +2915,9 @@ class ofEval(_ofFunctionEntry, _ofNamedTypeBase):
     def toString(self, ofRep=False) -> str:
         pStr = f'{printNameStr(self.name)}' if self.name is not None else ''
         pStr += f'#{self.feType}'
-        pStr += BRACKET_CHARS['functionEntry'][self.feBracketType][0]+" "
+        pStr += BRACKET_CHARS['verbatim'][self.vBracketType][0]+" "
         pStr+= self.value
-        pStr += " "+BRACKET_CHARS['functionEntry'][self.feBracketType][1]
+        pStr += " "+BRACKET_CHARS['verbatim'][self.vBracketType][1]
 
 
         if ofRep:
@@ -2985,12 +3015,148 @@ class ofCodeStream(ofEval):
 
 #- Create the list of OF_FUNCTION_OBJECTS
 OF_FUNCTION_ENTRIES = {}
-def createFunctionEntryRegistrty(func):
+def createFunctionEntryRegistry(func):
     for dc in func.__subclasses__():
         OF_FUNCTION_ENTRIES.update({dc().feType: dc})
-        createFunctionEntryRegistrty(dc)
-createFunctionEntryRegistrty(_ofFunctionEntry)
+        createFunctionEntryRegistry(dc)
+createFunctionEntryRegistry(_ofFunctionEntry)
 
+@dataclass
+class _ofVerbatimCode(_ofUnnamedTypeBase):
+    _vcType: str = None
+    _vBracketType: int = 2
+
+    @property
+    def vcType(self) -> str:
+        return self._feType
+
+    @vcType.setter
+    def vcType(self, v: str) -> None:
+        self._vcType = v
+
+
+    @property
+    def vBracketType(self) -> int:
+        return self._vBracketType
+
+    @vBracketType.setter
+    def vBracketType(self, v: int) -> None:
+        self._feType = 2
+        userMsg("Bracket type cannot be changed for verbatim code.", "WARNING")
+
+    def toString(self, ofRep=False) -> str:
+        pStr = f'{printNameStr(self.vcType)}\n'
+        pStr += printNameStr(BRACKET_CHARS['verbatim'][self.vBracketType][0])
+        pStr += self.value
+        pStr += printNameStr(TAB_STR+BRACKET_CHARS['verbatim'][self.vBracketType][1])
+
+
+        if ofRep:
+            pStr+=';'
+        
+        if self._comment is not None:
+            pStr+= f" {str(self._comment)}"
+
+        return pStr+'\n'
+
+
+@dataclass
+class ofCodeInclude(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeInclude'
+
+@dataclass
+class ofCodeOptions(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeOptions'
+
+@dataclass
+class ofCodeLibs(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeLibs'
+
+@dataclass
+class ofCodeData(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeData'
+
+@dataclass
+class oflocalCode(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'localCode'
+
+@dataclass
+class ofCodeRead(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeRead'
+
+@dataclass 
+class ofCodeExecute(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeExecute'
+
+@dataclass
+class ofCodeWrite(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeWrite'
+
+@dataclass
+class ofCodeEnd(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeEnd'
+
+@dataclass
+class ofCodeContext(_ofVerbatimCode):
+    include: List = None
+    options: List = None
+
+    @_ofVerbatimCode.vcType.getter
+    def vcType(self):
+        return 'codeContext'
+
+#- Create the list of OF_VERBATIM_CODE_ENTRIES
+OF_VERBATIM_CODE_ENTRIES = {}
+def createVerbatimCodeRegistry(func):
+    for dc in func.__subclasses__():
+        OF_VERBATIM_CODE_ENTRIES.update({dc().vcType: dc})
+        createVerbatimCodeRegistry(dc)
+createVerbatimCodeRegistry(_ofVerbatimCode)
 
 @dataclass
 class _ofMonitorBase:
@@ -3912,11 +4078,11 @@ class DictFileParser:
                     value = self._parseIncludes(lineList[0], lineList[1])
                     logger.debug(f"includeValue: {value}")
                 else:
-                    value = self._parseFunctionEntry(lineList=lineList)
+                    value = self._parseVerbatimEntry(lineList=lineList)
                 return value
             # elif len(lineList) >= 2:
             #     if lineList[1][0] == '#':
-            #         value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+            #         value = self._parseVerbatimEntry(lineList=lineList[1:],name=lineList[0])
             #         return value
             elif len(lineList) == 1:
                 if lineList[0].strip() == '};' or lineList[0] == ');':
@@ -3964,13 +4130,13 @@ class DictFileParser:
                     return value
             elif len(lineList) == 2:
                 if lineList[1][0] == '#':
-                    value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+                    value = self._parseVerbatimEntry(lineList=lineList[1:],name=lineList[0])
                     return value
                 else:
                     return self._parseLineLenTwo() 
             else:  # Multiple value entry
                 if lineList[1][0] == '#':
-                    value = self._parseFunctionEntry(lineList=lineList[1:],name=lineList[0])
+                    value = self._parseVerbatimEntry(lineList=lineList[1:],name=lineList[0])
                     return value
                 else:
                     return self._parseLineLenGreaterThanTwo()
@@ -4039,7 +4205,8 @@ class DictFileParser:
         """
         Parse a list or dictionary with name `name`, starting from the opening 
         parenthesis `(` in the case of a list or opening bracket '{' in the case of 
-        a dict
+        a dict.  Also can return a ofFunctionEntry if name is an feType and the opening 
+        bracket is a function entry bracket type.
 
         Parameters:
             name [str or None]:  The name of the list or dict;  None if an unnamed 
@@ -4067,6 +4234,14 @@ class DictFileParser:
         else:
             # lineList = self.lines[self.i].strip().split()
             lineList = self._getLinesList(self.lines[self.i])
+
+        logger.debug(f"name: {name}")
+        logger.debug(f"lineList: {lineList}")
+
+        if (name in list(OF_FUNCTION_ENTRIES.keys())+list(OF_VERBATIM_CODE_ENTRIES.keys()) 
+            and lineList[0] in [c[0] for c in BRACKET_CHARS['verbatim']]):
+            lineList.insert(0,name)
+            return self._parseVerbatimEntry(lineList=lineList)
 
         # logger.debug(f"parseListOrDict name: {name}")
 
@@ -5096,28 +5271,37 @@ class DictFileParser:
 
         return ofMultilineStatement(name=key, value=value)
 
-    def _parseFunctionEntry(self, lineList=None, name=None):
+    def _parseVerbatimEntry(self, lineList=None, name=None):
         """
-        Parse a functionEntry type.  e.g. evalEntry, codeStream, ifEntry, etc.
+        Parse entries that contain a (potentially) multiline verbatim string as 
+        the value
+        
+        These include functionEntry types (e.g. evalEntry, codeStream, ifEntry, 
+        etc.), and verbatimCode types used in the coded function object 
+        (e.g. codeExecute, codeWrite, etc.)
 
-        Anything that starts with the '#'
         """
         if lineList is None:
             lineList = self._getLinesList(self.lines[self.i])
 
+        logger.debug(f"lineList: {lineList}")
 
-        if lineList[0].strip()[0] != '#':
+        if (lineList[0].strip()[0] != '#' 
+            and lineList[0] not in OF_VERBATIM_CODE_ENTRIES.keys()):
             userMsg(f"Unhandled Pattern:  String found on line {self.i} of " \
                     f"file {self.filepath} cannot be parsed.", 'ERROR')
 
-        feType = lineList[0].strip('#')
+        vType = lineList[0].strip('#')
 
         #- Determine which type of bracket character is used ('{', '"' or '#{')
         bi = 0 if len(lineList) == 1 else 1
         bCharType = None
-        if feType[-1] == '{':
+        if vType[-1] == '{':
             bCharType = 1
-            feType=feType[:-1] #- remove the '{' from the name    
+            vType=vType[:-1] #- remove the '{' from the name
+        # elif vType == 'codeExecute':
+        elif vType in OF_VERBATIM_CODE_ENTRIES.keys():
+            bCharType = 2
         elif lineList[bi][0] == '"':
             bCharType = 0
         elif lineList[bi][:1] == '#{':
@@ -5126,7 +5310,8 @@ class DictFileParser:
             #- Search the next lines
             while bCharType is None:            
                 self.i +=1
-                lineList = lineList = self._getLinesList(self.lines[self.i])
+                # lineList = lineList = self._getLinesList(self.lines[self.i])
+                lineList = self._getLinesList(self.lines[self.i])
                 if len(lineList) > 0:
                     logger.debug(f"lineList[0][0]: {lineList[0][0]}")
                     if lineList[0][0] == '{':
@@ -5139,8 +5324,8 @@ class DictFileParser:
                         logger.error(f"Could not find functionEntry bracket type.")
                         sys.exit()
 
-        openingChar = BRACKET_CHARS['functionEntry'][bCharType][0]
-        closingChar = BRACKET_CHARS['functionEntry'][bCharType][1]
+        openingChar = BRACKET_CHARS['verbatim'][bCharType][0]
+        closingChar = BRACKET_CHARS['verbatim'][bCharType][1]
 
         #- Check if single line entry
         valueList = ' '.join(lineList[1:]).split(';')
@@ -5152,6 +5337,7 @@ class DictFileParser:
                 self._addExtraLine(' '.join(valueList[1:]))
         else:
             value = ' '.join(valueList)+"\n"
+            value = value.lstrip(openingChar)
             self.i += 1
             logger.debug(f"closingChar: {closingChar}")
             line_= self.lines[self.i]
@@ -5180,7 +5366,6 @@ class DictFileParser:
                     closingChar == '}' else (closingChar in line_)
                 # line_= self.lines[self.i]
             #- Add last line
-            print(f"last line: {line_}")
             if line_.strip().strip(closingChar+';\n') != '':
                 value += line_.strip(closingChar+';')+"\n"
         #- Add comment
@@ -5201,10 +5386,19 @@ class DictFileParser:
                     comment = extraLine.lstrip('//')
 
 
-        rv = OF_FUNCTION_ENTRIES[feType](
-            value, name=name, _comment=comment
-            )
-        rv.feBracketType = bCharType
+        logger.debug(f"OF_FUNCTION_ENTRIES: {OF_FUNCTION_ENTRIES.keys()}")
+        logger.debug(f"vType: {vType}")
+
+        if vType in OF_FUNCTION_ENTRIES.keys():
+            rv = OF_FUNCTION_ENTRIES[vType](
+                value, name=name, _comment=comment
+                )
+            rv.vBracketType = bCharType
+        else:
+            rv = OF_VERBATIM_CODE_ENTRIES[vType](
+                value,_comment=comment
+                )
+        
         return rv
 
 
