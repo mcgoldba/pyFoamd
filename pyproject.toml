@@ -10,16 +10,23 @@ dependencies = [
         'rich',
         'ipython'
         ]
-version = "0.0.1"
+version = "0.0.2"
 
 [project.urls]
 Home = "https://github.com/mcgoldba/pyFoamd"
 
 [project.scripts]
-pf = "pyfoamd.__main__.main"
+pf = "pyfoamd.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["pyfoamd"]
 
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "semver"
+version_provider = "pep621"
+update_changelog_on_bump = true
 [build-system]
 requires = ["setuptools", "wheel"]
