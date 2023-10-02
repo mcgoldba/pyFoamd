@@ -25,13 +25,13 @@ import pandas as pd
 # import operator
 # from collections.abc import Mapping
 
-from .private.readDict import readDict
-from .private.dictUtil import _appendBlockEntryWithBlockName, _replaceStringEntry,\
+from .readDict import readDict
+from .dictUtil import _appendBlockEntryWithBlockName, _replaceStringEntry,\
 _replaceSingleLineEntry, _findBlockEntryStartStop, _findEndOfDict,\
 _appendBlockEntryWithLineNum, _readDictFile, _ofDictFindBlockEntryStartStop,\
 _findEndOfHeader
-from .private._interpretUnitsAndConvert import _interpretUnitsAndConvert
-from .private._unitDecoder import _unitDecoder
+from ._interpretUnitsAndConvert import _interpretUnitsAndConvert
+from ._unitDecoder import _unitDecoder
 from .appendEntry import appendEntry
 from .getLatestTime import getLatestTime
 from .replaceEntry import replaceEntry

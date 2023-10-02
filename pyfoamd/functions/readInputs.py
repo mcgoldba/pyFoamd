@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 
-from.private._unitDecoder import _unitDecoder
+from._unitDecoder import _unitDecoder
 
 import logging
 

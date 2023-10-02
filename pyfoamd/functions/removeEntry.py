@@ -1,6 +1,6 @@
 import os
 
-from .private.dictUtil import _ofDictFindBlockEntryStartStop, _appendBlockEntryWithLineNum
+from .dictUtil import _ofDictFindBlockEntryStartStop, _appendBlockEntryWithLineNum
 
 
 def removeEntry(file, blockList, searchValues=False):

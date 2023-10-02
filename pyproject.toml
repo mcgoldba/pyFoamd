@@ -1,0 +1,25 @@
+[project]
+name = "pyfoamd"
+authors = [{name = "Marc Goldbach", email = "mgoldbach@myyahoo.com"}]
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+dependencies = [
+        'pint',
+        'pandas',
+        'rich',
+        'ipython'
+        ]
+version = "0.0.1"
+
+[project.urls]
+Home = "https://github.com/mcgoldba/pyFoamd"
+
+[project.scripts]
+pf = "pyfoamd.__main__.main"
+
+[tool.setuptools.packages.find]
+where = ["pyfoamd"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
