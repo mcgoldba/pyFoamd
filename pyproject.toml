@@ -10,7 +10,7 @@ dependencies = [
         'rich',
         'ipython'
         ]
-version = "0.0.2"
+version = "0.0.3"
 
 [project.urls]
 Home = "https://github.com/mcgoldba/pyFoamd"
@@ -18,8 +18,8 @@ Home = "https://github.com/mcgoldba/pyFoamd"
 [project.scripts]
 pf = "pyfoamd.__main__:main"
 
-[tool.setuptools.packages.find]
-where = ["pyfoamd"]
+[tool.setuptools]
+packages = ["pyfoamd"]
 
 
 [tool.commitizen]

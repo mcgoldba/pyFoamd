@@ -1,6 +1,6 @@
 LICENSE
 README.md
-setup.py
+pyproject.toml
 pyFoamd.egg-info/PKG-INFO
 pyFoamd.egg-info/SOURCES.txt
 pyFoamd.egg-info/dependency_links.txt
@@ -11,6 +11,12 @@ pyfoamd/__init__.py
 pyfoamd/__main__.py
 pyfoamd/functions.trash.py
 pyfoamd/richinclude.py
+pyfoamd.egg-info/PKG-INFO
+pyfoamd.egg-info/SOURCES.txt
+pyfoamd.egg-info/dependency_links.txt
+pyfoamd.egg-info/entry_points.txt
+pyfoamd.egg-info/requires.txt
+pyfoamd.egg-info/top_level.txt
 pyfoamd/commandline/__init__.py
 pyfoamd/commandline/_iPython_env.py
 pyfoamd/functions/__init__.py
