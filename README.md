@@ -19,6 +19,7 @@ Installation
 ------------
 
 ```bash
+#terminal
 python -m pip install pyfoamd
 ```
 
@@ -26,39 +27,41 @@ Basic Usage
 -----------
 
 Copy a template case and load as a python object
-
 ```bash
+#terminal
 cp $FOAM_TUTORIALS/incompressible/simpleFoam/pitzDaily .
 cd pitzDaily
 pf init
 ```
 
 View case variables
-
-
 ```bash
+#terminal
 pf edit
 ```
 
 ```python
+#Python console
 >>> case.constant.turbulenceProperties.RAS.RASModel
 kEpsilon
 ```
 Change case dictionary entries
 
 ```python
+#Python console
 >>> case.constant.case.constant.turbulenceProperties.RAS.RASModel = kOmega
 ```
 
 Write the updated case to file
 
 ```python
+#Python console
 >>> case.write()
 ```
 
 Run the Allrun script
-
 ```python
+#Python console
 >>> case.run()
 ```
 
