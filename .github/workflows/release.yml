@@ -15,4 +15,5 @@ jobs:
     # retrieve your distributions here
 
     - name: Publish package distributions to PyPI
+      if: github.repository == 'mcgoldba/pyfoamd' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@release/v1
