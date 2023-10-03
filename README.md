@@ -71,6 +71,7 @@ Scripting
 PyFoamd can also be imported into a python script to allow for manipultion of OpenFOAM cases.  This is useful, for example, when performing parameteric studies to run multiple simulations with varibale parameters (e.g. different turbulence models):
 
 ```bash
+#terminal
 #- Setup the OpenFOAM study directory
 cd ~
 mkdir ofStudy
@@ -125,6 +126,7 @@ study.run()
 ```
 
 ```bash
+#terminal
 # Run the study
 python runStudy.py
 ```
