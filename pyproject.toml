@@ -10,7 +10,7 @@ dependencies = [
         'rich',
         'ipython'
         ]
-version = "0.0.7"
+version = "0.0.8"
 
 [project.urls]
 Home = "https://github.com/mcgoldba/pyFoamd"
@@ -24,7 +24,7 @@ find = {}
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-tag_format = "$version"
+tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
 update_changelog_on_bump = true

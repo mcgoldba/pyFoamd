@@ -1,3 +1,9 @@
+## v0.0.8 (2023-10-04)
+
+### Fix
+
+- correct package imports
+
 ## 0.0.7 (2023-10-04)
 
 ### Fix
