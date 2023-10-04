@@ -24,7 +24,7 @@ jobs:
 
     - name: Build distributions
       shell: bash -l {0}
-      run: python -m build 00sdist --wheel
+      run: python -m build --sdist --wheel
     
     - name: Publish package distributions to PyPI
       if: github.repository == 'mcgoldba/pyfoamd' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
