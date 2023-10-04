@@ -18,8 +18,8 @@ Home = "https://github.com/mcgoldba/pyFoamd"
 [project.scripts]
 pf = "pyfoamd.__main__:main"
 
-[tool.setuptools]
-packages = ["pyfoamd"]
+[tool.setuptools.packages]
+find = {}
 
 
 [tool.commitizen]
