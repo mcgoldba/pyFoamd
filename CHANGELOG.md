@@ -1,3 +1,11 @@
+## 0.0.6 (2023-10-03)
+
+### Fix
+
+- Auto distribution build workflow
+- Auto distribution build workflow
+- Auto distribution build workflow
+
 ## 0.0.5 (2023-10-03)
 
 ## 0.0.3 (2023-10-02)
