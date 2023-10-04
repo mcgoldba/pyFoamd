@@ -4,14 +4,14 @@ from pathlib import Path
 import sys
 
 import logging
-# logger = logging.getLogger('pf')
+
 
 from rich import print
 
 from rich.traceback import install
 install()
 
-from .richLogger import logger
+logger = logging.getLogger('pf')
 
 try:
     FOAM_VERSION = os.environ['WM_PROJECT_VERSION']
