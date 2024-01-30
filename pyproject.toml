@@ -1,0 +1,32 @@
+[project]
+name = "pyfoamd"
+authors = [{name = "Marc Goldbach", email = "mgoldbach@myyahoo.com"}]
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+dependencies = [
+        'pint',
+        'pandas',
+        'rich',
+        'ipython'
+        ]
+version = "0.0.4"
+
+[project.urls]
+Home = "https://github.com/mcgoldba/pyFoamd"
+
+[project.scripts]
+pf = "pyfoamd.__main__:main"
+
+[tool.setuptools]
+packages = ["pyfoamd"]
+
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "semver"
+version_provider = "pep621"
+update_changelog_on_bump = true
+[build-system]
+requires = ["setuptools", "wheel"]

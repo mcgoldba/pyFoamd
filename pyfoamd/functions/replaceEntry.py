@@ -1,7 +1,7 @@
 import os
 from shutil import copyfile
 
-from .private.dictUtil import _replaceStringEntry, _replaceSingleLineEntry
+from .dictUtil import _replaceStringEntry, _replaceSingleLineEntry
 
 def replaceEntry(ofValue, location, filename, rType='singleLine', silent=False):
     #- Base function for ofDict replacements

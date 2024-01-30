@@ -1,6 +1,6 @@
 import os
 
-from .private.dictUtil import _appendBlockEntryWithLineNum, _appendBlockEntryWithBlockName, _findEndOfHeader, _findEndOfDict
+from .dictUtil import _appendBlockEntryWithLineNum, _appendBlockEntryWithBlockName, _findEndOfHeader, _findEndOfDict
 
 def appendEntry(value, location, filename, blockList=None, lineNum=None, searchValues=False,
                 insert=False, whitespace=False):

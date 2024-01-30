@@ -1,10 +1,7 @@
 Metadata-Version: 2.1
-Name: pyFoamd
-Version: 0.1.0
-Summary: Pythonic interface for OpenFOAM dictionaries and case files.
-Home-page: https://github.com/mcgoldba/pyFoamd
-Author: Marc Goldbach
-Author-email: mcgoldba@gmail.com
+Name: pyfoamd
+Version: 0.0.2
+Author-email: Marc Goldbach <mgoldbach@myyahoo.com>
 License:                     GNU GENERAL PUBLIC LICENSE
                                Version 3, 29 June 2007
         
@@ -680,8 +677,80 @@ License:                     GNU GENERAL PUBLIC LICENSE
         Public License instead of this License.  But first, please read
         <https://www.gnu.org/licenses/why-not-lgpl.html>.
         
+Project-URL: Home, https://github.com/mcgoldba/pyFoamd
 Requires-Python: >=3.7
+Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pint
+Requires-Dist: pandas
+Requires-Dist: rich
+Requires-Dist: ipython
 
-# pyFoamd
+pyFoamd
+-------
+
 Pythonic modification of OpenFOAM dictionaries and case files.
+
+Installation
+------------
+
+.. code-block:: bash
+
+    python -m pip install pyfoamd
+
+Basic Usage
+-----------
+
+Copy a template case and load as a python object
+
+.. code-block:: bash
+
+    cp $FOAM_TUTORIALS/incompressible/simpleFoam/pitzDaily .
+    cd pitzDaily
+    pf init
+
+View case variables
+
+.. code-block:: bash
+
+    pf edit
+
+.. code-block:: python
+
+    >>> case.constant.turbulenceProperties.RAS.RASModel
+    kEpsilon
+
+Change case dictionary entries
+
+.. code-block:: python
+
+    >>> case.constant.case.constant.turbulenceProperties.RAS.RASModel = kOmega
+
+Write the updated case to file
+
+.. code-block:: python
+
+    >>> case.write()
+
+Run the Allrun script
+
+.. code-block:: python
+
+    >>> case.run()
+
+Releasing
+---------
+
+Releases are published automatically when a tag is pushed to GitHub.
+
+.. code-block:: bash
+
+   # Set next version number
+   export RELEASE=x.x.x
+
+   # Create tags
+   git commit --allow-empty -m "Release $RELEASE"
+   git tag -a $RELEASE -m "Version $RELEASE"
+
+   # Push
+   git push upstream --tags

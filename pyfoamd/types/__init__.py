@@ -499,8 +499,8 @@ class _ofFolderBase(_ofFolderItemBase):
             # print(f"value._type: {value._type}")
             if hasattr(value, "_name"):  # ofFolders do not have a "_name" attribute
                 # print(f"value._name: {value._name}")
-                # value._name = key
-                value.update({'_name': value._name})
+                value._name = key
+                # value.update({'_name': value._name})
                 # key_ = _parseNameTag(key_)
                 # key_ = key
                 # print(f"value._name: {value._name}")
