@@ -18,6 +18,8 @@ pyfoamd/functions/allRun.py
 pyfoamd/functions/appendEntry.py
 pyfoamd/functions/clean.py
 pyfoamd/functions/cleanDictFile.py
+pyfoamd/functions/cloneCase.py
+pyfoamd/functions/cloneCases.py
 pyfoamd/functions/extractLogData.py
 pyfoamd/functions/foamVersion.py
 pyfoamd/functions/getLatestTime.py
@@ -33,6 +35,7 @@ pyfoamd/functions/listCases.py
 pyfoamd/functions/load.py
 pyfoamd/functions/monitor.old.py
 pyfoamd/functions/monitor.py
+pyfoamd/functions/monitors.py
 pyfoamd/functions/parseNameTag.py
 pyfoamd/functions/plot.py
 pyfoamd/functions/printInputs.py
