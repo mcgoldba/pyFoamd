@@ -20,19 +20,9 @@ except:
     print("OpenFOAM not found!")
 
 def getPyFoamdConfig(param):
-    configPath = None
-    if (Path('.pyfoamd') / 'config.ini').is_file():
-        configPath = Path('.pyfoamd') / 'config.ini'
-    elif (Path.home() / '.pyfoamd' / 'config.ini').is_file():
-        configPath = Path.home() / '.pyfoamd' / 'config.ini'
-
-    if configPath is not None:
-
+    def getParam(param, configPath):
         parser = ConfigParser()
         parser.read(configPath)
-
-        print(f"config.ini path: {Path(__file__).parent / 'config.ini'}")
-        print(f"parser sections: {parser.sections()}")
 
         if parser.has_section('user'): 
             param_ = parser.get('user', param.lower(), fallback=None)
@@ -40,8 +30,16 @@ def getPyFoamdConfig(param):
                 param_ = parser.get('default', param.lower(), fallback=None)
         else:
             param_ = parser.get('default', param.lower(), fallback=None)
+        return param_       
 
-    else:
+    param_ = None
+    if (Path('.pyfoamd') / 'config.ini').is_file():
+        param_ = getParam(param, Path('.pyfoamd') / 'config.ini')
+    if param_ is None and (Path.home() / '.pyfoamd' / 'config.ini').is_file():
+        param_ = getParam(param, Path.home() / '.pyfoamd' / 'config.ini')
+    if param_ is None and (Path(__file__) / 'config.ini').is_file():
+        param_ = getParam(param, Path(__file__) / 'config.ini')
+    if param_ is None:
         if param.lower() == 'debug':
             param_ = False
         if param.lower() == 'dict_filesize_limit':
