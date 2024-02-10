@@ -62,7 +62,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
     #     else:
     #         return dict_)
 
-    setLoggerLevel("DEBUG" if getPyFoamdConfig('debug').lower() == 'true'
+    setLoggerLevel("DEBUG" if getPyFoamdConfig('debug')
                     else "INFO")
 
     if not path.is_file():

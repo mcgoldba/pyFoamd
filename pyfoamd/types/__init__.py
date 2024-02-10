@@ -730,10 +730,10 @@ class _ofCaseBase(_ofTypeBase):
         return self._path_
 
     @_path.setter
-    def _path(self, p):
+    def _path(self, pathi):
         # self._location = str(Path(p).parent)
         # self._name = str(Path(p).name)
-        self._path_ = Path(p).resolve()
+        self._path_ = Path(pathi).resolve()
 
     # @property
     # def _name(self):
@@ -755,8 +755,8 @@ class _ofCaseBase(_ofTypeBase):
 
     # TODO:  This... print out a tree representation of the case up to 
     #        any ofDictFiles
-    def __str__(self):
-        return str(self._path)
+    # def __str__(self):
+    #     return str(self._path)
 
     def __deepcopy__(self, memo):
         # logger.debug(f"self: {self}")
@@ -837,13 +837,17 @@ class _ofCaseBase(_ofTypeBase):
         Convert an ofCase to it's python dictionary representation.
         """
 
+        # logger.debug(self)
+
         if obj is None:
             obj = self
 
         # Define inner loop to distinush between the user command case.toDict(),
         # and the recursive function returning a `None` object.
         def _toDict(obj):
-            logger.debug(f"Parsing obj: {obj}")
+            logger.debug(f"Parsing obj: {type(obj)}")
+            if hasattr(obj, '__dict__'):
+                logger.debug(obj.__dict__)
 
             if isinstance(obj, str):
                 return obj
@@ -860,12 +864,12 @@ class _ofCaseBase(_ofTypeBase):
             #     return dict((key, _toDict(val)) for 
             #                     key, val in obj.attrDict().items())
             elif isinstance(obj, _ofTypeBase):
-                # logger.debug(f"attrDict: {obj.attrDict()}")
+                logger.debug(f"attrDict: {obj.attrDict()}")
                 return dict((key, _toDict(val)) for 
                                 key, val in obj.attrDict().items())
                 # return _toDict(obj.attrDict())
             elif isinstance(obj, _ofFolderBase):
-                # logger.debug("Parsing ofFolder")
+                logger.debug("Parsing ofFolder")
                 return dict((key, _toDict(val)) for 
                             key, val in obj.attrDict().items())
             elif isinstance(obj, pd.DataFrame):
@@ -961,10 +965,11 @@ class _ofCaseBase(_ofTypeBase):
 
         # TODO: Write JSON data as binary to save disk space.
         #- Read in the file that was just saved as binary:
-        with open(Path(self._path) / '.pyfoamd' / '_case.json', 'r') as f_:
-            savedCase = f_.read()
-            with open(backupPath, 'w') as f:
-                f.write(savedCase)
+        if (Path(self._path) / '.pyfoamd' / '_case.json').is_file():
+            with open(Path(self._path) / '.pyfoamd' / '_case.json', 'r') as f_:
+                savedCase = f_.read()
+                with open(backupPath, 'w') as f:
+                    f.write(savedCase)
 
         def _writeCaseObj(obj, loc=None):
             if loc is None:
@@ -2001,7 +2006,7 @@ class ofDict(dict, _ofTypeBase):
         # if key not in self._CLASS_VARS:
         def _parseList(obj):
             if not isinstance(obj, list):
-                logger.error("Recived non list type as value.")
+                logger.error("Recieved non list type as value.")
                 sys.exit()
                 # type_, value_ = DictFileParser._parseValue(v)
                 # return type_(value)
@@ -2076,10 +2081,12 @@ class ofDict(dict, _ofTypeBase):
             # if hasattr(v, '_name'):
             #     print(f"ofDict copying {k}: {v._name}")
             # else:
-            #     print(f"ofDict copying {k}: {v}")
-            # if k == '_name':
-                # print(f"ofDict copying {v}")
+                # print(f"ofDict copying {k}: {v}")
+            if isinstance(v, ofDict):
+                result[k] = copy.deepcopy(v,memo)
+                # result[k]["_name"] = v._name
             setattr(result, k, copy.deepcopy(v, memo))
+
             # if k == '_name':
                 # print(f"values after setattr: {result[k]}")
         return result

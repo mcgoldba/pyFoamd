@@ -153,7 +153,7 @@ def main():
 
     debug = getPyFoamdConfig('debug')
 
-    setLoggerLevel("DEBUG" if debug.lower()=='true' else "INFO")
+    setLoggerLevel("DEBUG" if debug else "INFO")
 
     logger.debug(f"debug: {debug}")
 
