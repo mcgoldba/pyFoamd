@@ -699,7 +699,7 @@ class _ofCaseBase(_ofTypeBase):
     # _path : Path
     # _location : str = field(default=Path.cwd().parent)
     # _name : str = field(default=Path.cwd().name)
-    _times : ofTimeReg = field(init=False, default=ofTimeReg())
+    # _times : ofTimeReg = field(init=False, default=ofTimeReg())
     # _registry : list = _populateRegistry(path)
     constant : _ofFolderBase = field(init=False)
     system : _ofFolderBase = field(init=False)
