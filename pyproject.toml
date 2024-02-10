@@ -10,7 +10,7 @@ dependencies = [
         'rich',
         'ipython'
         ]
-version = "0.0.9"
+version = "0.0.10"
 
 [project.urls]
 Home = "https://github.com/mcgoldba/pyFoamd"
