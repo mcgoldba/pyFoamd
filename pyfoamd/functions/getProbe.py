@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger('pf')
 
 def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
-     logPath=None):
+     logPath=None, returnTime=False):
     """
     Get an ofProbe object from a log file written to the 'postProcessing/probes'
     directory.
@@ -56,4 +56,7 @@ def getProbe(field=None, startTime='latestTime', workingDir=Path.cwd(),
     probe = pt.ofProbe(logPath)
     # data = np.loadtxt(logPath, delimiter="\s+")
 
-    return probe
+    if returnTime:
+        return probe, startTime
+    else:
+        return probe

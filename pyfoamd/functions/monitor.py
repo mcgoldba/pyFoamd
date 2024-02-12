@@ -20,16 +20,16 @@ plt.style.use('ggplot')
 
 def monitor(value='U', time='latestTime', supplement=None, 
     workingDir=Path.cwd(), title=None, filter=None, yrange = None,
-    logScale=False, all=False):
+    logScale=False, all=False, save=False):
 
     if title is None:
         title = Path(workingDir).name
 
     try:
-        monitor = getMonitor(name=value, startTime=time, 
-                    workingDir=workingDir)
+        monitor, time_ = getMonitor(name=value, startTime=time, 
+                    workingDir=workingDir, returnTime=True)
     except FileNotFoundError:
-        monitor = getProbe(value, time, workingDir)
+        monitor, time_ = getProbe(value, time, workingDir, returnTime=True)
 
     if filter is not None:
         columns_ = [monitor.data.columns[i] for i, item in 
@@ -114,4 +114,7 @@ def monitor(value='U', time='latestTime', supplement=None,
 
     plt.tight_layout() 
 
-    plt.show()
+    if save:
+        plt.savefig(f'monitor_{value}_{time_}.png')
+    else:
+        plt.show()

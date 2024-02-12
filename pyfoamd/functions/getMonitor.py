@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger('pf')
 
 def getMonitor(name=None, startTime='latestTime', dataFileName=None,
-     logPath=None, workingDir=Path.cwd()):
+     logPath=None, workingDir=Path.cwd(), returnTime=False):
     """
     Get an ofMonitor object from a log file written to the 'postProcessing/'
     directory.
@@ -81,4 +81,7 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
     monitor = pt.MonitorParser(logPath).makeOFMonitor()
     # data = np.loadtxt(logPath, delimiter="\s+")
 
-    return monitor
+    if returnTime:
+        return monitor, startTime
+    else:
+        return monitor

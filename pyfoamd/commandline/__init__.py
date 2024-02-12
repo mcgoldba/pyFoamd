@@ -239,6 +239,9 @@ class CommandLine:
         parser.add_argument('-time', type=str, nargs='?', default = 'latestTime',
                                 help='The postprocessing startTime to monitor')
 
+        parser.add_argument('-save', action='store_true',
+                                help='If `True` the plot is saved to file.')
+
 
         args = parser.parse_args(self.addArgs)
 
@@ -247,7 +250,7 @@ class CommandLine:
 
         pf.monitor(value=args.value[0], workingDir=args.casePath, 
                     filter=args.filter, yrange=args.yrange, 
-                    logScale = args.log, time = args.time)
+                    logScale = args.log, time = args.time, save=args.save)
 
     def cloneCase(self):
         self.prog+=' cloneCase'
