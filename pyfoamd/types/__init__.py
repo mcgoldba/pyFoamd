@@ -701,8 +701,8 @@ class _ofCaseBase(_ofTypeBase):
     # _name : str = field(default=Path.cwd().name)
     # _times : ofTimeReg = field(init=False, default=ofTimeReg())
     # _registry : list = _populateRegistry(path)
-    constant : _ofFolderBase = field(init=False)
-    system : _ofFolderBase = field(init=False)
+    constant : _ofFolderBase = field(default_factory=_ofFolderBase, init=False)
+    system : _ofFolderBase = field(default_factory=_ofFolderBase, init=False)
 
     def __post_init__(self):
         #self._path = Path(self._location) / self._name
@@ -1070,9 +1070,16 @@ class CaseParser:
 
                 # folderPath_ = self.path / obj.name
                 folderPath_ = obj.name
-                attrList.append((name_, _ofFolderBase, 
-                    field(default=FolderParser(
-                        self.path, folderPath_).makeOFFolder())))
+                attrList.append(
+                    (
+                        name_, _ofFolderBase, 
+                        field(
+                            default_factory=FolderParser(
+                                self.path, folderPath_
+                            ).makeOFFolder
+                        )
+                    )
+                )
 
         # dc_ =   make_dataclass('ofCase', attrList, 
         #                         bases=(_ofCaseBase, ))(
