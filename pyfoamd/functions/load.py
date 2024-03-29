@@ -65,6 +65,8 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
     setLoggerLevel("DEBUG" if getPyFoamdConfig('debug')
                     else "INFO")
 
+    logger.setLevel(logging.DEBUG)
+
     if not path.is_file():
         userMsg("No cached case data found.  Run 'pf init'"\
             " before 'pf edit'.", "WARNING")
@@ -149,7 +151,9 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     #TODO: simplify initialization
                     # obj_ = ofDictFile(_name= obj['_name'], 
                     #             _location=obj['_location'])
-                    obj_ = ofDictFile(_name= obj['_name']) 
+                    obj_ = ofDictFile(_name= obj['_name'])
+                    # obj_ = DictFileParser(case._path / obj._name).initOFDictFile() 
+                    obj_.__dict__.update({'_name': obj['_name']})
                     logger.debug(f"{tabStr}Defined obj_: {obj_}")
                 elif (obj['_type'] == 'ofList' 
                 or obj['_type'] == 'ofSplitList'
@@ -174,15 +178,20 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
                     logger.debug(f"{tabStr}Parsing key {key}.")
                     if (key != '_type' 
                         and not (not parseValue and key == '_value')):
-                        logger.debug(f"{tabStr}Setting key {key}.")
-                        value_ = _parseCaseDict(value, case, tabStr)
-                        logger.debug(f"{tabStr}value_: {value_}")
-                        logger.debug(f"{tabStr}obj_: {obj_}")
-                        try:
-                            setattr(obj_, key, value_)
-                        except FrozenInstanceError:
-                            logger.warning(f"{tabStr}Could not set frozen "\
-                                f"instance key: {key}: {value}.")
+                        if key == '_name':
+                            obj_.__dict__.update({key: value})
+                        else:
+                            logger.debug(f"{tabStr}Setting key {key}.")
+                            value_ = _parseCaseDict(value, case, tabStr)
+                            logger.debug(f"{tabStr}value_: {value_}")
+                            logger.debug(f"{tabStr}obj_: {obj_}")
+                            try:
+                                # setattr(obj_, key, value_)
+                                obj_.__dict__.update({key: value_})
+
+                            except FrozenInstanceError:
+                                logger.warning(f"{tabStr}Could not set frozen "\
+                                    f"instance key: {key}: {value}.")
                 logger.debug(f"{tabStr}Returning {obj_}.")
                 return obj_
             else:
@@ -192,7 +201,6 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
             return obj
             
     case_ = _parseCaseDict(caseDict)
-
 
     if isinstance(case_, _ofCaseBase):
         return case_

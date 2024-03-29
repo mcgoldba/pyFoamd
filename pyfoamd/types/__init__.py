@@ -434,6 +434,9 @@ def _parseNameTag(itemName):
     """
     name_ = ""
 
+    if itemName == 'alpha.water':
+        print("About to rename alpha.water!")
+
     #Assume numeric values are times, and replace with t_##
     try: 
         float(itemName.rstrip('.orig'))
@@ -474,9 +477,8 @@ class _ofFolderBase(_ofFolderItemBase):
             # else:
             #     print(f"FolderParser copying {k}: {v}")
 
-            setattr(copy_, k, copy.deepcopy(v,memo))
-            # if hasattr(v, '_name'):
-            #     print(f"FolderParser after setattr {k}: {copy_[k]._name}")
+            # setattr(copy_, k, copy.deepcopy(v,memo))
+            copy_.__dict__.update({k: copy.deepcopy(v,memo)})
 
         return copy_
     
@@ -499,15 +501,19 @@ class _ofFolderBase(_ofFolderItemBase):
             # print(f"value._type: {value._type}")
             if hasattr(value, "_name"):  # ofFolders do not have a "_name" attribute
                 # print(f"value._name: {value._name}")
+                # value._name = key
                 value._name = key
-                # value.update({'_name': value._name})
-                # key_ = _parseNameTag(key_)
+                # value.update({'_name': Path(value._path).name})
+                # key_ = _parseNameTag(key)
                 # key_ = key
                 # print(f"value._name: {value._name}")
             # logger.debug(f"ofFolder adding attribute {key_} as {value}")
             # super(_ofFolderBase, self).__setitem__(key_, value)
             super(_ofFolderBase, self).__setattr__(key, value)
             super(_ofFolderBase, self).__dict__[key] =  value
+            if hasattr(value, "_name"):  # ofFolders do not have a "_name" attribute
+                value._name = key
+
 
         elif key.startswith('_'):
             # logger.debug(f"ofFolder adding attribute {key} as {value}")
@@ -522,7 +528,8 @@ class _ofFolderBase(_ofFolderItemBase):
 
 
     def __getitem__(self, key):
-        k = _parseNameTag(key)
+        # k = _parseNameTag(key)
+        k = key
         return self.__dict__[k]
 
     def __setitem__(self, key, value):
@@ -551,12 +558,12 @@ class FolderParser:  # Class is required because 'default_factory' argument
 
         # logging.getLogger('pf').setLevel(logging.DEBUG)
 
-        logger.debug(f"Parsing folder: {self.path}")
-
         # #- Path relative to the case directory
         # caseRelDir = self.path.relative_to(*self.path.parts[:2])
 
-        attrList = [('_path', str, field(default=str(self.path)))]
+        attrList = [
+            ('_path', str, field(default=str(self.path))),
+        ]
         internalNames = {}
         for obj in (Path(self.case) / self.path).iterdir():
         # for obj in Path(self.path).iterdir():
@@ -597,11 +604,14 @@ class FolderParser:  # Class is required because 'default_factory' argument
                 # print(f"Check that {name_} == {obj.name}")
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
-               
-                attrList.append( (name_, ofDictFile,
-                                #field(default=DictFileParser(obj).readDictFile()) )
-                                field(default_factory=
-                                    DictFileParser(obj).readDictFile) )
+
+                attrList.append( 
+                    (
+                        name_, 
+                        ofDictFile,
+                        field(default_factory=
+                            DictFileParser(obj).readDictFile)
+                    )
                 )
 
         # print(f"attribute list: {attrList}")
@@ -617,8 +627,10 @@ class FolderParser:  # Class is required because 'default_factory' argument
         for key, value in internalNames.items():
             # print(f"Reseting name to {value}...")
             # logger.debug(f"Modifying key: {key}")
-            dc_.__dict__[key]._name = value
-            # print(f"dc_[{key}]._name: {dc_[key]._name}")
+            # dc_.__dict__[key]._name = value
+            dc_[key].__dict__.update(
+                {'_name': value}
+            )
 
 
         # for key, value in dc_.__dict__.items():
@@ -780,7 +792,8 @@ class _ofCaseBase(_ofTypeBase):
         # ref: https://stackoverflow.com/a/15774013/10592330 
         # memo[id(copy_)] = copy_
         for k,v in self.__dict__.items():
-            setattr(copy_, k, copy.deepcopy(v,memo))
+            # setattr(copy_, k, copy.deepcopy(v,memo))
+            copy_.__dict__.update({k: copy.deepcopy(v,memo)})
             # copy_[k] = copy.deepcopy(v,memo)
         # dictCopy = copy.deepcopy(self.__dict__)
 
@@ -1060,8 +1073,10 @@ class CaseParser:
                 #     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
                 #                 "Skipping directory: {obj} ")
                 #     continue
-                name_ = _checkReserved(obj.name.replace('.', '_'), fields)
-                
+                # name_ = _checkReserved(obj.name.replace('.', '_'), fields)
+                name_ = _checkReserved(obj.name, fields)
+                name_ = _parseNameTag(name_)
+
                 # logger.debug(f"digit test value: {name_.split('_')[0]}")
 
                 if name_.split('_')[0].isdigit():
@@ -1463,7 +1478,7 @@ class ofVar(_ofNamedTypeBase):
                 str_ = str(self._name)
         else:
             str_ = ''
-        str_ +=  f"${self.value}"
+        str_ +=  f"${self.value.rstrip()}"
         if ofRep:
             str_+= ";\n"
         else:
@@ -1971,6 +1986,8 @@ class ofDict(dict, _ofTypeBase):
             elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
                 #- Replace special chars with attribute acceptable string
                 name_ =_parseNameTag(itemName)
+                # print("called parseName from ofDict.__setitem__ 2")
+
 
             else:
                 # name_ = item.name
@@ -1987,6 +2004,7 @@ class ofDict(dict, _ofTypeBase):
                 item_ = UNNAMED_TAG+str(self._nUnnamed)
             else:
                 item_ = _parseNameTag(item)
+                # print("called parseName from ofDict.__setitem__")
                 # item_ = item
             # if item_ == "_name":
                 # print(f"***ofDict __setitem__ value: {value}")
@@ -2032,7 +2050,7 @@ class ofDict(dict, _ofTypeBase):
         # if key not in self._CLASS_VARS:
             if isinstance(value, list):
                 ofType = _parseList(value)
-                ofType._name = key 
+                ofType.__dict__.update({'_name': key}) 
                 # ofType = [DictFileParser._parseValue(v) for v in value]    
             elif value is not None and not isinstance(value, _ofTypeBase):
                 # logger.debug("finding ofType...")
@@ -2042,14 +2060,16 @@ class ofDict(dict, _ofTypeBase):
             else:
                 ofType = value
                 if hasattr(ofType, '_name') and ofType._name is None:
-                    ofType._name = key
+                    # ofType._name = key
+                    ofType.__dict__.update({'_name': key})
             # logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
             self.__dict__[key] = ofType
             # super(ofDict, self).__dict__[key_] = ofType
         else:
             # if key == '_name':
                 # print(f"setting {key}: {value}")
-            self.__dict__[key] = value
+            # self.__dict__[key] = value
+            self.__dict__.update({key: value})
             # if key == '_name':
                 # print(f"{key} after setting: {value}")
             # key_ = _parseNameTag(key_)
@@ -2095,7 +2115,8 @@ class ofDict(dict, _ofTypeBase):
             setattr(result, k, copy.deepcopy(v, memo))
 
             # if k == '_name':
-                # print(f"values after setattr: {result[k]}")
+            #     print(f"values after setattr: {result[k]}")
+            
         return result
 
     # _update = dict.update
@@ -3772,48 +3793,90 @@ class ofProbe(_ofMonitorBase):
     #         plt.pause(pauseTime)
 
 
-@dataclass
-class ofStudy:
-    templatePath : Path
-    parameterNames : list   # Note: this argument must be parsed before 'samples' 
-                            # for DataFrame conversion
-    samples : np.ndarray
-    updateFunction : Callable
-    path: Path = Path.cwd()
-    runCommand : str = './Allrun'
+def emptyCall1(arg1, arg2, arg3):
+    pass
 
-    def __post_init__(self):
+def emptyCall2(arg1):
+    pass
+
+class ofStudy:
+    """
+    Class used to run parametric studies in OpenFOAM.
+
+    Parameters
+    ----------
+    templatePath : str, Path
+        The name of the case file that is used as starting point for each 
+        simulation
+
+    parameterNames : list(str)
+        Names of prameters that will be modified during the study.
+
+    designPoints : pandas.DataFrame, numpy.array
+        The parameter values for each simulation of the study.
+    
+    updateFunction : Callable
+        A method used to update the parameters of each simulation based on a
+        design point.  Arguments must be (session, designPoint) where session is
+        an instance of pyfluent.solver.Session, and designPoint is a pandas.Series
+        containing the values of all parameters to be updated. Method must return
+        the updated session. 
+    innerPostProcessFunction : Callable
+        A method used to post process each simulation based on a
+        design point.  Arguments must be (dataFilePath, designPoint, designPointi) where datafilePath is
+        the relative location of the simulation data for the design point, and
+        designPointi is the index of the design point
+
+    outerPostProcessFunction : Callable
+        A method that is executed at the end of the study after all simulations 
+        are completed.  Arguments must be (simOutputs) where simOutputs is a
+        dict of outputs from the innerPostProcessFunction, where the keys are 
+        the design point indices and the values are a list of outputs from each
+        simulation.
+
+    runCommand : str
+        The command to run in the Linux treminal to start each simulation.
+
+    workingDir : Path  
+        The working directory used to run simulations and save supporting files.
+    """
+    def __init__(
+        self, templatePath: Path, parameterNames: list, designPoints: pd.DataFrame,
+        updateFunction: Callable, innerPostProcessFunction: Callable=None, 
+        outerPostProcessFunction: Callable=None, runCommand: str='./Allrun', 
+        workingDir: Path=Path.cwd()
+    ):
+        self._templatePath = templatePath
+        self._parameterNames = parameterNames   # Note: this argument must be parsed before 'designPoints' 
+                                      # for DataFrame conversion
+        self._designPoints = designPoints
+        self._updateFunction = updateFunction
+        self._innerPostProcessFunction = innerPostProcessFunction
+        self._outerPostProcessFunction = outerPostProcessFunction
+        self._workingDir = workingDir
+        self._runCommand = './Allrun'
+
         self.templateCase = CaseParser(self.templatePath).makeOFCase()
         logger.info(f"Using template case: {self.templateCase._path}")
         #self.templateCase._name = self.templateCase._name.rstrip('.template')
-        #self.samples = pd.DataFrame(self._samples, columns=self.parameterNames)
-        self.nSamples = len(self.samples)
+        #self.designPoints = pd.DataFrame(self._designPoints, columns=self.parameterNames)
+        self.nSamples = len(self.designPoints)
 
     @property
-    def samples(self):
-        return self._samples
-    
-    @samples.setter
-    def samples(self, s):
-        if isinstance(s, pd.DataFrame):
-            self._samples = s
-            return
-        elif not isinstance(s, np.ndarray):
+    def templatePath(self):
+        return self._templatePath
+
+    @templatePath.setter
+    def templatePath(self, p):
+        if p is None:
+            self._templatePath = None
+        else:
             try:
-                s = np.asarray(s)
-            except ValueError:
-                userMsg("'samples' entry must be numpy array_like.  "\
-                    "Found {s}.", "ERROR")
-        if any([len(self.parameterNames) != len(s_) for s_ in s]):
-            userMsg("'parameterNames' argument must have length equal to"
-                f" the length of columns in 'samples'.  "
-                f"{len(self.parameterNames)} != {len(s[0])}", "ERROR")
-        if s.ndim != 2:
-            dimText = 'dimension' if s.ndim == 1 else 'dimensions'
-            userMsg("'samples' entry must be a 2D array_like.  "\
-                    f"Found {s.ndim} {dimText}.", "ERROR")
-        self._samples = pd.DataFrame(s, columns = self.parameterNames)
-            
+                self._templatePath = Path(p)
+            except:
+                userMsg("'templatePath' argument must be Path like."\
+                f"  Found {type(n)}", "ERROR")
+
     @property
     def parameterNames(self):
         return self._parameterNames
@@ -3828,6 +3891,32 @@ class ofStudy:
         self._parameterNames = n
 
     @property
+    def designPoints(self):
+        return self._designPoints
+    
+    @designPoints.setter
+    def designPoints(self, s):
+        if isinstance(s, pd.DataFrame):
+            self._designPoints = s
+            return
+        elif not isinstance(s, np.ndarray):
+            try:
+                s = np.asarray(s)
+            except ValueError:
+                userMsg("'designPoints' entry must be numpy array_like.  "\
+                    "Found {s}.", "ERROR")
+        if any([len(self.parameterNames) != len(s_) for s_ in s]):
+            userMsg("'parameterNames' argument must have length equal to"
+                f" the length of columns in 'designPoints'.  "
+                f"{len(self.parameterNames)} != {len(s[0])}", "ERROR")
+        if s.ndim != 2:
+            dimText = 'dimension' if s.ndim == 1 else 'dimensions'
+            userMsg("'designPoints' entry must be a 2D array_like.  "\
+                    f"Found {s.ndim} {dimText}.", "ERROR")
+        self._designPoints = pd.DataFrame(s, columns = self.parameterNames)
+        
+
+    @property
     def updateFunction(self):
         return self._updateFunction
 
@@ -3837,6 +3926,53 @@ class ofStudy:
             userMsg("'updateFunction' argument must be callable.", "ERROR")
         self._updateFunction = f
 
+    @property
+    def innerPostProcessFunction(self):
+        return self._innerPostProcessFunction
+    @innerPostProcessFunction.setter
+    def innerPostProcessFunction(self, value):
+        if callable(value):
+            self._innerPostProcessFunction = value
+        else:
+            raise Exception("`innerPostProcessFunction` must be callable.")
+
+    @property
+    def outerPostProcessFunction(self):
+        return self._innerPostProcessFunction
+    @outerPostProcessFunction.setter
+    def outerPostProcessFunction(self, value):
+        if callable(value):
+            self._outerPostProcessFunction = value
+        else:
+            raise Exception(f"`outerPostProcessFunction` must be callable. Got {value}")
+
+    @property
+    def workingDir(self):
+        return self._workingDir
+
+    @workingDir.setter
+    def workingDir(self, p):
+        if p is None:
+            self._workingDir = None
+        else:
+            try:
+                self._workingDir = Path(p)
+            except:
+                userMsg("'workingDir' argument must be Path like."\
+                f"  Found {type(n)}", "ERROR")
+
+    @property
+    def runCommand(self):
+        return self._runCommand
+
+    @runCommand.setter
+    def runCommand(self, p):
+        if isinstance(p,str):
+            self._runCommand = p
+        else:
+            userMsg("'runCommand' argument must be a string."\
+                f"  Found {type(n)}", "ERROR")
+
     def run(self, runSequence=None, ignoreIndices = [], dryRun = False, 
         sort=None, ascending=False, restart=False):
         """
@@ -3844,7 +3980,7 @@ class ofStudy:
 
         Parameters:
             runSequence [list(int)]:  List of indices specifying the order in
-                which to run the samples.  If specified, the `sort`, 
+                which to run the designPoints.  If specified, the `sort`, 
                 `ignoreIndices`, and `ascending` arguments are ignored.  Samples
                 not included in the list are ignored.
             dryRun [bool]: If True, write case directories, but does not run the
@@ -3858,24 +3994,25 @@ class ofStudy:
                 exist will be restarted from the lastest time.
         """
         #- Save the sample points to file
-        self.samples.to_csv('studySamplePoints.txt', sep='\t')
+        self.designPoints.to_csv('studySamplePoints.txt', sep='\t')
 
-        print(f"samples keys: {self.samples.columns}")
+        print(f"designPoints keys: {self.designPoints.columns}")
 
         if runSequence is not None:
-            samples_ = self.samples.iloc[runSequence]
+            designPoints_ = self.designPoints.iloc[runSequence]
         #TODO:  The call to `sort_values` raises a KeyError
         elif sort is not None:
-            sortNames = [self.samples.columns[s] if isinstance(s, int) \
+            sortNames = [self.designPoints.columns[s] if isinstance(s, int) \
                 else str(s) for s in sort]
-            samples_ = self.samples.sort_values(by=sortNames, axis=0, 
+            designPoints_ = self.designPoints.sort_values(by=sortNames, axis=0, 
                                                 ascending=ascending)
         else:
-            samples_ = self.samples
+            designPoints_ = self.designPoints
 
         nPad = len(str(self.nSamples))
 
-        for idx, row in samples_.iterrows():
+        simOutputs = {}
+        for idx, row in designPoints_.iterrows():
             if idx not in ignoreIndices:
                 print(f"Running sample {idx}")
                 name = ".".join(self.templateCase.name().split('.')[:-1])+\
@@ -3906,7 +4043,15 @@ class ofStudy:
 
                 case_.write()
                 if not dryRun:
-                    case_.allRun(cmd=self.runCommand)      
+                    case_.allRun(cmd=self.runCommand)
+
+                if self.innerPostProcessFunction is not None:
+                    simOutputs[idx] = \
+                        self.innerPostProcessFunction(
+                            case_._path, row, idx
+                        )
+            if self.outerPostProcessFunction is not None:
+                self.outerPostProcessFunction(simOutputs)      
 
     def diff(self):
         """
@@ -3922,7 +4067,6 @@ class DictFileParser:
         with open(filepath, 'r') as f:
             self.lines = f.readlines()
         self.status = None
-        # logger.debug(f"Setting dictFile name to {Path(filepath).name}...")
         self.dictFile = ofDictFile(_name=Path(filepath).name) 
                             #_location=Path(filepath).parent)
         self.i=0
@@ -3932,6 +4076,14 @@ class DictFileParser:
         self.nFeTypes = {t: 0 for t in OF_FUNCTION_ENTRIES.keys()}
         self.needSemicolon = True
 
+    def initOFDictFile(self):
+        """
+        Initialize an ofDictFile instance. without parsing the file.   
+        """
+        dc_ = make_dataclass('ofDictFile', 
+                        [], bases=(ofDict, ))
+        
+        return dc_(self.path)
 
     def _addExtraLine(self, line):
         # if self.extraLine is not None:
@@ -4026,11 +4178,13 @@ class DictFileParser:
                     and not isinstance(value, ofComment)
                     and not isinstance(value, _ofFunctionEntry)):
                     #- rename key if already in dict:
-                    if value._name in self.dictFile.keys():
+                    value_ = value._name
+                    i=0
+                    while value_ in self.dictFile.keys():
                         # logger.debug("Renaming duplicate key.")
-                        key = value._name+'_1'
-                    else:
-                        key = value._name
+                        i+=1
+                        value_ = value._name+f"_{i}"                    
+                    key = value_
                     if hasattr(value, '_name'):
                         # logger.debug(f"_parseLine: setting {key}: {value}")
                         self.dictFile.update({key: value})
@@ -4055,7 +4209,9 @@ class DictFileParser:
         #                 #filename=Path(file).name
         #                 )
         
-        # logger.debug(f"dictFile name = {self.dictFile._name} ")
+        if self.dictFile._name.startswith('alpha'):
+            print(f"readDictFile name: {self.dictFile._name}")
+        logger.debug(f"dictFile name = {self.dictFile._name} ")
 
         return self.dictFile
 
@@ -4201,10 +4357,17 @@ class DictFileParser:
         # logger.debug("Parsing a single line entry")
 
         # logger.debug(f"key: {key}, value: {value}")
+        if value == "":
+            if key.startswith('$'):
+                type_ = ofVar
+                value_ = None
+            else:
+                type_ = ofWord
+                value_ = key
+        else:
+            type_, value_ = self._parseValue(value)
 
-        type_, value_ = self._parseValue(value)
-
-        # logger.debug(f"{type_} signature: {signature(type_)}")
+        logger.debug(f"{type_} signature: {signature(type_)}")
 
         if hasattr(type_, 'name'):
             return type_(key, value_, _comment=self._getComment())
@@ -4212,7 +4375,7 @@ class DictFileParser:
             return type_(key, value_, _comment=self._getComment())
         else:
             userMsg(f"Could not set name for type {type_}.  Returning "\
-                "value only!", "WARNING")
+                f"value only!.  key: {key} value: {value_}", "WARNING")
             return type_(value_, _comment=self._getComment())
 
     def _parseListOrDict(self, name, line : str = None):
