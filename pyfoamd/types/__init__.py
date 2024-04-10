@@ -3304,18 +3304,92 @@ class _ofMonitorBase:
 
         # logger.debug(f"parsedLabels: {parsedLabels}")
 
-        values = re.split(r'\s{2,}|\t', line.strip())
-        values = [v.strip() for v in values]
+        # values = re.split(r'\s{2,}|\t', line.strip())
+        # values = [v.strip() for v in values]
+
+        # parse parenthesis in case of nested lists, but al ofTypes are single level list or float
+        # def _parseLineSegment(seg):
+        #     vStr = ""
+        #     values = []
+        #     parenLevel = 0
+        #     seg = seg.strip()
+        #     for i in range(len(seg)):
+        #         # skip = 0
+        #         char = seg[i]
+        #         if skip > 0: #skip characters that were already parsed as part of list
+        #             skip -= 1
+        #             continue
+        #         if re.match('\s', char):
+        #             if vStr != "":
+        #                 values.append(float(vStr))
+        #             vStr = ""
+        #         elif char == '(':
+        #             parenLevel += 1
+        #             value_, skip = _parseLineSegment(seg[i+1:])  
+        #             values.append(value_)
+        #             #- Parse parentheses
+        #         elif char == ')' or char == '\n':
+        #             if vStr != "":
+        #                 values.append(float(vStr))
+        #             vStr = ""
+        #             return values, i+2
+        #         else:
+        #             vStr += seg[i]
+        
+        # values, _ = _parseLineSegment(line)
+
+        values_ = line.strip().split()  #- Temporary list of values as str
+        values = []  # list of vlaues as floats and list(floats)
+
+        skip = 0
+        for i in range(len(values_)):  # Note: all values_ will be str type.
+            value = values_[i]
+            if skip > 0:
+                skip -= 1
+                continue
+            try:
+                v_ = float(value)
+                values.append(v_)
+            except ValueError as ve:
+                if '(' in value:
+                    vList_ = []
+                    while ')' not in values_[i]:
+                        skip +=1
+                        vList_.append(float(values_[i].strip('()')))
+                        i+=1
+                    vList_.append(float(values_[i].strip('()')))
+                    i+=1
+                    values.append(vList_)
+                else:
+                    raise ve
 
         parsedValues = [float(values[0])]  #Time index
         ofValues = [float(values[0])]
         ofTypes = [float]
 
         for i, value in enumerate(values[1:]):
-            ofType, ofValue = DictFileParser._parseValue(value)
-                        
-            ofValues.append(ofValue)
-            ofTypes.append(ofType)
+            print(f"line {linei}, value {i}: {value}")
+            # ofType, ofValue = DictFileParser._parseValue(value)
+            #- Parse values manually:
+            if isinstance(value, float):
+                ofTypes.append(ofFloat)
+            elif isinstance(value, list):
+                if len(value) == 3:
+                    ofTypes.append(ofVector)
+                elif len(value) == 6:
+                    ofTypes.append(ofSymmTensor)
+                elif len(value) == 9:
+                    ofTypes.append(ofTensor)
+                elif len(value) == 1:
+                    ofTypes.append(ofSphericalTensor)
+                else:
+                    userMsg("Could not find suitable ofType.", "ERROR")
+            else:
+                userMsg("Could not find suitable ofType.", "ERROR")            
+            ofValues.append(value)
+            
+            # ofValues.append(ofValue)
+            # ofTypes.append(ofType)
         
         # logger.debug(f"ofValues:\n{ofValues}")
 
@@ -3521,7 +3595,7 @@ class MonitorParser:
                     header = line.lstrip('#').split('\t')
                     header = [v.strip() for v in header]
                     
-                
+        print(f"header: {header}")      
         dc_ = make_dataclass('ofMonitor', attrList, 
                     bases=(_ofMonitorBase, ))(_dataPath=self.path, 
                                         _columns=header)
@@ -3938,7 +4012,7 @@ class ofStudy:
 
     @property
     def outerPostProcessFunction(self):
-        return self._innerPostProcessFunction
+        return self._outerPostProcessFunction
     @outerPostProcessFunction.setter
     def outerPostProcessFunction(self, value):
         if callable(value):
