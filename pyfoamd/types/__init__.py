@@ -3361,14 +3361,14 @@ class _ofMonitorBase:
                     i+=1
                     values.append(vList_)
                 else:
-                    raise ve
+                    #- store as string
+                    values.append(value)
 
         parsedValues = [float(values[0])]  #Time index
         ofValues = [float(values[0])]
         ofTypes = [float]
 
         for i, value in enumerate(values[1:]):
-            print(f"line {linei}, value {i}: {value}")
             # ofType, ofValue = DictFileParser._parseValue(value)
             #- Parse values manually:
             if isinstance(value, float):
@@ -3385,7 +3385,8 @@ class _ofMonitorBase:
                 else:
                     userMsg("Could not find suitable ofType.", "ERROR")
             else:
-                userMsg("Could not find suitable ofType.", "ERROR")            
+                ofTypes.append(ofStr)
+                # userMsg("Could not find suitable ofType.", "ERROR")            
             ofValues.append(value)
             
             # ofValues.append(ofValue)
@@ -3416,8 +3417,10 @@ class _ofMonitorBase:
                 parsedColumnLabels = False
                 # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
 
-
         for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
+
+            if len(self._columns) < i+2:
+                break
 
             if isinstance(ofValue, list):
                 for v in ofValue:
@@ -3525,6 +3528,7 @@ class _ofMonitorBase:
             # logger.debug(f"columns: {columns}")
             lines = file.readlines()
             while True:
+                # print(f"\t{i}")
                 if i >= len(lines):
                     break # Found end of file
                 line = lines[i]
@@ -3595,7 +3599,7 @@ class MonitorParser:
                     header = line.lstrip('#').split('\t')
                     header = [v.strip() for v in header]
                     
-        print(f"header: {header}")      
+        userMsg(f"header: {header}", "INFO")      
         dc_ = make_dataclass('ofMonitor', attrList, 
                     bases=(_ofMonitorBase, ))(_dataPath=self.path, 
                                         _columns=header)

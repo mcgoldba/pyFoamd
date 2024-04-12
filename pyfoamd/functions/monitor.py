@@ -25,10 +25,13 @@ def monitor(value='U', time='latestTime', supplement=None,
     if title is None:
         title = Path(workingDir).name
 
-    try:
+    if Path(value).is_file():
+        monitor, time_ = getMonitor(name=Path(value).name, startTime=time, 
+                    workingDir=workingDir, logPath=Path(value), returnTime=True)
+    elif (Path(workingDir) / 'postProcessing' / value).is_dir():
         monitor, time_ = getMonitor(name=value, startTime=time, 
                     workingDir=workingDir, returnTime=True)
-    except FileNotFoundError:
+    else:
         monitor, time_ = getProbe(value, time, workingDir, returnTime=True)
 
     if filter is not None:
@@ -67,7 +70,7 @@ def monitor(value='U', time='latestTime', supplement=None,
         logger.debug(f"Y: {Y}")
 
         if any(not np.isnan(v) for v in Y.flatten()) is False:
-            userMsg("No data found for plot!", "WARNING")
+            # userMsg("No data found for plot!", "WARNING")
             return
 
         # lines_ = []
@@ -108,9 +111,12 @@ def monitor(value='U', time='latestTime', supplement=None,
         if yrange is not None:
             plt.ylim(yrange)
 
-    ani = FuncAnimation(plt.gcf(), updatePlot, 
-        #fargs=(monitor, filteredColumnIdx, lines),
-        interval=1000)
+    ani = FuncAnimation(
+            plt.gcf(), 
+            updatePlot, 
+            interval=1000,
+            save_count=10000
+    )
 
     plt.tight_layout() 
 

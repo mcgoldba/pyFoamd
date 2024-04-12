@@ -58,23 +58,23 @@ def getMonitor(name=None, startTime='latestTime', dataFileName=None,
         logPathParent = (Path(workingDir) / 'postProcessing' / name 
         / str(startTime))
 
-    if dataFileName is None:
-        #TODO:  This just takes the first log file in the list.  Is there a 
-        # better way?
-        logFileNames = []
-        for path in logPathParent.iterdir():
-            if path.is_file():
-                logFileNames.append(path.name)
-        if len(logFileNames) > 1:
-            userMsg("Found multiple log files, defualting to last item in list: " \
-                +str(logFileNames), "WARNING"
-            )
-        elif len(logFileNames) == 0:
-            userMsg("Could not find any log file in directory {logPathParent}",
-            "ERROR")
-        logPath = logPathParent / logFileNames[-1]
-    else:
-        logPath = logPathParent / dataFileName
+        if dataFileName is None:
+            #TODO:  This just takes the first log file in the list.  Is there a 
+            # better way?
+            logFileNames = []
+            for path in logPathParent.iterdir():
+                if path.is_file():
+                    logFileNames.append(path.name)
+            if len(logFileNames) > 1:
+                userMsg("Found multiple log files, defualting to last item in list: " \
+                    +str(logFileNames), "WARNING"
+                )
+            elif len(logFileNames) == 0:
+                userMsg("Could not find any log file in directory {logPathParent}",
+                "ERROR")
+            logPath = logPathParent / logFileNames[-1]
+        else:
+            logPath = logPathParent / dataFileName
 
     logger.debug(f"logPath: {logPath}")
 
