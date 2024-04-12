@@ -3256,7 +3256,8 @@ class _ofMonitorBase:
                         if not line.startswith("#"):
                             break
                         prevLine = line
-                    self._columns = prevLine.lstrip('#').split('\t')
+                    # self._columns = prevLine.lstrip('#').split('\t')
+                    self._columns = re.split(r'\s{2,}', prevLine.lstrip('#'))
                     self._columns = [v.strip() for v in self._columns]
                 
                 # logger.debug(f"columns: {self._columns}")
@@ -3417,10 +3418,9 @@ class _ofMonitorBase:
                 parsedColumnLabels = False
                 # logger.debug(f'parsedColumnLabels set to {parsedColumnLabels}')
 
-        for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
+        print(f"columns: {self._columns}")
 
-            if len(self._columns) < i+2:
-                break
+        for i, (ofValue, ofType) in enumerate(zip(ofValues[1:], ofTypes[1:])):
 
             if isinstance(ofValue, list):
                 for v in ofValue:
@@ -3532,11 +3532,10 @@ class _ofMonitorBase:
                 if i >= len(lines):
                     break # Found end of file
                 line = lines[i]
-                if not line:
-                    break
-                if line.startswith('#'):
-                    continue
-                data_, parsedColumnLabels, columns = \
+                # if not line:
+                #     break
+                if line and not line.startswith('#'):
+                    data_, parsedColumnLabels, columns = \
                         self._parseLine(line, i, data_, parsedColumnLabels, 
                         columns)
                 # lineDf = pd.DataFrame(data_, index=i, 
@@ -5121,7 +5120,7 @@ class DictFileParser:
         # logger.debug(f"parseUniformField string: {line}")
         if line == "":
             return None
-        if line.split()[1] == 'uniform': # whole line is passed as input
+        if len(line.split()) >=2 and line.split()[1] == 'uniform': # whole line is passed as input
             # lineList = line.split()[2:] # Remove the 'table' designation
             lineList = self._getLinesList(line)[2:] # Remove the 'table' designation
         else:
@@ -5375,7 +5374,7 @@ class DictFileParser:
 
         #Parse the line to extract the entry name
         lineList = self._getLinesList(line_)
-        if lineList[1] == 'table':
+        if len(lineList) >=2 and lineList[1] == 'table':
             entryName = " ".join(lineList[:2])
             valueStr = " ".join(lineList[2:]).strip()
             # logger.debug(f"entryName: {entryName}")
