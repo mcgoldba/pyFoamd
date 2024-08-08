@@ -20,15 +20,15 @@ def writeConfig(entry, file="config.json"):
     if file[-5:] != ".json":
         file = file+".json"
 
-    filepath = os.path.join(".pyfoamd", file)
+    filepath = os.path.join(".params", file)
 
     config = {}
 
     #convert the entry to string
     #entry = {str(key): str(value) for key, value in entry.items()}
 
-    if os.path.isdir(".pyfoamd") is False:
-        os.mkdir(".pyfoamd")
+    if os.path.isdir(".params") is False:
+        os.mkdir(".params")
     if os.path.isfile(filepath) is False:
         config = entry
     else:

@@ -33,10 +33,10 @@ def getPyFoamdConfig(param):
         return param_       
 
     param_ = None
-    if (Path('.pyfoamd') / 'config.ini').is_file():
-        param_ = getParam(param, Path('.pyfoamd') / 'config.ini')
-    if param_ is None and (Path.home() / '.pyfoamd' / 'config.ini').is_file():
-        param_ = getParam(param, Path.home() / '.pyfoamd' / 'config.ini')
+    if (Path('.params') / 'config.ini').is_file():
+        param_ = getParam(param, Path('.params') / 'config.ini')
+    if param_ is None and (Path.home() / '.params' / 'config.ini').is_file():
+        param_ = getParam(param, Path.home() / '.params' / 'config.ini')
     if param_ is None and (Path(__file__) / 'config.ini').is_file():
         param_ = getParam(param, Path(__file__) / 'config.ini')
     if param_ is None:

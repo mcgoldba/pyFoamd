@@ -27,8 +27,8 @@ def readConfig(key=None, file="pyfoamd.json", caseDir=Path.cwd()):
     if file[-5:] != ".json":
         file = file+".json"
 
-    # filepath = os.path.join(".pyfoamd", file)
-    filepath = str(Path(caseDir) / ".pyfoamd" /file)
+    # filepath = os.path.join(".params", file)
+    filepath = str(Path(caseDir) / ".params" /file)
 
     config = {}
 

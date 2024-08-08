@@ -46,7 +46,7 @@ class JSONPyFoamdEncoder(json.JSONEncoder):
             # return json.JSONEncoder.default(self,obj)
             return str(obj)
 
-def writeCase(case, filepath=Path('.pyfoamd') / '_case.json'):
+def writeCase(case, filepath=Path('.params') / '_case.json'):
 
     if str(filepath)[-5:] != '.json':
         filepath = Path(str(filepath)+'.json')

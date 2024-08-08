@@ -895,7 +895,7 @@ class _ofCaseBase(_ofTypeBase):
         # (properties are not stored in __dict__)
         return dict(_toDict(obj), _path=str(self._path))
 
-    def save(self, path=Path('.pyfoamd') / '_case.json'):
+    def save(self, path=Path('.params') / '_case.json'):
         """
         Save the case to a JSON file.
 
@@ -911,7 +911,7 @@ class _ofCaseBase(_ofTypeBase):
 
         if _isCase(path):
             # logger.debug("save: Found case as path!")
-            filepath = Path(path) / '.pyfoamd' / '_case.json'
+            filepath = Path(path) / '.params' / '_case.json'
         else:
             # logger.debug("save: Did not find case as path!")
             filepath = path
@@ -958,15 +958,15 @@ class _ofCaseBase(_ofTypeBase):
         #- Save the existing case to file as backup
         self.save(path=self._path)
         n=0
-        backupPath = Path(self._path) / '.pyfoamd' / f'_case.backup{n}'
+        backupPath = Path(self._path) / '.params' / f'_case.backup{n}'
         while backupPath.is_file():
             n+=1
-            backupPath = Path(self._path) / '.pyfoamd' / f'_case.backup{n}'
+            backupPath = Path(self._path) / '.params' / f'_case.backup{n}'
 
         # TODO: Write JSON data as binary to save disk space.
         #- Read in the file that was just saved as binary:
-        if (Path(self._path) / '.pyfoamd' / '_case.json').is_file():
-            with open(Path(self._path) / '.pyfoamd' / '_case.json', 'r') as f_:
+        if (Path(self._path) / '.params' / '_case.json').is_file():
+            with open(Path(self._path) / '.params' / '_case.json', 'r') as f_:
                 savedCase = f_.read()
                 with open(backupPath, 'w') as f:
                     f.write(savedCase)

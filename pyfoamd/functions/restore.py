@@ -10,7 +10,7 @@ logger = logging.getLogger('pf')
 
 # from pyfoamd.config import DEBUG
 
-def restore(path=Path.cwd() / '.pyfoamd' / '_case'):
+def restore(path=Path.cwd() / '.params' / '_case'):
     """
     Restore a case from the most recent backup.  The `path` argument is the path
      of the case to be restored. 

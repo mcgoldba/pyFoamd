@@ -16,7 +16,7 @@ logger = logging.getLogger('pf')
 
 # from pyfoamd.config import DEBUG
 
-def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
+def load(path=Path.cwd() / '.params' / '_case.json', _backup=False):
     """
     Read in an OpenFOAM case saved as a JSON object
 
@@ -31,7 +31,7 @@ def load(path=Path.cwd() / '.pyfoamd' / '_case.json', _backup=False):
     if not _backup:
         if isCase(path):
             logger.debug("Specified load path is an OpenFOAM case.")
-            path = path / '.pyfoamd' / '_case.json'
+            path = path / '.params' / '_case.json'
         elif str(path)[-5:] != '.json':
             path = Path(str(path)+'.json')
         # if str(path)[-5:] == '.json':

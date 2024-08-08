@@ -25,7 +25,7 @@ def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=F
     #- Note the sshSrc option currently isnt working because the src files need to
     # be accessed for more than just the subprocess command 
 
-    #- TODO:  Also copy the studySamplePoints.txt file, and .pyfoamd directory
+    #- TODO:  Also copy the studySamplePoints.txt file, and .params directory
 
 
     cases = listCases(srcPath)
@@ -50,9 +50,9 @@ def cloneCases(srcPath, destPath, sshSrc=None, sshDest=None, includeTriSurface=F
             sshDest=sshDest,
             includeTriSurface=includeTriSurface)
 
-    #- Copy the .pyfoamd directory
-#     subprocess.check_call(f"cp -r {srcPath.rstrip('/')}/.pyfoamd/ {destPath)}")
-    shutil.copytree(f"{srcPath.rstrip('/')}/.pyfoamd/", f"{destPath.rstrip('/')}/.pyfoamd/", dirs_exist_ok=True)
+    #- Copy the .params directory
+#     subprocess.check_call(f"cp -r {srcPath.rstrip('/')}/.params/ {destPath)}")
+    shutil.copytree(f"{srcPath.rstrip('/')}/.params/", f"{destPath.rstrip('/')}/.params/", dirs_exist_ok=True)
 
 
     #- copy all 'studySamplePoint.txt' files
