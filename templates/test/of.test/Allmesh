@@ -1,0 +1,77 @@
+#!/bin/sh
+cd ${0%/*} || exit 1    # Run from this directory
+
+# Source tutorial run functions
+. $WM_PROJECT_USER_DIR/XylemFoam/tools/RunFunctions #Prints log to stdout AND the log.* file
+. $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
+
+logHeader "START 'Allmesh'"
+#if [ "$#" -gt 1 ];
+#then
+#  echo "Ignoring any arguments after ${runType}."
+#fi
+#
+#
+##User defined values
+#scaleFactor=0.02539876    #inches
+#
+#if [ $1 = "-parallel" ];
+#then
+#  echo "Running mesh operations on parallel processors..."
+#  runCommand="runParallel"
+#else
+#  if [ $1 = "-serial" ];
+#  then
+#    echo "Running mesh operations on a single processor..."
+#    runCommand="runApplication"
+#  else
+#    echo "Invalid argument.  Options are '-serial' or '-parallel'"
+#    exit 1
+#  fi
+#fi
+
+# Source tutorial run functions
+#. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+echo "Copying O.orig/ to 0/..."
+
+mkdir -p 0
+cp 0.orig/* 0/
+
+runApplication surfaceFeatures
+
+runApplication blockMesh
+
+if [ "$runCommand" = "runParallel" ];
+then
+  runApplication decomposePar -copyZero
+  decomposed=true
+fi
+
+$runCommand snappyHexMesh -overwrite
+
+#$runCommand patchSummary
+
+
+#$runCommand topoSet
+#$runCommand createBaffles -overwrite
+#$runCommand foamUpgradeCyclics
+#$runCommand createPatch
+
+#./checkMesh
+$runCommand checkMesh -writeSets vtk
+
+if [ "$runCommand" = "runParallel" ];
+then
+    runApplication reconstructParMesh -mergeTol 1E-06 -constant
+
+    #./copyProcessorFields
+
+    #runApplication reconstructPar -latestTime -withZero -constant
+
+fi
+#./Allmesh2 $@
+
+logHeader "END 'Allmesh'"
+
+#------------------------------------------------------------------------------

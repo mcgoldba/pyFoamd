@@ -1,0 +1,516 @@
+{
+    "_path_": "/home/marc/pyFoamd/templates/test/of.test",
+    "t_0_orig": {
+        "_path": "0.orig",
+        "_type": "ofFolder",
+        "U_orig": {
+            "_name": "U.orig",
+            "_entryTypes": {},
+            "_nUnnamed": 0,
+            "_CLASS_VARS": [
+                "_CLASS_VARS",
+                "_name",
+                "_entryTypes",
+                "_nUnnamed",
+                "_header",
+                "_foamFile"
+            ],
+            "_header": {
+                "line1": "\n",
+                "line2": " OpenFOAM: The Open Source CFD Toolbox\n",
+                "line3": " Website:  https://openfoam.org\n",
+                "line4": " Version:  6\n",
+                "line5": "\n",
+                "_type": "ofHeader"
+            },
+            "_foamFile": {
+                "_name": "FoamFile",
+                "_entryTypes": {},
+                "_nUnnamed": 0,
+                "_CLASS_VARS": [
+                    "_CLASS_VARS",
+                    "_name",
+                    "_entryTypes",
+                    "_nUnnamed"
+                ],
+                "version": {
+                    "_name": "version",
+                    "_value": 2.0,
+                    "_type": "ofFloat"
+                },
+                "format": {
+                    "_name": "format",
+                    "value": "ascii",
+                    "_type": "ofStr"
+                },
+                "class": {
+                    "_name": "class",
+                    "value": "volVectorField",
+                    "_type": "ofStr"
+                },
+                "location": {
+                    "_name": "location",
+                    "value": "\"0\"",
+                    "_type": "ofStr"
+                },
+                "object": {
+                    "_name": "object",
+                    "value": "U",
+                    "_type": "ofStr"
+                },
+                "_type": "ofDict"
+            },
+            "_comment_0": {
+                "value": " * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //",
+                "block": false,
+                "_type": "ofComment"
+            },
+            "dimensions": {
+                "_name": "dimensions",
+                "_dimensions": [
+                    0,
+                    1,
+                    -1,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "_type": "ofNamedDimension"
+            },
+            "internalField": {
+                "_value": {
+                    "_value": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "_name": null,
+                    "_type": "ofVector"
+                },
+                "_name": "internalField",
+                "_type": "ofUniformField"
+            },
+            "convertToSIflow": {
+                "_name": "convertToSIflow",
+                "_value": 6.30902e-05,
+                "_type": "ofFloat"
+            },
+            "boundaryField": {
+                "_name": "boundaryField",
+                "_entryTypes": {},
+                "_nUnnamed": 1,
+                "_CLASS_VARS": [
+                    "_CLASS_VARS",
+                    "_name",
+                    "_entryTypes",
+                    "_nUnnamed"
+                ],
+                "unnamed_1": {
+                    "_value": "caseDicts/setConstraintTypes",
+                    "_comment": null,
+                    "_feType": null,
+                    "_vBracketType": 1,
+                    "_type": "ofIncludeEtc"
+                },
+                "OUTLET_4": {
+                    "_name": "OUTLET_4",
+                    "_entryTypes": {},
+                    "_nUnnamed": 0,
+                    "_CLASS_VARS": [
+                        "_CLASS_VARS",
+                        "_name",
+                        "_entryTypes",
+                        "_nUnnamed"
+                    ],
+                    "type": {
+                        "_name": "type",
+                        "value": "flowRateOutletVelocity",
+                        "_type": "ofStr"
+                    },
+                    "volumetricFlowRate": {
+                        "_name": "volumetricFlowRate",
+                        "_value": 0.26497884,
+                        "_type": "ofFloat"
+                    },
+                    "value": {
+                        "_name": "value",
+                        "_value": "internalField",
+                        "_type": "ofVar"
+                    },
+                    "_type": "ofDict"
+                },
+                "_type": "ofDict"
+            },
+            "_comment_1": {
+                "value": " ************************************************************************* //",
+                "block": false,
+                "_type": "ofComment"
+            },
+            "_type": "ofDictFile"
+        }
+    },
+    "cfd_stp": {
+        "_path": "cfd_stp",
+        "_type": "ofFolder"
+    },
+    "_name": "of.test",
+    "constant": {
+        "_path": "constant",
+        "_type": "ofFolder",
+        "transportProperties": {
+            "_name": "transportProperties",
+            "_entryTypes": {},
+            "_nUnnamed": 0,
+            "_CLASS_VARS": [
+                "_CLASS_VARS",
+                "_name",
+                "_entryTypes",
+                "_nUnnamed",
+                "_header",
+                "_foamFile"
+            ],
+            "_header": {
+                "line1": "\n",
+                "line2": " OpenFOAM: The Open Source CFD Toolbox\n",
+                "line3": " Website:  https://openfoam.org\n",
+                "line4": " Version:  6\n",
+                "line5": "\n",
+                "_type": "ofHeader"
+            },
+            "_foamFile": {
+                "_name": "FoamFile",
+                "_entryTypes": {},
+                "_nUnnamed": 0,
+                "_CLASS_VARS": [
+                    "_CLASS_VARS",
+                    "_name",
+                    "_entryTypes",
+                    "_nUnnamed"
+                ],
+                "version": {
+                    "_name": "version",
+                    "_value": 2.0,
+                    "_type": "ofFloat"
+                },
+                "format": {
+                    "_name": "format",
+                    "value": "ascii",
+                    "_type": "ofStr"
+                },
+                "class": {
+                    "_name": "class",
+                    "value": "dictionary",
+                    "_type": "ofStr"
+                },
+                "object": {
+                    "_name": "object",
+                    "value": "transportProperties",
+                    "_type": "ofStr"
+                },
+                "_type": "ofDict"
+            },
+            "transportModel": {
+                "_name": "transportModel",
+                "value": "Newtonian",
+                "_type": "ofStr"
+            },
+            "nu": {
+                "_value": 1.138e-06,
+                "_name": "nu",
+                "dimension": {
+                    "_dimensions": [
+                        0,
+                        2,
+                        -1,
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    "_type": "ofDimension"
+                },
+                "_type": "ofDimensionedScalar"
+            },
+            "_comment_0": {
+                "value": " * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //",
+                "block": false,
+                "_type": "ofComment"
+            },
+            "_type": "ofDictFile"
+        }
+    },
+    "system": {
+        "_path": "system",
+        "_type": "ofFolder",
+        "controlDict_test": {
+            "_name": "controlDict_test",
+            "_entryTypes": {},
+            "_nUnnamed": 0,
+            "_CLASS_VARS": [
+                "_CLASS_VARS",
+                "_name",
+                "_entryTypes",
+                "_nUnnamed",
+                "_header",
+                "_foamFile"
+            ],
+            "_header": {
+                "line1": "\n",
+                "line2": " OpenFOAM: The Open Source CFD Toolbox\n",
+                "line3": " Website:  https://openfoam.org\n",
+                "line4": " Version:  7\n",
+                "line5": "\n",
+                "_type": "ofHeader"
+            },
+            "_foamFile": {
+                "_name": "FoamFile",
+                "_entryTypes": {},
+                "_nUnnamed": 0,
+                "_CLASS_VARS": [
+                    "_CLASS_VARS",
+                    "_name",
+                    "_entryTypes",
+                    "_nUnnamed"
+                ],
+                "version": {
+                    "_name": "version",
+                    "_value": 2,
+                    "_type": "ofInt"
+                },
+                "format": {
+                    "_name": "format",
+                    "value": "ascii",
+                    "_type": "ofStr"
+                },
+                "class": {
+                    "_name": "class",
+                    "value": "dictionary",
+                    "_type": "ofStr"
+                },
+                "object": {
+                    "_name": "object",
+                    "value": "controlDict",
+                    "_type": "ofStr"
+                },
+                "_type": "ofDict"
+            },
+            "application": {
+                "_name": "application",
+                "value": "simpleFoam",
+                "_type": "ofStr"
+            },
+            "startFrom": {
+                "_name": "startFrom",
+                "value": "startTime",
+                "_type": "ofStr"
+            },
+            "startTime": {
+                "_name": "startTime",
+                "_value": 0,
+                "_type": "ofInt"
+            },
+            "stopAt": {
+                "_name": "stopAt",
+                "value": "endTime",
+                "_type": "ofStr"
+            },
+            "endTime": {
+                "_name": "endTime",
+                "_value": 1000,
+                "_type": "ofInt"
+            },
+            "deltaT": {
+                "_name": "deltaT",
+                "_value": 1,
+                "_type": "ofInt"
+            },
+            "writeControl": {
+                "_name": "writeControl",
+                "value": "timeStep",
+                "_type": "ofStr"
+            },
+            "writeInterval": {
+                "_name": "writeInterval",
+                "_value": 100,
+                "_type": "ofInt"
+            },
+            "purgeWrite": {
+                "_name": "purgeWrite",
+                "_value": 2,
+                "_type": "ofInt"
+            },
+            "writeFormat": {
+                "_name": "writeFormat",
+                "value": "ascii",
+                "_type": "ofStr"
+            },
+            "writePrecision": {
+                "_name": "writePrecision",
+                "_value": 6,
+                "_type": "ofInt"
+            },
+            "writeCompression": {
+                "_name": "writeCompression",
+                "_valueStr": "off",
+                "_value": false,
+                "_type": "ofBool"
+            },
+            "timeFormat": {
+                "_name": "timeFormat",
+                "value": "general",
+                "_type": "ofStr"
+            },
+            "timePrecision": {
+                "_name": "timePrecision",
+                "_value": 6,
+                "_type": "ofInt"
+            },
+            "runTimeModifiable": {
+                "_name": "runTimeModifiable",
+                "_valueStr": "true",
+                "_value": true,
+                "_type": "ofBool"
+            },
+            "_comment_0": {
+                "value": " ************************************************************************* //",
+                "block": false,
+                "_type": "ofComment"
+            },
+            "_type": "ofDictFile"
+        },
+        "controlDict": {
+            "_name": "controlDict",
+            "_entryTypes": {},
+            "_nUnnamed": 0,
+            "_CLASS_VARS": [
+                "_CLASS_VARS",
+                "_name",
+                "_entryTypes",
+                "_nUnnamed",
+                "_header",
+                "_foamFile"
+            ],
+            "_header": {
+                "line1": "\n",
+                "line2": " OpenFOAM: The Open Source CFD Toolbox\n",
+                "line3": " Website:  https://openfoam.org\n",
+                "line4": " Version:  7\n",
+                "line5": "\n",
+                "_type": "ofHeader"
+            },
+            "_foamFile": {
+                "_name": "FoamFile",
+                "_entryTypes": {},
+                "_nUnnamed": 0,
+                "_CLASS_VARS": [
+                    "_CLASS_VARS",
+                    "_name",
+                    "_entryTypes",
+                    "_nUnnamed"
+                ],
+                "version": {
+                    "_name": "version",
+                    "_value": 2,
+                    "_type": "ofInt"
+                },
+                "format": {
+                    "_name": "format",
+                    "value": "ascii",
+                    "_type": "ofStr"
+                },
+                "class": {
+                    "_name": "class",
+                    "value": "dictionary",
+                    "_type": "ofStr"
+                },
+                "object": {
+                    "_name": "object",
+                    "value": "controlDict",
+                    "_type": "ofStr"
+                },
+                "_type": "ofDict"
+            },
+            "application": {
+                "_name": "application",
+                "value": "simpleFoam",
+                "_type": "ofStr"
+            },
+            "startFrom": {
+                "_name": "startFrom",
+                "value": "startTime",
+                "_type": "ofStr"
+            },
+            "startTime": {
+                "_name": "startTime",
+                "_value": 0,
+                "_type": "ofInt"
+            },
+            "stopAt": {
+                "_name": "stopAt",
+                "value": "endTime",
+                "_type": "ofStr"
+            },
+            "endTime": {
+                "_name": "endTime",
+                "_value": 2000,
+                "_type": "ofInt"
+            },
+            "deltaT": {
+                "_name": "deltaT",
+                "_value": 1,
+                "_type": "ofInt"
+            },
+            "writeControl": {
+                "_name": "writeControl",
+                "value": "timeStep",
+                "_type": "ofStr"
+            },
+            "writeInterval": {
+                "_name": "writeInterval",
+                "_value": 100,
+                "_type": "ofInt"
+            },
+            "purgeWrite": {
+                "_name": "purgeWrite",
+                "_value": 2,
+                "_type": "ofInt"
+            },
+            "writeFormat": {
+                "_name": "writeFormat",
+                "value": "ascii",
+                "_type": "ofStr"
+            },
+            "writePrecision": {
+                "_name": "writePrecision",
+                "_value": 6,
+                "_type": "ofInt"
+            },
+            "writeCompression": {
+                "_name": "writeCompression",
+                "_valueStr": "off",
+                "_value": false,
+                "_type": "ofBool"
+            },
+            "timeFormat": {
+                "_name": "timeFormat",
+                "value": "general",
+                "_type": "ofStr"
+            },
+            "timePrecision": {
+                "_name": "timePrecision",
+                "_value": 6,
+                "_type": "ofInt"
+            },
+            "runTimeModifiable": {
+                "_name": "runTimeModifiable",
+                "_valueStr": "true",
+                "_value": true,
+                "_type": "ofBool"
+            },
+            "_type": "ofDictFile"
+        }
+    },
+    "_type": "ofCase",
+    "_path": "/home/marc/pyFoamd/templates/test/of.test"
+}

@@ -1,0 +1,30 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+#------------------------------------------------------------------------------
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions #Prints log to the log.* file only
+
+# snappyHexMesh
+runApplication blockMesh
+runApplication surfaceFeatureExtract
+runApplication decomposePar -copyZero
+runParallel snappyHexMesh -overwrite
+
+# cfMesh
+# runApplication surfaceFeatureExtract
+# runApplication cartesianMesh
+# runApplication decomposePar -copyZero
+# runParallel -s 0 checkMesh -writeAllFields
+# runParallel -s 1 improveMeshQuality
+# runParallel -s 1 checkMesh -writeAllFields
+# runParallel -s 2 improveMeshQuality
+
+runParallel topoSet
+runParallel checkMesh -writeAllFields
+runParallel renumberMesh -overwrite
+
+# runParallel potentialFoam
+# ./copyProcessorFields
+runParallel $(getApplication)
+
+# ------------------------------------------------------------------------------

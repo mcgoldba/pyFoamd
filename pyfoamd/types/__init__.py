@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, make_dataclass
 #from selectors import EpollSelector
 from typing import List, Callable
+import types
 import copy
 from pathlib import Path
 import os
@@ -48,6 +49,7 @@ OF_HEADER = ["/*--------------------------------*- C++ -*-----------------------
 ""]
 #- Build the string to be used as a tab
 TAB_STR = ""
+TAB_STR_DEBUG = ""
 for _ in range(TAB_SIZE): TAB_STR+= " "
 
 BRACKET_CHARS = {
@@ -118,6 +120,11 @@ class _ofTypeBase:
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
+            # if isinstance(v, _ofTypeBase) and hasattr(super(type(v), v), '__setattr__'):
+            #     print(f"Found ofType with setattr: {type(v)}.")
+            #     super(type(v), v).__setattr__(k, copy.deepcopy(v, memo))    
+            # else:
+            #     setattr(result, k, copy.deepcopy(v, memo))
             setattr(result, k, copy.deepcopy(v, memo))
         # if hasattr(result, '_name'):
         #     print(f"ofTypeBase updated {result._name}.")
@@ -462,24 +469,48 @@ class _ofFolderBase(_ofFolderItemBase):
     _type: type = 'ofFolder'
 
     def __deepcopy__(self, memo=None):
-        # logger.debug(f"self: {self}")
-        # logger.debug(f"self.__dict__: {self.__dict__}")
-        # logger.debug(f"vars(self): {vars(self)}")
-        # return type(self)()
+        copy_ = FolderParser(self._path).initOFFolder()
+        # copy_.__dict__ = copy.deepcopy(self.__dict__)
 
-        copy_ = FolderParser(None, self._path).initOFFolder()
+        # ref: https://stackoverflow.com/a/15774013/10592330 
+        # memo[id(copy_)] = copy_
         for k,v in self.__dict__.items():
-            # if hasattr(v, '_name'):
-            #     print(f"FolderParser copying {k}: {v._name}")
-            # else:
-            #     print(f"FolderParser copying {k}: {v}")
+            print(f"{TAB_STR_DEBUG}start ofFolder deepcopy: {k}, {type(v)}")
+            # try: 
+            if isinstance(v, types.MappingProxyType):
+                print(f"{TAB_STR_DEBUG}Found mappingproxy object {k}.")
+                setattr(copy_, k, v)
+            # elif isinstance(v, _ofTypeBase) and hasattr(super(type(v), v), '__setattr__'):
+            #     print(f"Found ofType with setattr: {type(v)}.")
+            #     super(type(v), v).__setattr__(k, copy.deepcopy(v, memo))  
+            else:
+                print(f"{TAB_STR_DEBUG}Setting {k} to {v} in deepcopy.")
+                setattr(copy_, k, copy.deepcopy(v, memo))
+            # except Exception as e:
+            #     print(f"Error deep copying attribute {k}: {e}.\nFalling back to shallow copy.")
+            #     setattr(copy_, k, v)  # Fallback to shallow copy
+     
+    # def __deepcopy__(self, memo=None):
+    #     if memo is None:
+    #         memo = {}
 
-            setattr(copy_, k, copy.deepcopy(v,memo))
-            # if hasattr(v, '_name'):
-            #     print(f"FolderParser after setattr {k}: {copy_[k]._name}")
+    #     copy_ = FolderParser(None, self._path).initOFFolder()
+    #     memo[id(self)] = copy_
+
+    #     for k, v in self.__dict__.items():
+    #         try: 
+    #             if isinstance(v, types.MappingProxyType):
+    #                 # Handle mappingproxy objects separately
+    #                 setattr(copy_, k, v)
+    #             else:
+    #                 setattr(copy_, k, copy.deepcopy(v, memo))
+    #         except Exception as e:
+    #             print(f"Error copying attribute {k}: {e}")
+    #             setattr(copy_, k, v)  # Fallback to shallow copy
+        
 
         return copy_
-    
+
     def __iter__(self):
         # logger.debug(f"self: {self}")
         # logger.debug(f"vars(self).keys(): {vars(self).keys()}")
@@ -494,10 +525,11 @@ class _ofFolderBase(_ofFolderItemBase):
                 yield (key, self.__getattribute__(key))
 
     def __setattr__(self, key, value):
-        # logger.debug(f"Setting ofFolder attribute: {key}: {value}")
+        if key == '_name':
+            logger.debug(f"{TAB_STR_DEBUG}Setting ofFolder attribute: {key}: {type(value)}")
         if isinstance(value, _ofFolderItemBase):
             # print(f"value._type: {value._type}")
-            if hasattr(value, "_name"):  # ofFolders do not have a "_name" attribute
+            if hasattr(value, "_name") and value._name is None:  # ofFolders do not have a "_name" attribute
                 # print(f"value._name: {value._name}")
                 value._name = key
                 # value.update({'_name': value._name})
@@ -512,8 +544,9 @@ class _ofFolderBase(_ofFolderItemBase):
         elif key.startswith('_'):
             # logger.debug(f"ofFolder adding attribute {key} as {value}")
             # super(_ofFolderBase, self).__setitem__(key, value)
-            super(_ofFolderBase, self).__setattr__(key, value)
-            super(_ofFolderBase, self).__dict__[key] =  value
+            # super(_ofFolderBase, self).__setattr__(key, value)
+            # super(_ofFolderBase, self).__dict__[key] =  value
+            self.__dict__[key] =  value
         else:
             # userMsg(f"Ignoring invalid type for ofFolder attribute: "\
             #     f"{type(value)}", "WARNING")
@@ -543,8 +576,8 @@ copyreg.pickle(_ofFolderBase, pickleOfFolder)
 
 class FolderParser:  # Class is required because 'default_factory' argument 
                      # 'makeOFFolder' must be zero argument
-    def __init__(self, case, path=Path.cwd()):
-        self.case = case
+    def __init__(self, casePath, path=Path.cwd()):
+        self.casePath = casePath
         self.path = path
 
     def makeOFFolder(self):
@@ -556,10 +589,11 @@ class FolderParser:  # Class is required because 'default_factory' argument
         # #- Path relative to the case directory
         # caseRelDir = self.path.relative_to(*self.path.parts[:2])
 
-        attrList = [('_path', str, field(default=str(self.path)))]
-        internalNames = {}
-        for obj in (Path(self.case) / self.path).iterdir():
+        attrList = [('_path', str, field(default=self.path))]
+        
+        for obj in (Path(self.casePath) / self.path).iterdir():
         # for obj in Path(self.path).iterdir():
+            internalNames = {}
             #- Ignore polyMesh:
             # logger.debug(f"path.name: {Path(self.path).name}")
             # if Path(self.path).name == 'constant' and obj.name == 'polyMesh':
@@ -587,11 +621,11 @@ class FolderParser:  # Class is required because 'default_factory' argument
                 if name_ != obj.name:
                     internalNames.update({name_:obj.name})
                 
-                objPath = obj.relative_to(self.case)
+                objPath = obj.relative_to(self.casePath)
 
                 attrList.append((name_, _ofFolderBase,
                     field(default_factory=FolderParser(
-                        self.case, objPath).makeOFFolder)))
+                        self.casePath, objPath).makeOFFolder)))
             # - Check for OpenFOAM dictionary files
             if obj.is_file() and _isDictFile(obj):
                 # print(f"Check that {name_} == {obj.name}")
@@ -619,15 +653,6 @@ class FolderParser:  # Class is required because 'default_factory' argument
             # logger.debug(f"Modifying key: {key}")
             dc_.__dict__[key]._name = value
             # print(f"dc_[{key}]._name: {dc_[key]._name}")
-
-
-        # for key, value in dc_.__dict__.items():
-        #     if hasattr(dc_[key], '_name'):
-        #         print(f"dc_[{key}]._name: {dc_[key]._name}")
-
-        # print(f"ofFolder dataclass: {dc_}")
-        # print(f"ofFolder dataclass __dict__: {dc_.__dict__}")
-        # logger.debug(f"ofFolder dataclass: {signature(dc_)}")
 
         return dc_
 
@@ -663,36 +688,14 @@ class FolderParser:  # Class is required because 'default_factory' argument
         """
         Initialize an ofFolder instance. without parsing the directory.   
         """
-        dc_ = make_dataclass('ofFolder', 
-                        [], bases=(_ofFolderBase, ))
+        # dc_ = make_dataclass('ofFolder', 
+        #                 [], bases=(_ofFolderBase, ))
         
-        return dc_(self.path)
+        # return dc_(self.path)
+        return make_dataclass('ofFolder', 
+                         [], bases=(_ofFolderBase, ))(_path=self.path)
 
 
-# @dataclass
-# class ofCase:
-#     location: Path = field(default=Path.cwd().parent)
-#     name: str = field(default=Path.cwd().name)
-#     constant: ofFolder = field(default=ofFolder('constant'))
-#     system: ofFolder = field(default=ofFolder('system'))
-#     times: ofTimeReg = field(default=ofTimeReg())
-#     registry: list = _populateRegistry(location)
-#
-#     def __post_init__(self):
-#         addDirs = []
-#         for obj in self.location.iterdir():
-#             if (obj.is_dir() and all(obj.name != default for default in
-#                                      ['constant', 'system'])):
-#                 fields = list(self.__dict__.keys())
-#                 if any([obj.name == field_ for field_ in fields]):
-#                     warnings.warn(f"'{obj.name}' is a reserved attribute.  "
-#                                   "Skipping directory: {obj} ")
-#                     continue
-#                     addDirs.append((obj, ofFolder()))
-#
-#         self.__class__ = make_dataclass('ofCase', addDirs, bases=(self,))
-
-# @dataclass(kw_only=True)
 @dataclass
 class _ofCaseBase(_ofTypeBase):
     _path : Path = field(default=Path.cwd().resolve())
@@ -716,13 +719,6 @@ class _ofCaseBase(_ofTypeBase):
         self.constant = FolderParser(self._path, 'constant').makeOFFolder()
         self.system = FolderParser(self._path, 'system').makeOFFolder()
 
-    # def __init__(self, path=Path.cwd):
-    #     self._location : str = str(path.parent)
-    #     self._name : str = path.name
-    #     self._times : ofTimeReg = ofTimeReg()
-    #     # self._registry : list = _populateRegistry(path)
-    #     self.constant : _ofFolderBase = FolderParser('constant').makeOFFolder()
-    #     self.system : _ofFolderBase = FolderParser('system').makeOFFolder()
 
     @property
     def _path(self):
@@ -735,23 +731,6 @@ class _ofCaseBase(_ofTypeBase):
         # self._name = str(Path(p).name)
         self._path_ = Path(pathi).resolve()
 
-    # @property
-    # def _name(self):
-    #     return self._name_
-    
-    # @_name.setter
-    # def _name(self, n):
-    #     self._name_ = n
-    #     self._path = Path(self._location) / n
-
-    # @property
-    # def _location(self):
-    #     return self._location_
-    
-    # @_location.setter
-    # def _location(self, l):
-    #     self._location_ = l
-    #     self._path = Path(l) / self._name
 
     # TODO:  This... print out a tree representation of the case up to 
     #        any ofDictFiles
@@ -759,31 +738,24 @@ class _ofCaseBase(_ofTypeBase):
     #     return str(self._path)
 
     def __deepcopy__(self, memo):
-        # logger.debug(f"self: {self}")
-        # logger.debug(f"self.__dict__: {self.__dict__}")
-        # logger.debug(f"vars(self): {vars(self)}")
-
-        # location = copy.deepcopy(self._location) 
-        # name = copy.deepcopy(self._name)
-        # constant = copy.deepcopy(self.constant)
-        # system = copy.deepcopy(self.system)
-        # times = copy.deepcopy(self._times) 
-
-        # logger.debug(f"registry: {self._registry}")
-        
-        # registry = copy.deepcopy(self._registry)
-
-
+        global TAB_STR_DEBUG
         copy_ = CaseParser(self._path).initOFCase()
-        # copy_.__dict__ = copy.deepcopy(self.__dict__)
 
         # ref: https://stackoverflow.com/a/15774013/10592330 
         # memo[id(copy_)] = copy_
         for k,v in self.__dict__.items():
-            setattr(copy_, k, copy.deepcopy(v,memo))
-            # copy_[k] = copy.deepcopy(v,memo)
-        # dictCopy = copy.deepcopy(self.__dict__)
-
+            # try: 
+            if isinstance(v, types.MappingProxyType):
+                # Handle mappingproxy objects separately
+                setattr(copy_, k, v)
+            elif isinstance(v, (_ofTypeBase, _ofFolderBase)):
+                setattr(copy_, k, copy.deepcopy(v, memo))
+            else:
+                setattr(copy_, k, copy.deepcopy(v, memo))
+        # except Exception as e:
+            #     log.warning(f"Error deep copying attribute {k}: {e}.\nFalling back to shallow copy.")
+            #     setattr(copy_, k, v)  # Fallback to shallow copy
+ 
         # logger.debug(f"dictCopy:\n{dictCopy}")
 
         # copy_.__dict__.update(dictCopy)
@@ -928,7 +900,7 @@ class _ofCaseBase(_ofTypeBase):
        
         if not Path(filepath).parent.is_dir():
             os.mkdir(Path(filepath).parent)
-
+        
         with open(filepath, 'w')  as fp:
             json.dump(case_, fp, skipkeys=False, indent=TAB_SIZE, 
                         sort_keys=False)
@@ -1005,14 +977,20 @@ class _ofCaseBase(_ofTypeBase):
         """
         script_ = str(Path(self._path)/ cmd)
         userMsg(f"Running Allrun script from {self._path}.")
-        subprocess.check_call(script_, stdout=sys.stdout, stderr=subprocess.STDOUT)
+        try:
+            subprocess.check_call(script_, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Command failed with return code: {e.returncode}")
+            if e.output:
+                logger.error(f"Output: {e.output.decode()}")  # stdout, if captured
+            if e.stderr:
+                logger.error(f"Error output: {e.stderr.decode()}")  # stderr, if captured
 
 #for deepcopy; ref: https://stackoverflow.com/a/34152960/10592330
 def pickleOfCase(f):
     return _ofCaseBase, (f._path, )
 
 copyreg.pickle(_ofCaseBase, pickleOfCase)
-
 
 class CaseParser:
     def __init__(self, path=Path.cwd()):
@@ -1042,6 +1020,7 @@ class CaseParser:
         #     # ('_registry', list, field(default=_populateRegistry(path)))
         # ]
         for obj in self.path.iterdir():
+            
             if (obj.is_dir() and all(obj.name != default for default in
                                     ['constant', 'system'])):
                 # fields = [attr[0] for attr in attrList]
@@ -1070,9 +1049,14 @@ class CaseParser:
 
                 # folderPath_ = self.path / obj.name
                 folderPath_ = obj.name
+                # attrList.append((name_, _ofFolderBase, 
+                #     field(default=FolderParser(
+                #         self.path, folderPath_).makeOFFolder())))
+                # Ensure attrList uses default_factory for mutable defaults
+                # attrList.append((name_, _ofFolderBase, 
+                #                 field(default_factory=lambda: copy.deepcopy(FolderParser(self.path, folderPath_).makeOFFolder()))))
                 attrList.append((name_, _ofFolderBase, 
-                    field(default=FolderParser(
-                        self.path, folderPath_).makeOFFolder())))
+                        field(default_factory=lambda path=folderPath_, casePath=self.path: FolderParser(casePath, path=path).makeOFFolder())))
 
         # dc_ =   make_dataclass('ofCase', attrList, 
         #                         bases=(_ofCaseBase, ))(
@@ -1083,11 +1067,18 @@ class CaseParser:
         # )
 
         dc_ =   make_dataclass('ofCase', attrList, 
-                                bases=(_ofCaseBase, ))(_path=self.path)
+                                bases=(_ofCaseBase, ))
+        #- Prevvent error relating to mutable default values:
+        # dc_ = make_dataclass('ofCase', attrList, bases=(_ofCaseBase, ))(
+        #     _path=self.path,
+        #     t_0_orig=field(default_factory=lambda: FolderParser(self.path, folderPath_).makeOFFolder())
+        # )
 
-        return dc_
+
+        return dc_(_path=self.path)
 
     def initOFCase(self):
+
         return make_dataclass('ofCase', [], 
                                 bases=(_ofCaseBase, ))(_path=self.path)
 
@@ -1405,7 +1396,6 @@ class ofBool(_ofNamedTypeBase):
 
 
     def toString(self, ofRep=False) -> str:
-        # print(f"bool value for {self.name}: {self._valueStr}")       
         str_ = printNameStr(self.name)+self._valueStr
         if ofRep:
             str_ += ';\n'
@@ -1906,7 +1896,6 @@ class ofDict(dict, _ofTypeBase):
         self._CLASS_VARS = ['_CLASS_VARS', '_name', 
                             '_entryTypes', '_nUnnamed']
 
-        # print(f"ofDict args: {args}")
 
         if (len(args) == 1 and isinstance(args[0], list)
             and  all([isinstance(v, _ofTypeBase) for v in args[0]])):
@@ -1915,27 +1904,17 @@ class ofDict(dict, _ofTypeBase):
             self.update(args[0])
         else:
             super(ofDict, self).__init__(*args, **kwargs)
-        # print(f"self.__dict__.keys(): {self.__dict__.keys()}")
-        # print(f"self._name: {self._name}")
 
 
 
     # ref: https://stackoverflow.com/questions/2352181/how-to-use-a-dot-to-access-members-of-dictionary
-    def __getattr__(self, attr):
-        return self.get(attr)
-    
-    #def __getitem__(self, key):
+    __getattr__ = dict.get
+    __delattr__ = dict.__setitem__
 
 
     
     def __setitem__(self, item, value=None):
         nameTag = None
-
-        # if item == "_name":
-            # print(f"***ofDict __setitem__ value: {value}")
-
-        # logger.debug(f"ofDict.__setitem__: {item}, {value}")
-        # logger.debug(f"ofDict.__setitem__ types: {type(item)}, {type(value)}")
 
         if isinstance(item, ofDict):
             nameTag = '_name'
@@ -1961,7 +1940,8 @@ class ofDict(dict, _ofTypeBase):
                 name_ = UNNAMED_TAG+str(self._nUnnamed)
             elif UNNAMED_TAG in itemName or itemName == '_name':
                 userMsg("Found reserved name in dictionary key.", 'WARNING')
-            elif any([s in itemName for s in SPECIAL_CHARS.keys()]):
+            elif (any([s in itemName for s in SPECIAL_CHARS.keys()])
+                and itemName != '_name'):
                 #- Replace special chars with attribute acceptable string
                 name_ =_parseNameTag(itemName)
 
@@ -1980,30 +1960,15 @@ class ofDict(dict, _ofTypeBase):
                 item_ = UNNAMED_TAG+str(self._nUnnamed)
             else:
                 item_ = _parseNameTag(item)
-                # item_ = item
-            # if item_ == "_name":
-                # print(f"***ofDict __setitem__ value: {value}")
+
             self.__setattr__(item_, value)
 
 
     def __setattr__(self, key, value):
 
+
         key_ = _checkReserved(key)
-        # logger.debug(f"ofDict.__setattr__ key value: {key_}, {value}")
-        # print(f"ofDict.__setattr__ key value: {key_}, {value}")
-        # if key == "_name":
-        #     print(f"ofDict values before super() calls: {self._name}")
-        #     print(f"ofDict values before super() calls: {value}")
-        super(ofDict, self).__setitem__(key_, value)
-        # self.__setitem__(key, value)
-        # if key == "_name":
-        #     print(f"ofDict values after super().__setitem__: {self._name}")
-        #     print(f"ofDict values after super().__setitem__: {value}")
-        # super(ofDict, self).__setattr__(key_, value)
-        # if key == "_name":
-        #     print(f"ofDict values after super().__setattr__: {self._name}")
-        # self.__setattr__(key, value)
-        # if key not in self._CLASS_VARS:
+
         def _parseList(obj):
             if not isinstance(obj, list):
                 logger.error("Recieved non list type as value.")
@@ -2026,32 +1991,23 @@ class ofDict(dict, _ofTypeBase):
             if isinstance(value, list):
                 ofType = _parseList(value)
                 ofType._name = key 
-                # ofType = [DictFileParser._parseValue(v) for v in value]    
             elif value is not None and not isinstance(value, _ofTypeBase):
-                # logger.debug("finding ofType...")
                 type_, value_ = DictFileParser._parseValue(value)
-                # logger.debug(f"type, value: {type_}, {value_}")
                 ofType = type_(name=key_, value=value_)
             else:
                 ofType = value
-                if hasattr(ofType, '_name') and ofType._name is None:
-                    ofType._name = key
-            # logger.debug(f"ofDict.__setattr__ setting key value as: {key} {ofType}")
+                if hasattr(ofType, '_name'):
+                    if ofType._name is None:
+                        ofType._name = key
             self.__dict__[key] = ofType
-            # super(ofDict, self).__dict__[key_] = ofType
         else:
-            # if key == '_name':
-                # print(f"setting {key}: {value}")
+            if key == '_name':
+                print(f"{TAB_STR_DEBUG}ofDict.__setattr__: setting {key}: {value}")
             self.__dict__[key] = value
-            # if key == '_name':
-                # print(f"{key} after setting: {value}")
-            # key_ = _parseNameTag(key_)
-            # super(ofDict, self).__dict__[key_] = value
+            if key == '_name':
+                print(f"{TAB_STR_DEBUG}ofDict.__setattr__:{key} after setting: {value}")
+        TAB_STR_DEBUG = TAB_STR_DEBUG[:-1]
 
-    # def __delattr__(self, name):
-    #     super(ofDict, self).__delitem__(self, name)
-    #     super(ofDict, self).__delattr__(self, name)
-    #     self.__dict__.pop(name)
 
     def __str__(self):
         return self.toString()
@@ -2065,12 +2021,6 @@ class ofDict(dict, _ofTypeBase):
     #     for item in vars(self).items():
     #         yield item
 
-    # def __deepcopy__(self, memo=None):
-    #     # print("__deepcopy__ type(self):", type(self))
-    #     new_ = ofDict()
-    #     for key in self.keys():
-    #         new_.__setattr__(key, copy.deepcopy(self[key], memo=memo))
-    #     return new_
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -2078,20 +2028,17 @@ class ofDict(dict, _ofTypeBase):
         result = cls()
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            # if hasattr(v, '_name'):
-            #     print(f"ofDict copying {k}: {v._name}")
-            # else:
-                # print(f"ofDict copying {k}: {v}")
-            if isinstance(v, ofDict):
+            if isinstance(v, (ofDict, ofDictFile)):
                 result[k] = copy.deepcopy(v,memo)
                 # result[k]["_name"] = v._name
-            setattr(result, k, copy.deepcopy(v, memo))
-
-            # if k == '_name':
-                # print(f"values after setattr: {result[k]}")
+            elif k == '_name':
+                result._name = v
+            elif k.startswith('_'):
+                result[k] = v
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
         return result
 
-    # _update = dict.update
 
     def _NoneKey(self):
         self._nUnnamed += 1
@@ -2410,14 +2357,8 @@ class ofDictFile(ofDict, _ofFolderItemBase):
                     or item._name=='FoamFile'):
                     rmKeys.append(key)
 
-        # print(self.__dict__)
-        # print(self.items())
-        # print(f'rmKeys: {rmKeys}')
-
         for key in rmKeys:
-            # del self.__dict__[key]
             del self[key]
-            # self.pop(key)
 
 
 
@@ -3880,9 +3821,9 @@ class ofStudy:
                     pass
                 else:
                     shutil.copytree(self.templateCase._path, newPath)
+       
                 case_ = copy.deepcopy(self.templateCase)
-                # case_ = copy.copy(self.templateCase)
-                # case_ = self.templateCase
+         
                 case_.setName(name)
                 case_ = self.updateFunction(case_, row.values.flatten().tolist())
                 if restart:

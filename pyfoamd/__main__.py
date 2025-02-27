@@ -8,12 +8,14 @@ from pyfoamd import getPyFoamdConfig, setLoggerLevel
 import pyfoamd.functions as pf
 from pathlib import Path
 
-from .commandline import CommandLine
+from pyfoamd.commandline import CommandLine
 
 # from pyfoamd.config import DEBUG, DICT_FILESIZE_LIMIT
 
 from rich import print
 import logging
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('pf')
 # from rich.logging import RichHandler
 

@@ -1,0 +1,321 @@
+{
+    "CmuCoefficient": 0.09,
+    "RASModel": "kOmegaSST",
+    "absoluteViscosity": 0.0011370896,
+    "addLayers": true,
+    "autoMesh": false,
+    "boundaries": {
+        "INLET": [
+            0,
+            0
+        ],
+        "OUTLET_0": [
+            0,
+            0
+        ],
+        "OUTLET_1": [
+            0,
+            0
+        ],
+        "OUTLET_2": [
+            0,
+            0
+        ],
+        "OUTLET_3": [
+            0,
+            0
+        ],
+        "OUTLET_4": [
+            0,
+            0
+        ],
+        "PUMP_1": [
+            2,
+            2
+        ],
+        "PUMP_2": [
+            2,
+            2
+        ],
+        "PUMP_3": [
+            2,
+            2
+        ],
+        "PUMP_4": [
+            2,
+            2
+        ],
+        "PUMP_BAY_WALLS": [
+            2,
+            2
+        ],
+        "RIVER": [
+            2,
+            2
+        ],
+        "STOP_LOG_SUPPORT": [
+            2,
+            2
+        ],
+        "WATER_SURF_1FT": [
+            0,
+            0
+        ],
+        "WETWELL": [
+            2,
+            2
+        ],
+        "SPLITTER_1": [
+            2,
+            2
+        ],
+        "SPLITTER_2": [
+            2,
+            2
+        ],
+        "SPLITTER_3": [
+            2,
+            2
+        ],
+        "SPLITTER_4": [
+            2,
+            2
+        ]
+    },
+    "castellatedMesh": true,
+    "characteristicVelocity": 5.0,
+    "density": 999.2,
+    "edgeRefineLevel": 4,
+    "expansionRatio": 1.5,
+    "explicitFeatureSnap": false,
+    "flowRates": {
+        "pump_0": 14.58,
+        "pump_1": 0.7949364746399998,
+        "pump_2": 0.7949364746399998,
+        "pump_3": 0.7949364746399998,
+        "pump_4": 0.7949364746399998
+    },
+    "featureAngle": 130,
+    "slipFeatureAngle": 30,
+    "geomName": "water_0",
+    "implicitFeatureSnap": false,
+    "initialEpsilon": 0.060075,
+    "initialOmega": 1.78,
+    "initialPressure": 0.0,
+    "initialTKE": 0.03375,
+    "initialVel": [
+        0.0,
+        0.0,
+        0.0
+    ],
+    "internalPoint": [
+        0,
+        0.5,
+        0
+    ],
+    "kinematicViscosity": 1.138e-06,
+    "layerFeatureAngle": 180,
+    "maxNPrismLayers": 5,
+    "maxNRefineLevels": 5,
+    "maxNumCells": 80000000,
+    "nIterations": 6000,
+    "nRefineCells": 1,
+    "numberOfPumps": 4,
+    "optimizeLayers": true,
+    "patches": {},
+    "porous1Normal": [
+        1,
+        0,
+        0
+    ],
+    "porous1Patch": "BARSCREEN",
+    "porous1Spacing": 4,
+    "porous1d": [
+        0,
+        0,
+        0
+    ],
+    "porous2Normal": [
+        1,
+        0,
+        0
+    ],
+    "porous2Patch": "SCREEN_VERT",
+    "porous2Spacing": 2,
+    "porous2d": [
+        0,
+        0,
+        0
+    ],
+    "porous2f": [
+        0,
+        0,
+        0
+    ],
+    "porousPatches": {},
+    "porousRegions": {},
+    "porousf1": [
+        0,
+        0,
+        0
+    ],
+    "probePoints": [
+        [
+            -6,
+            0,
+            -16
+        ]
+    ],
+    "prohibitLayers": [],
+    "pumpTable": {
+        "_attrs": {},
+        "_flags": {
+            "_allows_duplicate_labels": true,
+            "_obj": "<weakref at 0x000001ED88B10EF0; to 'DataFrame' at 0x000001ED89A66430>"
+        },
+        "_is_copy": null,
+        "_item_cache": {},
+        "_mgr": {}
+    },
+    "pumpTypeTable": {
+        "_attrs": {},
+        "_flags": {
+            "_allows_duplicate_labels": true,
+            "_obj": "<weakref at 0x000001ED88B10310; to 'DataFrame' at 0x000001ED89AEA2B0>"
+        },
+        "_is_copy": null,
+        "_item_cache": {},
+        "_mgr": {}
+    },
+    "refineRegions": {
+        "PUMP_1": {
+            "buffer": [
+                0,
+                0,
+                0
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "PUMP_2": {
+            "buffer": [
+                0,
+                0,
+                0
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "PUMP_3": {
+            "buffer": [
+                0,
+                0,
+                0
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "PUMP_4": {
+            "buffer": [
+                0,
+                0,
+                0
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "PUMP_BAY_WALLS": {
+            "buffer": [
+                0,
+                0,
+                0
+            ],
+            "levels": [
+                1,
+                1
+            ],
+            "boundBox": true
+        },
+        "SUCTION_REFINEMENT_1": {
+            "buffer": [
+                0.4572,
+                0,
+                0.4572
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "SUCTION_REFINEMENT_2": {
+            "buffer": [
+                0.4572,
+                0,
+                0.4572
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "SUCTION_REFINEMENT_3": {
+            "buffer": [
+                0.4572,
+                0,
+                0.4572
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        },
+        "SUCTION_REFINEMENT_4": {
+            "buffer": [
+                0.4572,
+                0,
+                0.4572
+            ],
+            "levels": [
+                3,
+                3
+            ],
+            "boundBox": true
+        }
+    },
+    "refinementLevels": {},
+    "resolveAngle": 10,
+    "scale": 1,
+    "slices": [
+        [
+            0,
+            0,
+            0
+        ]
+    ],
+    "snap": true,
+    "targetLargestCell": 0.1651,
+    "targetYPlus": 50,
+    "turbulenceIntensity": 0.03,
+    "waterLevel": 1.8287999999999998,
+    "x_max": 26.305,
+    "x_min": -31.644,
+    "y_max": 8.077,
+    "y_min": -3.49,
+    "z_max": 22.18,
+    "z_min": -23.873
+}

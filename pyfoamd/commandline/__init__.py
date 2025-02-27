@@ -78,6 +78,8 @@ class CommandLine:
                             help='If `True`, starts an IPython console instead \
                                 of a Python console.')
 
+        parser.add_argument('-path',type=str, nargs='?',
+                            help='The path of the OpenFOAM case to parse.')
 
         args = parser.parse_args(self.addArgs)
 

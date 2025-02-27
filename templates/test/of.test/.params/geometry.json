@@ -1,0 +1,170 @@
+{
+    "partNames": [
+        "WETWELL",
+        "PUMP_BAY_WALLS",
+        "PUMP_BAY_WALLS001",
+        "PUMP_BAY_WALLS002",
+        "PUMP_BAY_WALLS003",
+        "PUMP_BAY_WALLS004",
+        "PUMP_BAY_WALLS005",
+        "STOP_LOG_SUPPORT",
+        "STOP_LOG_SUPPORT001",
+        "STOP_LOG_SUPPORT002",
+        "STOP_LOG_SUPPORT003",
+        "BARSCREEN",
+        "BARSCREEN001",
+        "BARSCREEN002",
+        "BARSCREEN003",
+        "BARSCREEN004",
+        "PUMP_1",
+        "OUTLET_1",
+        "RAVD_1",
+        "SWIRLMETER_1",
+        "SUCTION_1",
+        "PUMP_2",
+        "OUTLET_2",
+        "RAVD_2",
+        "SWIRLMETER_2",
+        "SUCTION_2",
+        "PUMP_3",
+        "OUTLET_3",
+        "RAVD_3",
+        "SWIRLMETER_3",
+        "SUCTION_3",
+        "PUMP_4",
+        "OUTLET_4",
+        "RAVD_4",
+        "SWIRLMETER_4",
+        "SUCTION_4",
+        "RIVER",
+        "WATER_SURF_8_25FT",
+        "WATER_SURF_9FT",
+        "WATER_SURF_1FT",
+        "WATER_SURF_2_87FT",
+        "INLET",
+        "OUTLET_0",
+        "RIVER_OUTLET_AREA",
+        "SUCTION_REFINEMENT_1",
+        "SUCTION_REFINEMENT_2",
+        "SUCTION_REFINEMENT_3",
+        "SUCTION_REFINEMENT_4"
+    ],
+    "locations": {
+        "SUCTION_1": [
+            22.2504,
+            -1.502200000000011,
+            -4.572
+        ],
+        "SUCTION_2": [
+            22.2504,
+            -1.502200000000011,
+            -1.524
+        ],
+        "SUCTION_3": [
+            22.2504,
+            -1.502200000000011,
+            1.524
+        ],
+        "SUCTION_4": [
+            22.2504,
+            -1.502200000000011,
+            4.572
+        ],
+        "RAVD_1": [
+            22.2504,
+            -1.2637999999999738,
+            -4.572
+        ],
+        "SWIRLMETER_1": [
+            22.2504,
+            0.8818000000007403,
+            -4.572
+        ],
+        "RAVD_2": [
+            22.2504,
+            -1.2637999999999738,
+            -1.524
+        ],
+        "SWIRLMETER_2": [
+            22.2504,
+            0.8818000000007403,
+            -1.524
+        ],
+        "RAVD_3": [
+            22.2504,
+            -1.2637999999999738,
+            1.524
+        ],
+        "SWIRLMETER_3": [
+            22.2504,
+            0.8818000000007403,
+            1.524
+        ],
+        "RAVD_4": [
+            22.2504,
+            -1.2637999999999738,
+            4.572
+        ],
+        "SWIRLMETER_4": [
+            22.2504,
+            0.8818000000007403,
+            4.572
+        ]
+    },
+    "xmin": -31.644095303402402,
+    "xmax": 26.304705829700804,
+    "ymin": -2.7432000000000007,
+    "ymax": 20.9355,
+    "zmin": -23.87297070121228,
+    "zmax": 22.18020742061912,
+    "partSearchStr": [
+        "WETWELL",
+        "PUMP_BAY_WALLS",
+        "PUMP_BAY_WALLS001",
+        "PUMP_BAY_WALLS002",
+        "PUMP_BAY_WALLS003",
+        "PUMP_BAY_WALLS004",
+        "PUMP_BAY_WALLS005",
+        "STOP_LOG_SUPPORT",
+        "STOP_LOG_SUPPORT001",
+        "STOP_LOG_SUPPORT002",
+        "STOP_LOG_SUPPORT003",
+        "BARSCREEN",
+        "BARSCREEN001",
+        "BARSCREEN002",
+        "BARSCREEN003",
+        "BARSCREEN004",
+        "PUMP_1",
+        "OUTLET_1",
+        "RAVD_1",
+        "SWIRLMETER_1",
+        "SUCTION_1",
+        "PUMP_2",
+        "OUTLET_2",
+        "RAVD_2",
+        "SWIRLMETER_2",
+        "SUCTION_2",
+        "PUMP_3",
+        "OUTLET_3",
+        "RAVD_3",
+        "SWIRLMETER_3",
+        "SUCTION_3",
+        "PUMP_4",
+        "OUTLET_4",
+        "RAVD_4",
+        "SWIRLMETER_4",
+        "SUCTION_4",
+        "RIVER",
+        "WATER_SURF_8_25FT",
+        "WATER_SURF_9FT",
+        "WATER_SURF_1FT",
+        "WATER_SURF_2_87FT",
+        "INLET",
+        "OUTLET_0",
+        "RIVER_OUTLET_AREA",
+        "SUCTION_REFINEMENT_1",
+        "SUCTION_REFINEMENT_2",
+        "SUCTION_REFINEMENT_3",
+        "SUCTION_REFINEMENT_4"
+    ]
+}

@@ -34,12 +34,22 @@ def getPyFoamdConfig(param):
 
     param_ = None
     if (Path('.params') / 'config.ini').is_file():
+        # print(f"Pyfoamd config file: {Path('.params') / 'config.ini'}")
         param_ = getParam(param, Path('.params') / 'config.ini')
-    if param_ is None and (Path.home() / '.params' / 'config.ini').is_file():
-        param_ = getParam(param, Path.home() / '.params' / 'config.ini')
-    if param_ is None and (Path(__file__) / 'config.ini').is_file():
-        param_ = getParam(param, Path(__file__) / 'config.ini')
+    if param_ is None and (Path.home() / '.pyfoamd' / 'config.ini').is_file():
+        # print(f"Pyfoamd config file: {Path.home() / '.pyfoamd' / 'config.ini'}")
+        param_ = getParam(param, Path.home() / '.pyfoamd' / 'config.ini')
+    # print(f"Looking for Pyfoamd config file: {Path(__file__) / 'config.ini'}...")
+    if os.name == 'nt':
+        if param_ is None and (Path(__file__) / 'config.ini').is_file():
+            # print(f"Pyfoamd config file: {Path(__file__) / 'config.ini'}")
+            param_ = getParam(param, Path(__file__) / 'config.ini')
+    else:
+        if param_ is None and (Path(__file__).parent / 'config.ini').is_file():
+            # print(f"Pyfoamd config file: {Path(__file__).parent / 'config.ini'}")
+            param_ = getParam(param, Path(__file__).parent / 'config.ini')
     if param_ is None:
+        # print(f"Warning: Using system default for Pyfoamd config.  Could not find config file")
         if param.lower() == 'debug':
             param_ = False
         if param.lower() == 'dict_filesize_limit':
@@ -47,6 +57,8 @@ def getPyFoamdConfig(param):
 
     if param_ is None:
         Exception(f"Could not locate parameter '{param}' in config.ini and no default is provided.")
+
+    # print(f"PyFoam config: {param} = {param_}")
 
     return param_
 
@@ -80,13 +92,13 @@ def userMsg(msg, level = "INFO"):
 def setLoggerLevel(level):
     """Set the message level of the Python logger."""
 
-    # levels = {
-    #     "CRITICAL": logging.CRITICAL,
-    #     "ERROR": logging.ERROR,
-    #     "WARNING": logging.WARNING,
-    #     "INFO": logging.INFO,
-    #     "DEBUG": logging.DEBUG,
-    #     "NOTSET": logging.NOTSET
-    # }
+    levels = {
+        "CRITICAL": logging.CRITICAL,
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+        "NOTSET": logging.NOTSET
+    }
 
-    logging.getLogger('pf').setLevel(level)
+    logging.getLogger('pf').setLevel(levels[level])
