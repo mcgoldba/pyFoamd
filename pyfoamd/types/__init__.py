@@ -2001,13 +2001,7 @@ class ofDict(dict, _ofTypeBase):
                         ofType._name = key
             self.__dict__[key] = ofType
         else:
-            if key == '_name':
-                print(f"{TAB_STR_DEBUG}ofDict.__setattr__: setting {key}: {value}")
             self.__dict__[key] = value
-            if key == '_name':
-                print(f"{TAB_STR_DEBUG}ofDict.__setattr__:{key} after setting: {value}")
-        TAB_STR_DEBUG = TAB_STR_DEBUG[:-1]
-
 
     def __str__(self):
         return self.toString()
